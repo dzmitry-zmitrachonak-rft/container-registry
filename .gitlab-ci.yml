@@ -1,0 +1,17 @@
+image: golang:1.12-buster
+
+variables:
+  BUILDTAGS: "include_gcs include_oss"
+  CGO_ENABLED: 1
+
+stages:
+  - test
+
+test:
+  script:
+    - GOOS=linux GO111MODULE=off script/setup/install-dev-tools
+    - script/validate/vendor
+    - go build -i .
+    - make build
+    - make binaries
+    - make coverage
