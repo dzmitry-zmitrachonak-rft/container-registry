@@ -989,20 +989,46 @@ func (suite *DriverSuite) TestWalk(c *check.C) {
 		c.Assert(err, check.IsNil)
 	}
 
+	fChan := make(chan string)
+	dChan := make(chan string)
+
 	var actualFiles []string
 	var actualDirectories []string
+
+	var wg sync.WaitGroup
+
+	go func() {
+		defer wg.Done()
+		wg.Add(1)
+		for f := range fChan {
+			actualFiles = append(actualFiles, f)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		wg.Add(1)
+		for d := range dChan {
+			actualDirectories = append(actualDirectories, d)
+		}
+	}()
 
 	err := suite.StorageDriver.Walk(suite.ctx, rootDirectory, func(fInfo storagedriver.FileInfo) error {
 		// Use append here to prevent a panic if walk finds more than we expect.
 		if fInfo.IsDir() {
-			actualDirectories = append(actualDirectories, fInfo.Path())
+			dChan <- fInfo.Path()
 		} else {
-			actualFiles = append(actualFiles, fInfo.Path())
+			fChan <- fInfo.Path()
 		}
 		return nil
 	})
 	c.Assert(err, check.IsNil)
 
+	close(fChan)
+	close(dChan)
+
+	wg.Wait()
+
+	c.Log(wantedFiles)
 	sort.Strings(actualFiles)
 	sort.Strings(wantedFiles)
 	c.Assert(actualFiles, check.DeepEquals, wantedFiles)
