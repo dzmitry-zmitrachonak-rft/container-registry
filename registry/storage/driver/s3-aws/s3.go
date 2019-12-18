@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -940,10 +941,26 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 		prefix = "/"
 	}
 
+	var wg sync.WaitGroup
+
 	var objectCount int64
-	if err := d.doWalk(ctx, &objectCount, d.s3Path(path), prefix, f); err != nil {
+	countChan := make(chan int64)
+	done := make(chan struct{})
+
+	go func() {
+		for i := range countChan {
+			objectCount += i
+		}
+		done <- struct{}{}
+	}()
+
+	if err := d.doWalk(ctx, &wg, countChan, d.s3Path(path), prefix, f); err != nil {
 		return err
 	}
+
+	wg.Wait()
+	close(countChan)
+	<-done
 
 	// S3 doesn't have the concept of empty directories, so it'll return path not found if there are no objects
 	if objectCount == 0 {
@@ -981,7 +998,7 @@ func (wi walkInfoContainer) IsDir() bool {
 	return wi.FileInfoFields.IsDir
 }
 
-func (d *driver) doWalk(parentCtx context.Context, objectCount *int64, path, prefix string, f storagedriver.WalkFn) error {
+func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan chan<- int64, path, prefix string, f storagedriver.WalkFn) error {
 	var retError error
 
 	listObjectsInput := &s3.ListObjectsV2Input{
@@ -993,6 +1010,7 @@ func (d *driver) doWalk(parentCtx context.Context, objectCount *int64, path, pre
 
 	ctx, done := dcontext.WithTrace(parentCtx)
 	defer done("s3aws.ListObjectsV2Pages(%s)", path)
+
 	listObjectErr := d.S3.ListObjectsV2PagesWithContext(ctx, listObjectsInput, func(objects *s3.ListObjectsV2Output, lastPage bool) bool {
 
 		var count int64
@@ -1001,10 +1019,10 @@ func (d *driver) doWalk(parentCtx context.Context, objectCount *int64, path, pre
 		// calculation of the key count if required
 		if objects.KeyCount != nil {
 			count = *objects.KeyCount
-			*objectCount += *objects.KeyCount
+			countChan <- *objects.KeyCount
 		} else {
 			count = int64(len(objects.Contents) + len(objects.CommonPrefixes))
-			*objectCount += count
+			countChan <- count
 		}
 
 		walkInfos := make([]walkInfoContainer, 0, count)
@@ -1034,25 +1052,27 @@ func (d *driver) doWalk(parentCtx context.Context, objectCount *int64, path, pre
 		sort.SliceStable(walkInfos, func(i, j int) bool { return walkInfos[i].FileInfoFields.Path < walkInfos[j].FileInfoFields.Path })
 
 		for _, walkInfo := range walkInfos {
-			err := f(walkInfo)
+			wg.Add(1)
+			wInfo := walkInfo
+			go func() {
+				defer wg.Done()
+				err := f(wInfo)
 
-			if err == storagedriver.ErrSkipDir {
-				if walkInfo.IsDir() {
-					continue
-				} else {
-					break
+				if err == storagedriver.ErrSkipDir {
+					if wInfo.IsDir() {
+						return
+					} else if err != nil {
+						retError = err
+						return
+					}
 				}
-			} else if err != nil {
-				retError = err
-				return false
-			}
 
-			if walkInfo.IsDir() {
-				if err := d.doWalk(ctx, objectCount, *walkInfo.prefix, prefix, f); err != nil {
-					retError = err
-					return false
+				if wInfo.IsDir() {
+					if err := d.doWalk(ctx, wg, countChan, *wInfo.prefix, prefix, f); err != nil {
+						return
+					}
 				}
-			}
+			}()
 		}
 		return true
 	})
