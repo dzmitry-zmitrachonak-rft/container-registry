@@ -1028,7 +1028,6 @@ func (suite *DriverSuite) TestWalk(c *check.C) {
 
 	wg.Wait()
 
-	c.Log(wantedFiles)
 	sort.Strings(actualFiles)
 	sort.Strings(wantedFiles)
 	c.Assert(actualFiles, check.DeepEquals, wantedFiles)
