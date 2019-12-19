@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -1044,6 +1046,75 @@ func (suite *DriverSuite) TestWalk(c *check.C) {
 	sort.Strings(actualDirectories)
 	sort.Strings(wantedDirectories)
 	c.Assert(actualDirectories, check.DeepEquals, wantedDirectories)
+}
+
+// TestWalkError ensures that walk reports WalkFn errors.
+func (suite *DriverSuite) TestWalkError(c *check.C) {
+	rootDirectory := "/" + randomFilename(int64(8+rand.Intn(8)))
+	defer suite.deletePath(c, rootDirectory)
+
+	wantedFiles := randomBranchingFiles(rootDirectory, 100)
+
+	for _, file := range wantedFiles {
+		err := suite.StorageDriver.PutContent(suite.ctx, file, randomContents(int64(8+rand.Intn(8))))
+		c.Assert(err, check.IsNil)
+	}
+
+	wantedError := errors.New("walk: expected test error")
+	errorFile := wantedFiles[0]
+
+	err := suite.StorageDriver.Walk(suite.ctx, rootDirectory, func(fInfo storagedriver.FileInfo) error {
+		if fInfo.Path() == errorFile {
+			return wantedError
+		}
+
+		return nil
+	})
+
+	// The storage driver will prepend extra information on the error,
+	// look for an error that ends with the one that we want.
+	c.Assert(err, check.ErrorMatches, fmt.Sprintf("*.%s$", wantedError.Error()))
+}
+
+// TestWalkStopsProcessingOnError ensures that walk stops processing when an error is encountered.
+func (suite *DriverSuite) TestWalkStopsProcessingOnError(c *check.C) {
+	rootDirectory := "/" + randomFilename(int64(8+rand.Intn(8)))
+	defer suite.deletePath(c, rootDirectory)
+
+	numWantedFiles := 1000
+	wantedFiles := randomBranchingFiles(rootDirectory, numWantedFiles)
+
+	// Add a file right under the root directory, so that processing is stopped
+	// early in the walk cycle.
+	errorFile := filepath.Join(rootDirectory, randomFilename(int64(8+rand.Intn(8))))
+	wantedFiles = append(wantedFiles, errorFile)
+
+	for _, file := range wantedFiles {
+		err := suite.StorageDriver.PutContent(suite.ctx, file, randomContents(int64(8+rand.Intn(8))))
+		c.Assert(err, check.IsNil)
+	}
+
+	processingTime := time.Second * 1
+	// Rough limit that should scale with longer or shorter processing times. Shorter than full uncancled runtime.
+	limit := time.Second * time.Duration(int64(processingTime)*4)
+
+	start := time.Now()
+
+	suite.StorageDriver.Walk(suite.ctx, rootDirectory, func(fInfo storagedriver.FileInfo) error {
+
+		if fInfo.Path() == errorFile {
+			return errors.New("")
+		}
+
+		// Imitate workload.
+		time.Sleep(processingTime)
+
+		return nil
+	})
+
+	end := time.Now()
+
+	c.Assert(end.Sub(start) < limit, check.Equals, true)
 }
 
 // BenchmarkPutGetEmptyFiles benchmarks PutContent/GetContent for 0B files

@@ -945,6 +945,7 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 	var retError error
 	countChan := make(chan int64)
 	errors := make(chan error)
+	quit := make(chan struct{})
 	done := make(chan struct{})
 
 	// Consume object counts from each doWalk call asynchronusly to avoid blocking.
@@ -956,14 +957,11 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 	}()
 
 	// If we encounter an error from any goroutine called from within doWalk,
-	// stop all go routines and return that error.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
+	// return early from any new goroutines and return that error.
 	go func() {
 		for err := range errors {
 			retError = err
-			ctx.Done()
+			close(quit)
 		}
 	}()
 
@@ -972,7 +970,7 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 	// entire walk to complete without blocking on each doWalk call.
 	var wg sync.WaitGroup
 
-	d.doWalk(ctx, &wg, countChan, errors, d.s3Path(path), prefix, f)
+	d.doWalk(ctx, &wg, countChan, quit, errors, d.s3Path(path), prefix, f)
 
 	wg.Wait()
 
@@ -1016,7 +1014,7 @@ func (wi walkInfoContainer) IsDir() bool {
 	return wi.FileInfoFields.IsDir
 }
 
-func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan chan<- int64, errors chan<- error, path, prefix string, f storagedriver.WalkFn) {
+func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan chan<- int64, quit <-chan struct{}, errors chan<- error, path, prefix string, f storagedriver.WalkFn) {
 	listObjectsInput := &s3.ListObjectsV2Input{
 		Bucket:    aws.String(d.Bucket),
 		Prefix:    aws.String(path),
@@ -1075,7 +1073,7 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 
 				select {
 				// The walk was cancled, return to stop processing and prevent gorountine from leaking.
-				case <-ctx.Done():
+				case <-quit:
 					return
 				default:
 					err := f(wInfo)
@@ -1089,7 +1087,7 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 					}
 
 					if wInfo.IsDir() {
-						d.doWalk(ctx, wg, countChan, errors, *wInfo.prefix, prefix, f)
+						d.doWalk(ctx, wg, countChan, quit, errors, *wInfo.prefix, prefix, f)
 					}
 				}
 			}()
