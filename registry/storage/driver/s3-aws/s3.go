@@ -941,14 +941,13 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 		prefix = "/"
 	}
 
-	var wg sync.WaitGroup
-
 	var objectCount int64
 	var retError error
 	countChan := make(chan int64)
-	errors := make(chan error, 1)
+	errors := make(chan error)
 	done := make(chan struct{})
 
+	// Consume object counts from each doWalk call asynchronusly to avoid blocking.
 	go func() {
 		for i := range countChan {
 			objectCount += i
@@ -956,6 +955,8 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 		done <- struct{}{}
 	}()
 
+	// If we encounter an error from any goroutine called from within doWalk,
+	// stop all go routines and return that error.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -966,9 +967,16 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 		}
 	}()
 
+	// doWalk spawns and manages it's own goroutines, but it also calls
+	// itself recursively. Passing in a WaitGroup allows us to wait for the
+	// entire walk to complete without blocking on each doWalk call.
+	var wg sync.WaitGroup
+
 	d.doWalk(ctx, &wg, countChan, errors, d.s3Path(path), prefix, f)
 
 	wg.Wait()
+
+	// Ensure that all object counts have been totaled before continuing.
 	close(countChan)
 	<-done
 
@@ -1066,6 +1074,7 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 				defer wg.Done()
 
 				select {
+				// The walk was cancled, return to stop processing and prevent gorountine from leaking.
 				case <-ctx.Done():
 					return
 				default:
