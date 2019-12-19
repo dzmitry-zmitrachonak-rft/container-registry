@@ -944,7 +944,9 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 	var wg sync.WaitGroup
 
 	var objectCount int64
+	var retError error
 	countChan := make(chan int64)
+	errors := make(chan error, 1)
 	done := make(chan struct{})
 
 	go func() {
@@ -954,9 +956,17 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 		done <- struct{}{}
 	}()
 
-	if err := d.doWalk(ctx, &wg, countChan, d.s3Path(path), prefix, f); err != nil {
-		return err
-	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go func() {
+		for err := range errors {
+			retError = err
+			ctx.Done()
+		}
+	}()
+
+	d.doWalk(ctx, &wg, countChan, errors, d.s3Path(path), prefix, f)
 
 	wg.Wait()
 	close(countChan)
@@ -967,7 +977,7 @@ func (d *driver) Walk(ctx context.Context, from string, f storagedriver.WalkFn) 
 		return storagedriver.PathNotFoundError{Path: from}
 	}
 
-	return nil
+	return retError
 }
 
 type walkInfoContainer struct {
@@ -998,9 +1008,7 @@ func (wi walkInfoContainer) IsDir() bool {
 	return wi.FileInfoFields.IsDir
 }
 
-func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan chan<- int64, path, prefix string, f storagedriver.WalkFn) error {
-	var retError error
-
+func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan chan<- int64, errors chan<- error, path, prefix string, f storagedriver.WalkFn) {
 	listObjectsInput := &s3.ListObjectsV2Input{
 		Bucket:    aws.String(d.Bucket),
 		Prefix:    aws.String(path),
@@ -1056,20 +1064,23 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 			wInfo := walkInfo
 			go func() {
 				defer wg.Done()
-				err := f(wInfo)
 
-				if err == storagedriver.ErrSkipDir {
-					if wInfo.IsDir() {
-						return
-					} else if err != nil {
-						retError = err
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					err := f(wInfo)
+
+					if err == storagedriver.ErrSkipDir && wInfo.IsDir() {
 						return
 					}
-				}
 
-				if wInfo.IsDir() {
-					if err := d.doWalk(ctx, wg, countChan, *wInfo.prefix, prefix, f); err != nil {
-						return
+					if err != nil {
+						errors <- err
+					}
+
+					if wInfo.IsDir() {
+						d.doWalk(ctx, wg, countChan, errors, *wInfo.prefix, prefix, f)
 					}
 				}
 			}()
@@ -1077,15 +1088,9 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 		return true
 	})
 
-	if retError != nil {
-		return retError
-	}
-
 	if listObjectErr != nil {
-		return listObjectErr
+		errors <- listObjectErr
 	}
-
-	return nil
 }
 
 func (d *driver) s3Path(path string) string {
