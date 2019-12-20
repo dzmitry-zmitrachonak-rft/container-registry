@@ -1033,11 +1033,10 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 		// calculation of the key count if required
 		if objects.KeyCount != nil {
 			count = *objects.KeyCount
-			countChan <- *objects.KeyCount
 		} else {
 			count = int64(len(objects.Contents) + len(objects.CommonPrefixes))
-			countChan <- count
 		}
+		countChan <- count
 
 		walkInfos := make([]walkInfoContainer, 0, count)
 
