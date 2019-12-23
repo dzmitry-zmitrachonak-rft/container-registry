@@ -1026,55 +1026,55 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 	defer done("s3aws.ListObjectsV2Pages(%s)", path)
 
 	listObjectErr := d.S3.ListObjectsV2PagesWithContext(ctx, listObjectsInput, func(objects *s3.ListObjectsV2Output, lastPage bool) bool {
+		select {
+		// The walk was cancled, return to stop requests for pages and prevent gorountines from leaking.
+		case <-quit:
+			return false
+		default:
 
-		var count int64
-		// KeyCount was introduced with version 2 of the GET Bucket operation in S3.
-		// Some S3 implementations don't support V2 now, so we fall back to manual
-		// calculation of the key count if required
-		if objects.KeyCount != nil {
-			count = *objects.KeyCount
-		} else {
-			count = int64(len(objects.Contents) + len(objects.CommonPrefixes))
-		}
-		countChan <- count
+			var count int64
+			// KeyCount was introduced with version 2 of the GET Bucket operation in S3.
+			// Some S3 implementations don't support V2 now, so we fall back to manual
+			// calculation of the key count if required
+			if objects.KeyCount != nil {
+				count = *objects.KeyCount
+			} else {
+				count = int64(len(objects.Contents) + len(objects.CommonPrefixes))
+			}
+			countChan <- count
 
-		walkInfos := make([]walkInfoContainer, 0, count)
+			walkInfos := make([]walkInfoContainer, 0, count)
 
-		for _, dir := range objects.CommonPrefixes {
-			commonPrefix := *dir.Prefix
-			walkInfos = append(walkInfos, walkInfoContainer{
-				prefix: dir.Prefix,
-				FileInfoFields: storagedriver.FileInfoFields{
-					IsDir: true,
-					Path:  strings.Replace(commonPrefix[:len(commonPrefix)-1], d.s3Path(""), prefix, 1),
-				},
-			})
-		}
+			for _, dir := range objects.CommonPrefixes {
+				commonPrefix := *dir.Prefix
+				walkInfos = append(walkInfos, walkInfoContainer{
+					prefix: dir.Prefix,
+					FileInfoFields: storagedriver.FileInfoFields{
+						IsDir: true,
+						Path:  strings.Replace(commonPrefix[:len(commonPrefix)-1], d.s3Path(""), prefix, 1),
+					},
+				})
+			}
 
-		for _, file := range objects.Contents {
-			walkInfos = append(walkInfos, walkInfoContainer{
-				FileInfoFields: storagedriver.FileInfoFields{
-					IsDir:   false,
-					Size:    *file.Size,
-					ModTime: *file.LastModified,
-					Path:    strings.Replace(*file.Key, d.s3Path(""), prefix, 1),
-				},
-			})
-		}
+			for _, file := range objects.Contents {
+				walkInfos = append(walkInfos, walkInfoContainer{
+					FileInfoFields: storagedriver.FileInfoFields{
+						IsDir:   false,
+						Size:    *file.Size,
+						ModTime: *file.LastModified,
+						Path:    strings.Replace(*file.Key, d.s3Path(""), prefix, 1),
+					},
+				})
+			}
 
-		sort.SliceStable(walkInfos, func(i, j int) bool { return walkInfos[i].FileInfoFields.Path < walkInfos[j].FileInfoFields.Path })
+			sort.SliceStable(walkInfos, func(i, j int) bool { return walkInfos[i].FileInfoFields.Path < walkInfos[j].FileInfoFields.Path })
 
-		for _, walkInfo := range walkInfos {
-			wg.Add(1)
-			wInfo := walkInfo
-			go func() {
-				defer wg.Done()
+			for _, walkInfo := range walkInfos {
+				wg.Add(1)
+				wInfo := walkInfo
+				go func() {
+					defer wg.Done()
 
-				select {
-				// The walk was cancled, return to stop processing and prevent gorountine from leaking.
-				case <-quit:
-					return
-				default:
 					err := f(wInfo)
 
 					if err == storagedriver.ErrSkipDir && wInfo.IsDir() {
@@ -1088,8 +1088,8 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 					if wInfo.IsDir() {
 						d.doWalk(ctx, wg, countChan, quit, errors, *wInfo.prefix, prefix, f)
 					}
-				}
-			}()
+				}()
+			}
 		}
 		return true
 	})
