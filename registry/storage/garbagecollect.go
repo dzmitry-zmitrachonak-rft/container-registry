@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
@@ -27,6 +28,38 @@ type ManifestDel struct {
 	Tags   []string
 }
 
+// syncDigestSet provides thread-safe set operations on digests.
+type syncDigestSet struct {
+	sync.Mutex
+	members map[digest.Digest]struct{}
+}
+
+// add idempotently adds a digest to the set.
+func (s *syncDigestSet) add(d digest.Digest) {
+	s.Lock()
+	defer s.Unlock()
+
+	s.members[d] = struct{}{}
+}
+
+// contains reports the digests's membership within the set.
+func (s *syncDigestSet) contains(d digest.Digest) bool {
+	s.Lock()
+	defer s.Unlock()
+
+	_, ok := s.members[d]
+
+	return ok
+}
+
+// len returns the number of members within the set.
+func (s *syncDigestSet) len() int {
+	s.Lock()
+	defer s.Unlock()
+
+	return len(s.members)
+}
+
 // MarkAndSweep performs a mark and sweep of registry data
 func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, registry distribution.Namespace, opts GCOpts) error {
 	repositoryEnumerator, ok := registry.(distribution.RepositoryEnumerator)
@@ -35,8 +68,9 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 	}
 
 	// mark
-	markSet := make(map[digest.Digest]struct{})
+	markSet := syncDigestSet{sync.Mutex{}, make(map[digest.Digest]struct{})}
 	manifestArr := make([]ManifestDel, 0)
+
 	err := repositoryEnumerator.Enumerate(ctx, func(repoName string) error {
 		emit(repoName)
 
@@ -82,7 +116,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 			}
 			// Mark the manifest's blob
 			emit("%s: marking manifest %s ", repoName, dgst)
-			markSet[dgst] = struct{}{}
+			markSet.add(dgst)
 
 			manifest, err := manifestService.Get(ctx, dgst)
 			if err != nil {
@@ -91,7 +125,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 			descriptors := manifest.References()
 			for _, descriptor := range descriptors {
-				markSet[descriptor.Digest] = struct{}{}
+				markSet.add(descriptor.Digest)
 				emit("%s: marking blob %s", repoName, descriptor.Digest)
 			}
 
@@ -127,19 +161,27 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		}
 	}
 	blobService := registry.Blobs()
-	deleteSet := make(map[digest.Digest]struct{})
+
+	deleteSet := syncDigestSet{sync.Mutex{}, make(map[digest.Digest]struct{})}
+
 	err = blobService.Enumerate(ctx, func(dgst digest.Digest) error {
 		// check if digest is in markSet. If not, delete it!
-		if _, ok := markSet[dgst]; !ok {
-			deleteSet[dgst] = struct{}{}
+		if !markSet.contains(dgst) {
+			deleteSet.add(dgst)
 		}
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("error enumerating blobs: %v", err)
 	}
-	emit("\n%d blobs marked, %d blobs and %d manifests eligible for deletion", len(markSet), len(deleteSet), len(manifestArr))
-	for dgst := range deleteSet {
+
+	emit("\n%d blobs marked, %d blobs and %d manifests eligible for deletion", markSet.len(), deleteSet.len(), len(manifestArr))
+
+	// Lock and unlock manually and access members directly to reduce lock operations.
+	deleteSet.Lock()
+	defer deleteSet.Unlock()
+
+	for dgst := range deleteSet.members {
 		emit("blob eligible for deletion: %s", dgst)
 		if opts.DryRun {
 			continue
