@@ -1027,7 +1027,7 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 
 	listObjectErr := d.S3.ListObjectsV2PagesWithContext(ctx, listObjectsInput, func(objects *s3.ListObjectsV2Output, lastPage bool) bool {
 		select {
-		// The walk was cancled, return to stop requests for pages and prevent gorountines from leaking.
+		// The walk was canceled, return to stop requests for pages and prevent gorountines from leaking.
 		case <-quit:
 			return false
 		default:
