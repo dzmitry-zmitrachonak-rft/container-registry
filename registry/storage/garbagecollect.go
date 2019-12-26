@@ -42,7 +42,7 @@ func (s *syncDigestSet) add(d digest.Digest) {
 	s.members[d] = struct{}{}
 }
 
-// contains reports the digests's membership within the set.
+// contains reports the digest's membership within the set.
 func (s *syncDigestSet) contains(d digest.Digest) bool {
 	s.Lock()
 	defer s.Unlock()
