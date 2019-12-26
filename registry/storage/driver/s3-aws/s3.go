@@ -1067,8 +1067,6 @@ func (d *driver) doWalk(parentCtx context.Context, wg *sync.WaitGroup, countChan
 				})
 			}
 
-			sort.SliceStable(walkInfos, func(i, j int) bool { return walkInfos[i].FileInfoFields.Path < walkInfos[j].FileInfoFields.Path })
-
 			for _, walkInfo := range walkInfos {
 				wg.Add(1)
 				wInfo := walkInfo
