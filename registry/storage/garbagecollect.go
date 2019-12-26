@@ -34,7 +34,7 @@ type syncDigestSet struct {
 	members map[digest.Digest]struct{}
 }
 
-// add idempotently adds a digest to the set.
+// idempotently adds a digest to the set.
 func (s *syncDigestSet) add(d digest.Digest) {
 	s.Lock()
 	defer s.Unlock()
