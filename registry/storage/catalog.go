@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/docker/distribution/reference"
@@ -14,9 +15,7 @@ import (
 // Returns a list, or partial list, of repositories in the registry.
 // Because it's a quite expensive operation, it should only be used when building up
 // an initial set of repositories.
-func (reg *registry) Repositories(ctx context.Context, repos []string, last string) (n int, err error) {
-	var finishedWalk bool
-	var foundRepos []string
+func (reg *registry) Repositories(ctx context.Context, repos []string, last string) (int, error) {
 
 	if len(repos) == 0 {
 		return 0, errors.New("no space in slice")
@@ -27,34 +26,53 @@ func (reg *registry) Repositories(ctx context.Context, repos []string, last stri
 		return 0, err
 	}
 
+	var foundRepos []string
+
+	foundReposChan := make(chan string)
+
+	// Consume found repos in separte goroutine to prevent blocking on foundReposChan.
+	done := make(chan struct{})
+	go func() {
+		for r := range foundReposChan {
+			foundRepos = append(foundRepos, r)
+		}
+		done <- struct{}{}
+	}()
+
+	// TODO: Find a way to have efficiently paginated results.
+	// Since walk functions may execute in parallel and we must return lexically sorted
+	// pages of requests to conform to the API spec, on the initial request for pages, we
+	// need to traverse all repositories on the initial run. On subsequent runs, we
+	// gain some efficiency back, as encountering directories that come before the
+	// last parameter lexicographically will result in ErrSkipDir.
 	err = reg.blobStore.driver.Walk(ctx, root, func(fileInfo driver.FileInfo) error {
-		err := handleRepository(fileInfo, root, last, func(repoPath string) error {
-			foundRepos = append(foundRepos, repoPath)
+		return handleRepository(fileInfo, root, last, func(repoPath string) error {
+			foundReposChan <- repoPath
 			return nil
 		})
-		if err != nil {
-			return err
-		}
-
-		// if we've filled our array, no need to walk any further
-		if len(foundRepos) == len(repos) {
-			finishedWalk = true
-			return driver.ErrSkipDir
-		}
-
-		return nil
 	})
 
-	n = copy(repos, foundRepos)
+	// Close repo consuming goroutine so that we can work with the foundRepos slice.
+	close(foundReposChan)
+	<-done
+
+	sort.Slice(foundRepos, func(i, j int) bool {
+		return lessPath(foundRepos[i], foundRepos[j])
+	})
+
+	n := copy(repos, foundRepos[:min(len(repos), len(foundRepos))])
 
 	if err != nil {
 		return n, err
-	} else if !finishedWalk {
-		// We didn't fill buffer. No more records are available.
-		return n, io.EOF
 	}
 
-	return n, err
+	// Return nil to signal that additional "pages" of results are availible.
+	if len(foundRepos) > len(repos) {
+		return n, nil
+	}
+
+	// We didn't fill buffer: no more records are available. Signal this with EOF.
+	return n, io.EOF
 }
 
 // Enumerate applies ingester to each repository
@@ -156,4 +174,11 @@ func handleRepository(fileInfo driver.FileInfo, root, last string, fn func(repoP
 	}
 
 	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
