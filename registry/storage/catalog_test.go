@@ -113,15 +113,15 @@ func TestCatalog(t *testing.T) {
 
 	numFilled, err := env.registry.Repositories(env.ctx, p, "")
 	if numFilled != len(env.expected) {
-		t.Errorf("missing items in catalog")
+		t.Errorf("missing items in catalog: expected %d, got %d", len(env.expected), numFilled)
 	}
 
 	if !testEq(p, env.expected, len(env.expected)) {
-		t.Errorf("Expected catalog repos err")
+		t.Errorf("Expected catalog repos err:\nexpected:\n%v\ngot:\n%v", p[:len(env.expected)], env.expected)
 	}
 
 	if err != io.EOF {
-		t.Errorf("Catalog has more values which we aren't expecting")
+		t.Errorf("Catalog has more values which we aren't expecting: %v", err)
 	}
 }
 
@@ -132,19 +132,27 @@ func TestCatalogInParts(t *testing.T) {
 	p := make([]string, chunkLen)
 
 	numFilled, err := env.registry.Repositories(env.ctx, p, "")
-	if err == io.EOF || numFilled != len(p) {
-		t.Errorf("Expected more values in catalog")
+	if err == io.EOF {
+		t.Errorf("Expected err not to be io.EOF")
 	}
 
-	if !testEq(p, env.expected[0:chunkLen], numFilled) {
-		t.Errorf("Expected catalog first chunk err")
+	if numFilled != len(p) {
+		t.Errorf("Expected %d filled, got %d", len(p), numFilled)
+	}
+
+	if !testEq(p, env.expected[:chunkLen], numFilled) {
+		t.Errorf("Expected catalog first chunk err\nexpected:%v\ngot:\n%v", p, env.expected[:chunkLen])
 	}
 
 	lastRepo := p[len(p)-1]
 	numFilled, err = env.registry.Repositories(env.ctx, p, lastRepo)
 
-	if err == io.EOF || numFilled != len(p) {
-		t.Errorf("Expected more values in catalog")
+	if err == io.EOF {
+		t.Errorf("Expected err not to be io.EOF")
+	}
+
+	if numFilled != len(p) {
+		t.Errorf("Expected %d filled, got %d", len(p), numFilled)
 	}
 
 	if !testEq(p, env.expected[chunkLen:chunkLen*2], numFilled) {
@@ -154,8 +162,12 @@ func TestCatalogInParts(t *testing.T) {
 	lastRepo = p[len(p)-1]
 	numFilled, err = env.registry.Repositories(env.ctx, p, lastRepo)
 
-	if err != io.EOF || numFilled != len(p) {
-		t.Errorf("Expected end of catalog")
+	if err != io.EOF {
+		t.Errorf("Expected err to be io.EOF, got %v", err)
+	}
+
+	if numFilled != len(p) {
+		t.Errorf("Expected numFilled to be %d, got %d", len(p), numFilled)
 	}
 
 	if !testEq(p, env.expected[chunkLen*2:chunkLen*3], numFilled) {
