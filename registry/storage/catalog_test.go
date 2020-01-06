@@ -163,7 +163,7 @@ func TestCatalogInParts(t *testing.T) {
 	numFilled, err = env.registry.Repositories(env.ctx, p, lastRepo)
 
 	if err != io.EOF {
-		t.Errorf("Expected err to be io.EOF, got %v", err)
+		t.Errorf("Expected err to be io.EOF, got %T", err)
 	}
 
 	if numFilled != len(p) {
