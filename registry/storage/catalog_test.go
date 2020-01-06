@@ -226,7 +226,6 @@ func TestCatalogEnumerate(t *testing.T) {
 }
 
 func testEq(a, b []string, size int) bool {
-
 	for cnt := 0; cnt < size-1; cnt++ {
 		if a[cnt] != b[cnt] {
 			return false
