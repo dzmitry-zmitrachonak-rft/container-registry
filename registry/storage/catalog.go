@@ -30,7 +30,7 @@ func (reg *registry) Repositories(ctx context.Context, repos []string, last stri
 
 	foundReposChan := make(chan string)
 
-	// Consume found repos in separte goroutine to prevent blocking on foundReposChan.
+	// Consume found repos in a separate Goroutine to prevent blocking on foundReposChan.
 	done := make(chan struct{})
 	go func() {
 		for r := range foundReposChan {
