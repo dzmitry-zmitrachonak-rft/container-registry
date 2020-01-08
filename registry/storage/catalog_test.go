@@ -192,7 +192,7 @@ func TestCatalogEnumerate(t *testing.T) {
 	var repos []string
 	reposChan := make(chan string)
 
-	// Consume found repos in separte goroutine to prevent blocking on foundReposChan.
+	// Consume found repos in a separate Goroutine to prevent blocking on foundReposChan.
 	done := make(chan struct{})
 	go func() {
 		for r := range reposChan {
