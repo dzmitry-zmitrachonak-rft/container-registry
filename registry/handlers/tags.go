@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/docker/distribution"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/api/v2"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/gorilla/handlers"
 )
 
@@ -35,6 +37,9 @@ type tagsAPIResponse struct {
 func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	mediaType := r.URL.Query().Get("media_type")
+	dcontext.GetLogger(th).Debugf("media type is %s", mediaType)
+
 	tagService := th.Repository.Tags(th)
 	tags, err := tagService.All(th)
 	if err != nil {
@@ -47,6 +52,32 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 			th.Errors = append(th.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 		}
 		return
+	}
+
+	manifestService, err := th.Repository.Manifests(th)
+	if err != nil {
+		th.Errors = append(th.Errors, err)
+		return
+	}
+
+	for _, tag := range tags {
+		desc, err := tagService.Get(th, tag)
+		if err != nil {
+			th.Errors = append(th.Errors, err)
+			return
+		}
+
+		manifest, err := manifestService.Get(th, desc.Digest)
+		if err != nil {
+			th.Errors = append(th.Errors, err)
+			return
+		}
+
+		descriptors := manifest.References()
+
+		for _, descriptor := range descriptors {
+			dcontext.GetLogger(th).Debugf("media type is %s", descriptor.MediaType)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
