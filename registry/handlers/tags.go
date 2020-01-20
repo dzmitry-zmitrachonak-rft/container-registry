@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/docker/distribution"
@@ -10,6 +9,7 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/gorilla/handlers"
+	"github.com/opencontainers/go-digest"
 )
 
 // tagsDispatcher constructs the tags handler api endpoint.
@@ -33,12 +33,51 @@ type tagsAPIResponse struct {
 	Tags []string `json:"tags"`
 }
 
+func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, error) {
+	if mediaType == "" {
+		return tags, nil
+	}
+
+	manifestService, err := th.Repository.Manifests(th)
+	if err != nil {
+		th.Errors = append(th.Errors, err)
+		return matchingTags, err
+	}
+
+	var matchingTags []string
+	var mediaTypeMap map[digest.Digest]string
+
+	tagService := th.Repository.Tags(th)
+
+	for _, tag := range tags {
+		desc, err := tagService.Get(th, tag)
+		if err != nil {
+			return matchingTags, err
+		}
+
+		tagMediaType, ok := mediaTypeMap[desc.Digest]
+		if !ok {
+			manifest, err := manifestService.Get(th, desc.Digest)
+			if err != nil {
+				return matchingTags, err
+			}
+
+			descriptors := manifest.References()
+			tagMediaType = descriptors[0].MediaType
+		}
+
+		dcontext.GetLogger(th).Debugf("=====> media type is %s", tagMediaType)
+		if tagMediaType == mediaType {
+			matchingTags = append(matchingTags, tag)
+		}
+	}
+
+	return matchingTags, nil
+}
+
 // GetTags returns a json list of tags for a specific image name.
 func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-
-	mediaType := r.URL.Query().Get("media_type")
-	dcontext.GetLogger(th).Debugf("media type is %s", mediaType)
 
 	tagService := th.Repository.Tags(th)
 	tags, err := tagService.All(th)
@@ -54,30 +93,13 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	manifestService, err := th.Repository.Manifests(th)
+	mediaType := r.URL.Query().Get("media_type")
+	dcontext.GetLogger(th).Debugf("====> requested media type is %s", mediaType)
+
+	tags, err = th.filterTags(mediaType, tags)
 	if err != nil {
 		th.Errors = append(th.Errors, err)
 		return
-	}
-
-	for _, tag := range tags {
-		desc, err := tagService.Get(th, tag)
-		if err != nil {
-			th.Errors = append(th.Errors, err)
-			return
-		}
-
-		manifest, err := manifestService.Get(th, desc.Digest)
-		if err != nil {
-			th.Errors = append(th.Errors, err)
-			return
-		}
-
-		descriptors := manifest.References()
-
-		for _, descriptor := range descriptors {
-			dcontext.GetLogger(th).Debugf("media type is %s", descriptor.MediaType)
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
