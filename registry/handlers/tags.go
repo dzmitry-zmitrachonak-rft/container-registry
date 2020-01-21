@@ -38,14 +38,15 @@ func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, er
 		return tags, nil
 	}
 
+	var matchingTags []string
+
 	manifestService, err := th.Repository.Manifests(th)
 	if err != nil {
 		th.Errors = append(th.Errors, err)
 		return matchingTags, err
 	}
 
-	var matchingTags []string
-	var mediaTypeMap map[digest.Digest]string
+	var mediaTypeCache map[digest.Digest]string
 
 	tagService := th.Repository.Tags(th)
 
@@ -55,7 +56,7 @@ func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, er
 			return matchingTags, err
 		}
 
-		tagMediaType, ok := mediaTypeMap[desc.Digest]
+		tagMediaType, ok := mediaTypeCache[desc.Digest]
 		if !ok {
 			manifest, err := manifestService.Get(th, desc.Digest)
 			if err != nil {
