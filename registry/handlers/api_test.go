@@ -2598,3 +2598,171 @@ func TestProxyManifestGetByTag(t *testing.T) {
 		"Docker-Content-Digest": []string{newDigest.String()},
 	})
 }
+
+func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) manifestArgs {
+	args := manifestArgs{
+		imageName: imageName,
+		mediaType: schema2.MediaTypeManifest,
+	}
+
+	tagRef, _ := reference.WithTag(imageName, tag)
+	manifestURL, err := env.builder.BuildManifestURL(tagRef)
+	if err != nil {
+		t.Fatalf("unexpected error getting manifest url: %v", err)
+	}
+
+	// --------------------------------
+	// Attempt to push manifest with missing config and missing layers
+	manifest := &schema2.Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
+		},
+		Config: distribution.Descriptor{
+			Digest:    "sha256:1a9ec845ee94c202b2d5da74a24f0ed2058318bfa9879fa541efaecba272e86b",
+			Size:      3253,
+			MediaType: mediaType,
+		},
+		Layers: []distribution.Descriptor{
+			{
+				Digest:    "sha256:463434349086340864309863409683460843608348608934092322395278926a",
+				Size:      6323,
+				MediaType: schema2.MediaTypeLayer,
+			},
+			{
+				Digest:    "sha256:630923423623623423352523525237238023652897356239852383652aaaaaaa",
+				Size:      6863,
+				MediaType: schema2.MediaTypeLayer,
+			},
+		},
+	}
+
+	// Push a config, and reference it in the manifest
+	sampleConfig := []byte(`{
+		"architecture": "amd64",
+		"history": [
+		  {
+		    "created": "2015-10-31T22:22:54.690851953Z",
+		    "created_by": "/bin/sh -c #(nop) ADD file:a3bc1e842b69636f9df5256c49c5374fb4eef1e281fe3f282c65fb853ee171c5 in /"
+		  },
+		  {
+		    "created": "2015-10-31T22:22:55.613815829Z",
+		    "created_by": "/bin/sh -c #(nop) CMD [\"sh\"]"
+		  }
+		],
+		"rootfs": {
+		  "diff_ids": [
+		    "sha256:c6f988f4874bb0add23a778f753c65efe992244e148a1d2ec2a8b664fb66bbd1",
+		    "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+		  ],
+		  "type": "layers"
+		}
+	}`)
+	sampleConfigDigest := digest.FromBytes(sampleConfig)
+	uploadURLBase, _ := startPushLayer(t, env, imageName)
+	pushLayer(t, env.builder, imageName, sampleConfigDigest, uploadURLBase, bytes.NewReader(sampleConfig))
+	manifest.Config.Digest = sampleConfigDigest
+	manifest.Config.Size = int64(len(sampleConfig))
+
+	// Push 2 random layers
+	expectedLayers := make(map[digest.Digest]io.ReadSeeker)
+
+	for i := range manifest.Layers {
+		rs, dgstStr, err := testutil.CreateRandomTarFile()
+
+		if err != nil {
+			t.Fatalf("error creating random layer %d: %v", i, err)
+		}
+		dgst := digest.Digest(dgstStr)
+
+		expectedLayers[dgst] = rs
+		manifest.Layers[i].Digest = dgst
+
+		uploadURLBase, _ := startPushLayer(t, env, imageName)
+		pushLayer(t, env.builder, imageName, dgst, uploadURLBase, rs)
+	}
+
+	// -------------------
+	// Push the manifest with all layers pushed.
+	deserializedManifest, err := schema2.FromStruct(*manifest)
+	if err != nil {
+		t.Fatalf("could not create DeserializedManifest: %v", err)
+	}
+	_, canonical, err := deserializedManifest.Payload()
+	if err != nil {
+		t.Fatalf("could not get manifest payload: %v", err)
+	}
+	dgst := digest.FromBytes(canonical)
+	args.dgst = dgst
+	args.manifest = deserializedManifest
+
+	digestRef, _ := reference.WithDigest(imageName, dgst)
+	manifestDigestURL, err := env.builder.BuildManifestURL(digestRef)
+	checkErr(t, err, "building manifest url")
+
+	resp := putManifest(t, "putting manifest no error", manifestURL, schema2.MediaTypeManifest, manifest)
+	checkResponse(t, "putting manifest no error", resp, http.StatusCreated)
+	checkHeaders(t, resp, http.Header{
+		"Location":              []string{manifestDigestURL},
+		"Docker-Content-Digest": []string{dgst.String()},
+	})
+
+	// --------------------
+	// Push by digest -- should get same result
+	resp = putManifest(t, "putting manifest by digest", manifestDigestURL, schema2.MediaTypeManifest, manifest)
+	checkResponse(t, "putting manifest by digest", resp, http.StatusCreated)
+	checkHeaders(t, resp, http.Header{
+		"Location":              []string{manifestDigestURL},
+		"Docker-Content-Digest": []string{dgst.String()},
+	})
+
+	return args
+}
+
+func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) {
+	tagsURL, err := env.builder.BuildTagsURL(imageName, url.Values{
+		"media_type": []string{mediaType},
+	})
+
+	resp, err := http.Get(tagsURL)
+	if err != nil {
+		t.Fatalf("unexpected error getting unknown tags: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check that we get an unknown repository error when asking for tags
+	checkResponse(t, "getting list of tags", resp, http.StatusOK)
+	dec := json.NewDecoder(resp.Body)
+
+	var tagsResponse tagsAPIResponse
+
+	if err := dec.Decode(&tagsResponse); err != nil {
+		t.Fatalf("unexpected error decoding error response: %v", err)
+	}
+
+	if tagsResponse.Name != imageName.Name() {
+		t.Fatalf("tags name should match image name: %v != %v", tagsResponse.Name, imageName.Name())
+	}
+
+	if len(tagsResponse.Tags) != 1 {
+		t.Fatalf("expected some tags in response: %v", tagsResponse.Tags)
+	}
+
+	if tagsResponse.Tags[0] != tag {
+		t.Fatalf("tag not as expected: %q != %q", tagsResponse.Tags[0], tag)
+	}
+}
+
+func TestGetTagsByMediaType(t *testing.T) {
+	imageName, _ := reference.WithName("foo/schema2")
+
+	deleteEnabled := true
+	env := newTestEnv(t, deleteEnabled)
+	defer env.Shutdown()
+
+	putManifestAPISchema2(t, env, imageName, "latest", "application/vnd.oci.image.config.v1+json")
+	putManifestAPISchema2(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
+
+	testRequestGetTagsByMediaType(t, env, imageName, "latest", "application/vnd.oci.image.config.v1+json")
+	testRequestGetTagsByMediaType(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
+}
