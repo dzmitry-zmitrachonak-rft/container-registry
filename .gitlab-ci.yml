@@ -8,15 +8,10 @@ stages:
   - test
   - integration
 
-# Hack to emulate github.com/docker/distribution paths for Golang
-# Eventually the project files should be renamed to GitLab paths
 .inject-gopath: &inject-gopath
-  - cd $GOPATH/src
-  - mkdir -p github.com/docker
-  - cd $GOPATH/src/github.com/docker
-  - ln -s $CI_PROJECT_DIR distribution
-  - cd distribution
-  - GOOS=linux GO111MODULE=off script/setup/install-dev-tools
+  - mkdir -p $GOPATH/src/gitlab.com/$CI_PROJECT_NAMESPACE
+  - ln -s $CI_PROJECT_DIR $GOPATH/src/gitlab.com/$CI_PROJECT_PATH
+  - cd $GOPATH/src/gitlab.com/$CI_PROJECT_PATH
 
 static-analysis:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:golangci-lint-alpine
@@ -47,7 +42,7 @@ verify:
 .storage-driver-test: &storage-driver-test
   stage: integration
   before_script: *inject-gopath
-  script: go test -v github.com/docker/distribution/registry/storage/driver/$CI_JOB_NAME -args -check.v -test.short
+  script: go test -v gitlab.com/$CI_PROJECT_PATH/registry/storage/driver/$CI_JOB_NAME -args -check.v -test.short
 
 filesystem:
   <<: *storage-driver-test
