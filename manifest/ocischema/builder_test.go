@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go/v1"
+	"gitlab.com/gitlab-org/container-registry"
 )
 
 type mockBlobService struct {

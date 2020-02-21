@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"time"
 
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	"github.com/docker/distribution/registry/storage/driver/base"
-	"github.com/docker/distribution/registry/storage/driver/factory"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/base"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/factory"
 )
 
 const (

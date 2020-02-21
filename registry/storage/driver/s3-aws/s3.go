@@ -40,11 +40,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/client/transport"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	"github.com/docker/distribution/registry/storage/driver/base"
-	"github.com/docker/distribution/registry/storage/driver/factory"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/client/transport"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/base"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/factory"
 )
 
 const driverName = "s3aws"

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/storage/driver/inmemory"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/inmemory"
 )
 
 type tagsTestEnv struct {

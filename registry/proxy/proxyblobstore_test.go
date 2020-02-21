@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/proxy/scheduler"
-	"github.com/docker/distribution/registry/storage"
-	"github.com/docker/distribution/registry/storage/cache/memory"
-	"github.com/docker/distribution/registry/storage/driver/filesystem"
-	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/proxy/scheduler"
+	"gitlab.com/gitlab-org/container-registry/registry/storage"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache/memory"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/filesystem"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/inmemory"
 )
 
 var sbsMu sync.Mutex

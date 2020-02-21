@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/storage/cache"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache"
 )
 
 type inMemoryBlobDescriptorCacheProvider struct {

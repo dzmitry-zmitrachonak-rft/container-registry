@@ -5,7 +5,7 @@ package cache
 import (
 	"fmt"
 
-	"github.com/docker/distribution"
+	"gitlab.com/gitlab-org/container-registry"
 )
 
 // BlobDescriptorCacheProvider provides repository scoped

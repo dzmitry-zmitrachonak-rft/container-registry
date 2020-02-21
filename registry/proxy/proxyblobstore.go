@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/proxy/scheduler"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/proxy/scheduler"
 )
 
 // todo(richardscothern): from cache control header or config file

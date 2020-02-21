@@ -5,9 +5,9 @@ import (
 	"path"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 // vacuum contains functions for cleaning up repositories and blobs

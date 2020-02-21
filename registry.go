@@ -3,7 +3,7 @@ package distribution
 import (
 	"context"
 
-	"github.com/docker/distribution/reference"
+	"gitlab.com/gitlab-org/container-registry/reference"
 )
 
 // Scope defines the set of items that match a namespace.

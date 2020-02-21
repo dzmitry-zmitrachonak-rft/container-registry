@@ -3,7 +3,7 @@ package memory
 import (
 	"testing"
 
-	"github.com/docker/distribution/registry/storage/cache/cachecheck"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache/cachecheck"
 )
 
 // TestInMemoryBlobInfoCache checks the in memory implementation is working

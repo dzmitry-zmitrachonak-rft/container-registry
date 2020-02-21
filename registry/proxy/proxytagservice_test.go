@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/docker/distribution"
+	"gitlab.com/gitlab-org/container-registry"
 )
 
 type mockTagStore struct {

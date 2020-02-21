@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/docker/distribution/reference"
 	"github.com/gorilla/mux"
+	"gitlab.com/gitlab-org/container-registry/reference"
 )
 
 // URLBuilder creates registry API urls from a single base endpoint. It can be

@@ -8,15 +8,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/docker/distribution/configuration"
-	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/api/v2"
-	"github.com/docker/distribution/registry/auth"
-	_ "github.com/docker/distribution/registry/auth/silly"
-	"github.com/docker/distribution/registry/storage"
-	memorycache "github.com/docker/distribution/registry/storage/cache/memory"
-	"github.com/docker/distribution/registry/storage/driver/testdriver"
+	"gitlab.com/gitlab-org/container-registry/configuration"
+	"gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/api/errcode"
+	"gitlab.com/gitlab-org/container-registry/registry/api/v2"
+	"gitlab.com/gitlab-org/container-registry/registry/auth"
+	_ "gitlab.com/gitlab-org/container-registry/registry/auth/silly"
+	"gitlab.com/gitlab-org/container-registry/registry/storage"
+	memorycache "gitlab.com/gitlab-org/container-registry/registry/storage/cache/memory"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/testdriver"
 )
 
 // TestAppDispatcher builds an application with a test dispatcher and ensures

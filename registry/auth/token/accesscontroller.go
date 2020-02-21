@@ -12,9 +12,9 @@ import (
 	"os"
 	"strings"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/libtrust"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/auth"
 )
 
 // accessSet maps a typed, named resource to

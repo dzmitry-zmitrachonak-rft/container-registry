@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"cloud.google.com/go/storage"
-	dcontext "github.com/docker/distribution/context"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	"github.com/docker/distribution/registry/storage/driver/testsuites"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/testsuites"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"

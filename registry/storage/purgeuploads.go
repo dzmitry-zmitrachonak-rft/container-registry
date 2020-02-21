@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	storageDriver "github.com/docker/distribution/registry/storage/driver"
-	"github.com/docker/distribution/uuid"
 	"github.com/sirupsen/logrus"
+	storageDriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry/uuid"
 )
 
 // uploadData stored the location of temporary files created during a layer upload

@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"os"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/storage"
-	"github.com/docker/distribution/registry/storage/driver/factory"
-	"github.com/docker/distribution/version"
 	"github.com/docker/libtrust"
 	"github.com/spf13/cobra"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/storage"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/factory"
+	"gitlab.com/gitlab-org/container-registry/version"
 )
 
 var showVersion bool

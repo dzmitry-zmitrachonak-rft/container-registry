@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/docker/distribution/registry/api/errcode"
+	"gitlab.com/gitlab-org/container-registry/registry/api/errcode"
 )
 
 var (

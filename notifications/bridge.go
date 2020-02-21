@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/uuid"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/uuid"
 )
 
 type bridge struct {

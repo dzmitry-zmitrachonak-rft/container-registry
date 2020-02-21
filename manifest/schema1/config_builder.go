@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest"
-	"github.com/docker/distribution/reference"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/manifest"
+	"gitlab.com/gitlab-org/container-registry/reference"
 )
 
 type diffID digest.Digest

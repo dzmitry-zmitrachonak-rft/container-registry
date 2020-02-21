@@ -7,17 +7,17 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/configuration"
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/client"
-	"github.com/docker/distribution/registry/client/auth"
-	"github.com/docker/distribution/registry/client/auth/challenge"
-	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/distribution/registry/proxy/scheduler"
-	"github.com/docker/distribution/registry/storage"
-	"github.com/docker/distribution/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/configuration"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/client"
+	"gitlab.com/gitlab-org/container-registry/registry/client/auth"
+	"gitlab.com/gitlab-org/container-registry/registry/client/auth/challenge"
+	"gitlab.com/gitlab-org/container-registry/registry/client/transport"
+	"gitlab.com/gitlab-org/container-registry/registry/proxy/scheduler"
+	"gitlab.com/gitlab-org/container-registry/registry/storage"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 // proxyingRegistry fetches content from a remote registry and caches it locally

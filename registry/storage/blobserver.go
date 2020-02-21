@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 // TODO(stevvooe): This should configurable in the future.

@@ -3,13 +3,13 @@ package notifications
 import (
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/schema1"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/api/v2"
-	"github.com/docker/distribution/uuid"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/manifest/schema1"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/api/v2"
+	"gitlab.com/gitlab-org/container-registry/uuid"
 )
 
 var (

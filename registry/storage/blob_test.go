@@ -11,12 +11,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/storage/cache/memory"
-	"github.com/docker/distribution/registry/storage/driver/testdriver"
-	"github.com/docker/distribution/testutil"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache/memory"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/testdriver"
+	"gitlab.com/gitlab-org/container-registry/testutil"
 )
 
 // TestWriteSeek tests that the current file size can be

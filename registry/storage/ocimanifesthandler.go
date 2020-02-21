@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go/v1"
+	"gitlab.com/gitlab-org/container-registry"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/manifest/ocischema"
 )
 
 //ocischemaManifestHandler is a ManifestHandler that covers ocischema manifests.

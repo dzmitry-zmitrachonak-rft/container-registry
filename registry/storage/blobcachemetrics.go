@@ -5,8 +5,8 @@ import (
 	"expvar"
 	"sync/atomic"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/storage/cache"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache"
 )
 
 type blobStatCollector struct {

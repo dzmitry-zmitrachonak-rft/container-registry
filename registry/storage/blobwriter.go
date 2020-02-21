@@ -8,11 +8,11 @@ import (
 	"path"
 	"time"
 
-	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/container-registry"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 var (

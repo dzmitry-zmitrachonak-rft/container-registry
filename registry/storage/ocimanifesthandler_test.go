@@ -5,12 +5,12 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest"
-	"github.com/docker/distribution/manifest/ocischema"
-	"github.com/docker/distribution/registry/storage/driver/inmemory"
-	"github.com/docker/distribution/testutil"
 	"github.com/opencontainers/image-spec/specs-go/v1"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/manifest"
+	"gitlab.com/gitlab-org/container-registry/manifest/ocischema"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/inmemory"
+	"gitlab.com/gitlab-org/container-registry/testutil"
 )
 
 func TestVerifyOCIManifestNonDistributableLayer(t *testing.T) {

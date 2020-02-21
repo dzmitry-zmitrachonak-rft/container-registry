@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/manifest"
-	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/schema1"
-	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/manifest"
+	"gitlab.com/gitlab-org/container-registry/manifest/manifestlist"
+	"gitlab.com/gitlab-org/container-registry/manifest/schema1"
+	"gitlab.com/gitlab-org/container-registry/manifest/schema2"
 )
 
 type Image struct {

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/docker/distribution/health"
+	"gitlab.com/gitlab-org/container-registry/health"
 )
 
 // TestGETDownHandlerDoesNotChangeStatus ensures that calling the endpoint

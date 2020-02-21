@@ -5,17 +5,17 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/manifest"
-	"github.com/docker/distribution/manifest/schema1"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/storage"
-	"github.com/docker/distribution/registry/storage/cache/memory"
-	"github.com/docker/distribution/registry/storage/driver/inmemory"
-	"github.com/docker/distribution/testutil"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/manifest"
+	"gitlab.com/gitlab-org/container-registry/manifest/schema1"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/storage"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache/memory"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/inmemory"
+	"gitlab.com/gitlab-org/container-registry/testutil"
 )
 
 func TestListener(t *testing.T) {

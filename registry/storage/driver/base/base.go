@@ -42,10 +42,10 @@ import (
 	"io"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
-	prometheus "github.com/docker/distribution/metrics"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/go-metrics"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	prometheus "gitlab.com/gitlab-org/container-registry/metrics"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 var (

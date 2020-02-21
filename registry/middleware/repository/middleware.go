@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/distribution"
+	"gitlab.com/gitlab-org/container-registry"
 )
 
 // InitFunc is the type of a RepositoryMiddleware factory function and is

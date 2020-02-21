@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/distribution/health"
+	"gitlab.com/gitlab-org/container-registry/health"
 )
 
 // FileChecker checks the existence of a file and returns an error

@@ -22,13 +22,13 @@ import (
 
 	"github.com/opencontainers/go-digest"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
 	"github.com/docker/libtrust"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
 
-	"github.com/docker/distribution/registry/storage"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	"github.com/docker/distribution/testutil"
+	"gitlab.com/gitlab-org/container-registry/registry/storage"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry/testutil"
 	"gopkg.in/check.v1"
 )
 

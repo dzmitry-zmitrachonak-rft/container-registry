@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/manifest/schema1"
+	"gitlab.com/gitlab-org/container-registry/manifest/schema1"
 )
 
 // TestEventJSONFormat provides silly test to detect if the event format or

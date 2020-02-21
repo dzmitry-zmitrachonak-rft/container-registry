@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/docker/distribution/registry/auth"
+	"gitlab.com/gitlab-org/container-registry/registry/auth"
 
 	"golang.org/x/crypto/bcrypt"
 )

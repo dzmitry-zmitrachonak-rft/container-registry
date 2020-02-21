@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/auth"
-	_ "github.com/docker/distribution/registry/auth/htpasswd"
 	"github.com/docker/libtrust"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/api/errcode"
+	"gitlab.com/gitlab-org/container-registry/registry/auth"
+	_ "gitlab.com/gitlab-org/container-registry/registry/auth/htpasswd"
 )
 
 var (

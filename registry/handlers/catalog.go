@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/gorilla/handlers"
+	"gitlab.com/gitlab-org/container-registry/registry/api/errcode"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 const maximumReturnedEntries = 100

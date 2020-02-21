@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/distribution/uuid"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/container-registry/uuid"
 )
 
 // Common errors used with this package.

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/docker/distribution/configuration"
+	"gitlab.com/gitlab-org/container-registry/configuration"
 )
 
 // EndpointConfig covers the optional configuration parameters for an active

@@ -10,8 +10,8 @@ import (
 	"path"
 	"strconv"
 
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/sirupsen/logrus"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 // resumeDigest attempts to restore the state of the internal hash function

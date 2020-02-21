@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/docker/distribution/digestset"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry/digestset"
 )
 
 func TestValidateReferenceName(t *testing.T) {

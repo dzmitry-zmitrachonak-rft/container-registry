@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/docker/distribution/version"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry/version"
 
 	_ "crypto/sha256"
 	_ "crypto/sha512"

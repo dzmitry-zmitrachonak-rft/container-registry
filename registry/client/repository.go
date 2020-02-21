@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/api/v2"
-	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/distribution/registry/storage/cache"
-	"github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/api/v2"
+	"gitlab.com/gitlab-org/container-registry/registry/client/transport"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache/memory"
 )
 
 // Registry provides an interface for calling Repositories, which returns a catalog of repositories.

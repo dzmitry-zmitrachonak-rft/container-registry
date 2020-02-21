@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest"
 	"github.com/opencontainers/image-spec/specs-go/v1"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/manifest"
 )
 
 var expectedManifestSerialization = []byte(`{

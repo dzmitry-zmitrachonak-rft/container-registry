@@ -3,9 +3,9 @@ package cache
 import (
 	"context"
 
-	"github.com/docker/distribution"
-	prometheus "github.com/docker/distribution/metrics"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	prometheus "gitlab.com/gitlab-org/container-registry/metrics"
 )
 
 // Metrics is used to hold metric counters

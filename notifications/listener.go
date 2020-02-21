@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/docker/distribution"
+	"gitlab.com/gitlab-org/container-registry"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/reference"
 	"github.com/opencontainers/go-digest"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/reference"
 )
 
 // ManifestListener describes a set of methods for listening to events related to manifests.

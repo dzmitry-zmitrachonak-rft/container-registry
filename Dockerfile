@@ -1,6 +1,6 @@
 FROM golang:1.13-alpine AS build
 
-ENV DISTRIBUTION_DIR /go/src/github.com/docker/distribution
+ENV DISTRIBUTION_DIR /go/src/gitlab.com/gitlab-org/container-registry
 ENV BUILDTAGS include_oss include_gcs
 
 ARG GOOS=linux
@@ -16,7 +16,7 @@ RUN CGO_ENABLED=0 make PREFIX=/go clean binaries && file ./bin/registry | grep "
 
 FROM alpine
 COPY cmd/registry/config-dev.yml /etc/docker/registry/config.yml
-COPY --from=build /go/src/github.com/docker/distribution/bin/registry /bin/registry
+COPY --from=build /go/src/gitlab.com/gitlab-org/container-registry/bin/registry /bin/registry
 VOLUME ["/var/lib/registry"]
 EXPOSE 5000
 ENTRYPOINT ["registry"]

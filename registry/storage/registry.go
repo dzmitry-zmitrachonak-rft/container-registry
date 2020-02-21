@@ -4,11 +4,11 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/storage/cache"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/libtrust"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/cache"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
 )
 
 // registry is the top-level implementation of Registry for use in the storage

@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/testutil"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry"
+	"gitlab.com/gitlab-org/container-registry/reference"
+	"gitlab.com/gitlab-org/container-registry/testutil"
 )
 
 func TestLinkedBlobStoreCreateWithMountFrom(t *testing.T) {

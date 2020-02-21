@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strings"
 
-	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/registry/auth"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
+	"gitlab.com/gitlab-org/container-registry/registry/auth"
 )
 
 // accessController provides a simple implementation of auth.AccessController

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/docker/distribution"
+	"gitlab.com/gitlab-org/container-registry"
 )
 
 // EventAction constants used in action field of Event.

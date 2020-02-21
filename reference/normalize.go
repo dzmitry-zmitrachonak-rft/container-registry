@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/distribution/digestset"
 	"github.com/opencontainers/go-digest"
+	"gitlab.com/gitlab-org/container-registry/digestset"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/docker/distribution/uuid"
+	"gitlab.com/gitlab-org/container-registry/uuid"
 )
 
 // instanceContext is a context that provides only an instance id. It is

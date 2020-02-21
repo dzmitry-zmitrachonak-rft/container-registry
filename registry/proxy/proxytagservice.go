@@ -3,7 +3,7 @@ package proxy
 import (
 	"context"
 
-	"github.com/docker/distribution"
+	"gitlab.com/gitlab-org/container-registry"
 )
 
 // proxyTagService supports local and remote lookup of tags.

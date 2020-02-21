@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
+	dcontext "gitlab.com/gitlab-org/container-registry/context"
 )
 
 const (

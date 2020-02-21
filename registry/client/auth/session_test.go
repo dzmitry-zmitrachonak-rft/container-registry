@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/registry/client/auth/challenge"
-	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/distribution/testutil"
+	"gitlab.com/gitlab-org/container-registry/registry/client/auth/challenge"
+	"gitlab.com/gitlab-org/container-registry/registry/client/transport"
+	"gitlab.com/gitlab-org/container-registry/testutil"
 )
 
 // An implementation of clock for providing fake time data.

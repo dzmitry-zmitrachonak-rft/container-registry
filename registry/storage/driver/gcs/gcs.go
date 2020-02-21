@@ -34,10 +34,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	"github.com/docker/distribution/registry/storage/driver/base"
-	"github.com/docker/distribution/registry/storage/driver/factory"
 	"github.com/sirupsen/logrus"
+	storagedriver "gitlab.com/gitlab-org/container-registry/registry/storage/driver"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/base"
+	"gitlab.com/gitlab-org/container-registry/registry/storage/driver/factory"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"

@@ -20,8 +20,8 @@ import (
 	"regexp"
 	"text/template"
 
-	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/api/v2"
+	"gitlab.com/gitlab-org/container-registry/registry/api/errcode"
+	"gitlab.com/gitlab-org/container-registry/registry/api/v2"
 )
 
 var spaceRegex = regexp.MustCompile(`\n\s*`)
