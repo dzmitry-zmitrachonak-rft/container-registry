@@ -1322,29 +1322,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 
 	// --------------------------------
 	// Attempt to push manifest with missing config and missing layers
-	manifest := &schema2.Manifest{
-		Versioned: manifest.Versioned{
-			SchemaVersion: 2,
-			MediaType:     schema2.MediaTypeManifest,
-		},
-		Config: distribution.Descriptor{
-			Digest:    "sha256:1a9ec845ee94c202b2d5da74a24f0ed2058318bfa9879fa541efaecba272e86b",
-			Size:      3253,
-			MediaType: schema2.MediaTypeImageConfig,
-		},
-		Layers: []distribution.Descriptor{
-			{
-				Digest:    "sha256:463434349086340864309863409683460843608348608934092322395278926a",
-				Size:      6323,
-				MediaType: schema2.MediaTypeLayer,
-			},
-			{
-				Digest:    "sha256:630923423623623423352523525237238023652897356239852383652aaaaaaa",
-				Size:      6863,
-				MediaType: schema2.MediaTypeLayer,
-			},
-		},
-	}
+	manifest := makeSchema2Manifest(schema2.MediaTypeImageConfig)
 
 	resp = putManifest(t, "putting missing config manifest", manifestURL, schema2.MediaTypeManifest, manifest)
 	defer resp.Body.Close()
@@ -2603,21 +2581,8 @@ func makeSampleConfig() []byte {
 	}`)
 }
 
-func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) manifestArgs {
-	args := manifestArgs{
-		imageName: imageName,
-		mediaType: schema2.MediaTypeManifest,
-	}
-
-	tagRef, _ := reference.WithTag(imageName, tag)
-	manifestURL, err := env.builder.BuildManifestURL(tagRef)
-	if err != nil {
-		t.Fatalf("unexpected error getting manifest url: %v", err)
-	}
-
-	// --------------------------------
-	// Attempt to push manifest with missing config and missing layers
-	manifest := &schema2.Manifest{
+func makeSchema2Manifest(mediaType string) *schema2.Manifest {
+	return &schema2.Manifest{
 		Versioned: manifest.Versioned{
 			SchemaVersion: 2,
 			MediaType:     schema2.MediaTypeManifest,
@@ -2640,6 +2605,23 @@ func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named
 			},
 		},
 	}
+}
+
+func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) manifestArgs {
+	args := manifestArgs{
+		imageName: imageName,
+		mediaType: schema2.MediaTypeManifest,
+	}
+
+	tagRef, _ := reference.WithTag(imageName, tag)
+	manifestURL, err := env.builder.BuildManifestURL(tagRef)
+	if err != nil {
+		t.Fatalf("unexpected error getting manifest url: %v", err)
+	}
+
+	// --------------------------------
+	// Attempt to push manifest with missing config and missing layers
+	manifest := makeSchema2Manifest(mediaType)
 
 	// Push a config, and reference it in the manifest
 	sampleConfig := makeSampleConfig()
