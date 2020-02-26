@@ -1360,26 +1360,7 @@ func testManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Name
 	}
 
 	// Push a config, and reference it in the manifest
-	sampleConfig := []byte(`{
-		"architecture": "amd64",
-		"history": [
-		  {
-		    "created": "2015-10-31T22:22:54.690851953Z",
-		    "created_by": "/bin/sh -c #(nop) ADD file:a3bc1e842b69636f9df5256c49c5374fb4eef1e281fe3f282c65fb853ee171c5 in /"
-		  },
-		  {
-		    "created": "2015-10-31T22:22:55.613815829Z",
-		    "created_by": "/bin/sh -c #(nop) CMD [\"sh\"]"
-		  }
-		],
-		"rootfs": {
-		  "diff_ids": [
-		    "sha256:c6f988f4874bb0add23a778f753c65efe992244e148a1d2ec2a8b664fb66bbd1",
-		    "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
-		  ],
-		  "type": "layers"
-		}
-	}`)
+	sampleConfig := makeSampleConfig()
 	sampleConfigDigest := digest.FromBytes(sampleConfig)
 
 	uploadURLBase, _ := startPushLayer(t, env, imageName)
@@ -2599,6 +2580,29 @@ func TestProxyManifestGetByTag(t *testing.T) {
 	})
 }
 
+func makeSampleConfig() []byte {
+	return []byte(`{
+		"architecture": "amd64",
+		"history": [
+		  {
+		    "created": "2015-10-31T22:22:54.690851953Z",
+		    "created_by": "/bin/sh -c #(nop) ADD file:a3bc1e842b69636f9df5256c49c5374fb4eef1e281fe3f282c65fb853ee171c5 in /"
+		  },
+		  {
+		    "created": "2015-10-31T22:22:55.613815829Z",
+		    "created_by": "/bin/sh -c #(nop) CMD [\"sh\"]"
+		  }
+		],
+		"rootfs": {
+		  "diff_ids": [
+		    "sha256:c6f988f4874bb0add23a778f753c65efe992244e148a1d2ec2a8b664fb66bbd1",
+		    "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+		  ],
+		  "type": "layers"
+		}
+	}`)
+}
+
 func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) manifestArgs {
 	args := manifestArgs{
 		imageName: imageName,
@@ -2638,26 +2642,7 @@ func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named
 	}
 
 	// Push a config, and reference it in the manifest
-	sampleConfig := []byte(`{
-		"architecture": "amd64",
-		"history": [
-		  {
-		    "created": "2015-10-31T22:22:54.690851953Z",
-		    "created_by": "/bin/sh -c #(nop) ADD file:a3bc1e842b69636f9df5256c49c5374fb4eef1e281fe3f282c65fb853ee171c5 in /"
-		  },
-		  {
-		    "created": "2015-10-31T22:22:55.613815829Z",
-		    "created_by": "/bin/sh -c #(nop) CMD [\"sh\"]"
-		  }
-		],
-		"rootfs": {
-		  "diff_ids": [
-		    "sha256:c6f988f4874bb0add23a778f753c65efe992244e148a1d2ec2a8b664fb66bbd1",
-		    "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
-		  ],
-		  "type": "layers"
-		}
-	}`)
+	sampleConfig := makeSampleConfig()
 	sampleConfigDigest := digest.FromBytes(sampleConfig)
 	uploadURLBase, _ := startPushLayer(t, env, imageName)
 	pushLayer(t, env.builder, imageName, sampleConfigDigest, uploadURLBase, bytes.NewReader(sampleConfig))
@@ -2726,11 +2711,11 @@ func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName referen
 
 	resp, err := http.Get(tagsURL)
 	if err != nil {
-		t.Fatalf("unexpected error getting unknown tags: %v", err)
+		t.Fatalf("unexpected error getting tags: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Check that we get an unknown repository error when asking for tags
+	// Make sure we get a successful response
 	checkResponse(t, "getting list of tags", resp, http.StatusOK)
 	dec := json.NewDecoder(resp.Body)
 
