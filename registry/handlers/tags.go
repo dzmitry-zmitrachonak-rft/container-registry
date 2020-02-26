@@ -38,6 +38,8 @@ func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, er
 		return tags, nil
 	}
 
+	dcontext.GetLoggerWithField(th, "media_type", mediaType).Debug("filtering tags by media type")
+
 	var matchingTags []string
 
 	manifestService, err := th.Repository.Manifests(th)
@@ -67,7 +69,11 @@ func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, er
 			tagMediaType = descriptors[0].MediaType
 		}
 
-		dcontext.GetLogger(th).Debugf("=====> media type is %s", tagMediaType)
+		dcontext.GetLoggerWithFields(th, map[interface{}]interface{}{
+			"tag":        tag,
+			"media_type": tagMediaType,
+		}).Debug("tag media type detected")
+
 		if tagMediaType == mediaType {
 			matchingTags = append(matchingTags, tag)
 		}
@@ -95,7 +101,6 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mediaType := r.URL.Query().Get("media_type")
-	dcontext.GetLogger(th).Debugf("====> requested media type is %s", mediaType)
 
 	tags, err = th.filterTags(mediaType, tags)
 	if err != nil {
