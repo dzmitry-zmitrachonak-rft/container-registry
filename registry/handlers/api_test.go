@@ -2692,15 +2692,6 @@ func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named
 		"Docker-Content-Digest": []string{dgst.String()},
 	})
 
-	// --------------------
-	// Push by digest -- should get same result
-	resp = putManifest(t, "putting manifest by digest", manifestDigestURL, schema2.MediaTypeManifest, manifest)
-	checkResponse(t, "putting manifest by digest", resp, http.StatusCreated)
-	checkHeaders(t, resp, http.Header{
-		"Location":              []string{manifestDigestURL},
-		"Docker-Content-Digest": []string{dgst.String()},
-	})
-
 	return args
 }
 
