@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/docker/distribution"
@@ -33,14 +34,24 @@ type tagsAPIResponse struct {
 	Tags []string `json:"tags"`
 }
 
-func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, error) {
-	if mediaType == "" {
+func (th *tagsHandler) filterTags(containerType string, tags []string) ([]string, error) {
+	if containerType == "" {
 		return tags, nil
 	}
 
-	dcontext.GetLoggerWithField(th, "media_type", mediaType).Debug("filtering tags by media type")
+	dcontext.GetLoggerWithField(th, "type", containerType).Debug("filtering tags by type")
 
 	var matchingTags []string
+
+	var typeMediaTypeMap = map[string][]string{
+		"docker": []string{"application/vnd.docker.container.image.rootfs.diff+x-gtar", "application/vnd.docker.container.image.v1+json"},
+		"helm":   []string{"application/vnd.cncf.helm.config.v1+json"},
+	}
+
+	mediaTypes, ok := typeMediaTypeMap[containerType]
+	if !ok {
+		return matchingTags, errors.New("Invalid type param. Must be one of `docker` or `helm`")
+	}
 
 	manifestService, err := th.Repository.Manifests(th)
 	if err != nil {
@@ -74,8 +85,11 @@ func (th *tagsHandler) filterTags(mediaType string, tags []string) ([]string, er
 			"media_type": tagMediaType,
 		}).Debug("tag media type detected")
 
-		if tagMediaType == mediaType {
-			matchingTags = append(matchingTags, tag)
+		for _, mediaType := range mediaTypes {
+			if mediaType == tagMediaType {
+				matchingTags = append(matchingTags, tag)
+				break
+			}
 		}
 	}
 
@@ -100,9 +114,9 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mediaType := r.URL.Query().Get("media_type")
+	containerType := r.URL.Query().Get("type")
 
-	tags, err = th.filterTags(mediaType, tags)
+	tags, err = th.filterTags(containerType, tags)
 	if err != nil {
 		th.Errors = append(th.Errors, err)
 		return

@@ -2677,9 +2677,9 @@ func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named
 	return args
 }
 
-func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) {
+func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName reference.Named, tags []string, containerType string) {
 	tagsURL, err := env.builder.BuildTagsURL(imageName, url.Values{
-		"media_type": []string{mediaType},
+		"type": []string{containerType},
 	})
 
 	resp, err := http.Get(tagsURL)
@@ -2702,12 +2702,14 @@ func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName referen
 		t.Fatalf("tags name should match image name: %v != %v", tagsResponse.Name, imageName.Name())
 	}
 
-	if len(tagsResponse.Tags) != 1 {
-		t.Fatalf("expected some tags in response: %v", tagsResponse.Tags)
+	if len(tagsResponse.Tags) != len(tags) {
+		t.Fatalf("expected some tags in response: %v", tags)
 	}
 
-	if tagsResponse.Tags[0] != tag {
-		t.Fatalf("tag not as expected: %q != %q", tagsResponse.Tags[0], tag)
+	for i, tag := range tags {
+		if tagsResponse.Tags[i] != tag {
+			t.Fatalf("tag not as expected: %q != %q", tagsResponse.Tags[i], tag)
+		}
 	}
 }
 
@@ -2718,9 +2720,10 @@ func TestGetTagsByMediaType(t *testing.T) {
 	env := newTestEnv(t, deleteEnabled)
 	defer env.Shutdown()
 
-	putManifestAPISchema2(t, env, imageName, "latest", "application/vnd.oci.image.config.v1+json")
+	putManifestAPISchema2(t, env, imageName, "latest", "application/vnd.cncf.helm.config.v1+json")
 	putManifestAPISchema2(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
+	createRepository(env, t, "foo/schema2", "v1tag")
 
-	testRequestGetTagsByMediaType(t, env, imageName, "latest", "application/vnd.oci.image.config.v1+json")
-	testRequestGetTagsByMediaType(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
+	testRequestGetTagsByMediaType(t, env, imageName, []string{"v1tag", "v2"}, "docker")
+	testRequestGetTagsByMediaType(t, env, imageName, []string{"latest"}, "helm")
 }
