@@ -51,7 +51,7 @@ func (th *tagsHandler) filterTags(containerType string, tags []string) ([]string
 
 	mediaTypes, ok := mediaTypeLookup[containerType]
 	if !ok {
-		return matchingTags, errors.New("Invalid type param. Must be one of `docker` or `helm`")
+		return matchingTags, errors.New("Invalid type param. Must be one of `docker` or `helm`. Type given: " + containerType)
 	}
 
 	manifestService, err := th.Repository.Manifests(th)
