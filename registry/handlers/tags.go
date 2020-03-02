@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/api/v2"
 	"github.com/gorilla/handlers"
@@ -34,6 +35,11 @@ type tagsAPIResponse struct {
 	Tags []string `json:"tags"`
 }
 
+var mediaTypeLookup = map[string][]string{
+	"docker": []string{schema2.MediaTypeV1, schema2.MediaTypeImageConfig},
+	"helm":   []string{schema2.MediaTypeHelm},
+}
+
 func (th *tagsHandler) filterTags(containerType string, tags []string) ([]string, error) {
 	if containerType == "" {
 		return tags, nil
@@ -43,12 +49,7 @@ func (th *tagsHandler) filterTags(containerType string, tags []string) ([]string
 
 	var matchingTags []string
 
-	var typeMediaTypeMap = map[string][]string{
-		"docker": []string{"application/vnd.docker.container.image.rootfs.diff+x-gtar", "application/vnd.docker.container.image.v1+json"},
-		"helm":   []string{"application/vnd.cncf.helm.config.v1+json"},
-	}
-
-	mediaTypes, ok := typeMediaTypeMap[containerType]
+	mediaTypes, ok := mediaTypeLookup[containerType]
 	if !ok {
 		return matchingTags, errors.New("Invalid type param. Must be one of `docker` or `helm`")
 	}

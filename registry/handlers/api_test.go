@@ -2720,7 +2720,7 @@ func TestGetTagsByMediaType(t *testing.T) {
 	env := newTestEnv(t, deleteEnabled)
 	defer env.Shutdown()
 
-	putManifestAPISchema2(t, env, imageName, "latest", "application/vnd.cncf.helm.config.v1+json")
+	putManifestAPISchema2(t, env, imageName, "latest", schema2.MediaTypeHelm)
 	putManifestAPISchema2(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
 	createRepository(env, t, "foo/schema2", "v1tag")
 
