@@ -7,6 +7,8 @@ import (
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/manifest/helm"
+	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/api/v2"
@@ -36,8 +38,8 @@ type tagsAPIResponse struct {
 }
 
 var mediaTypeLookup = map[string][]string{
-	"docker": []string{schema2.MediaTypeV1, schema2.MediaTypeImageConfig},
-	"helm":   []string{schema2.MediaTypeHelm},
+	"docker": []string{schema1.MediaTypeManifestLayer, schema2.MediaTypeImageConfig},
+	"helm":   []string{helm.MediaTypeImageConfig},
 }
 
 func (th *tagsHandler) filterTags(containerType string, tags []string) ([]string, error) {

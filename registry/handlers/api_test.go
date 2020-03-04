@@ -23,6 +23,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/manifest"
+	"github.com/docker/distribution/manifest/helm"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
@@ -2720,9 +2721,9 @@ func TestGetTagsByMediaType(t *testing.T) {
 	env := newTestEnv(t, deleteEnabled)
 	defer env.Shutdown()
 
-	putManifestAPISchema2(t, env, imageName, "latest", schema2.MediaTypeHelm)
+	putManifestAPISchema2(t, env, imageName, "latest", helm.MediaTypeImageConfig)
 	putManifestAPISchema2(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
-	createRepository(env, t, "foo/schema2", "v1tag")
+	createRepository(env, t, "foo/schema1", "v1tag")
 
 	testRequestGetTagsByMediaType(t, env, imageName, []string{"v1tag", "v2"}, "docker")
 	testRequestGetTagsByMediaType(t, env, imageName, []string{"latest"}, "helm")

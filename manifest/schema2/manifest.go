@@ -11,12 +11,6 @@ import (
 )
 
 const (
-	// MediaTypeHelm specifies the mediaType for helm charts packages
-	MediaTypeHelm = "application/vnd.cncf.helm.config.v1+json"
-
-	// MediaTypeV1  specified the mediaType for v1 images
-	MediaTypeV1 = "application/vnd.docker.container.image.rootfs.diff+x-gtar"
-
 	// MediaTypeManifest specifies the mediaType for the current version.
 	MediaTypeManifest = "application/vnd.docker.distribution.manifest.v2+json"
 
