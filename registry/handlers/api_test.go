@@ -2715,7 +2715,7 @@ func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName referen
 }
 
 func TestGetTagsByMediaType(t *testing.T) {
-	imageName, _ := reference.WithName("foo/schema2")
+	imageName, _ := reference.WithName("test")
 
 	deleteEnabled := true
 	env := newTestEnv(t, deleteEnabled)
@@ -2723,8 +2723,8 @@ func TestGetTagsByMediaType(t *testing.T) {
 
 	putManifestAPISchema2(t, env, imageName, "latest", helm.MediaTypeImageConfig)
 	putManifestAPISchema2(t, env, imageName, "v2", schema2.MediaTypeImageConfig)
-	createRepository(env, t, "foo/schema1", "v1tag")
+	createRepository(env, t, "test", "v1tag")
 
-	testRequestGetTagsByMediaType(t, env, imageName, []string{"v1tag", "v2"}, "docker")
+	testRequestGetTagsByMediaType(t, env, imageName, []string{"v1", "v2"}, "docker")
 	testRequestGetTagsByMediaType(t, env, imageName, []string{"latest"}, "helm")
 }
