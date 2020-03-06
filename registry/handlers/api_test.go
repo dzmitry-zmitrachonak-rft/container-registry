@@ -2727,3 +2727,49 @@ func TestGetTagsByMediaType(t *testing.T) {
 	testRequestGetTagsByMediaType(t, env, imageName, []string{"v1", "v2"}, "docker")
 	testRequestGetTagsByMediaType(t, env, imageName, []string{"latest"}, "helm")
 }
+
+func benchmarkTagsByMediaType(b *testing.B, containerType string, env *testEnv, imageName reference.Named) {
+	tagsURL, err := env.builder.BuildTagsURL(imageName, url.Values{
+		"type": []string{containerType},
+	})
+	if err != nil {
+		b.Fatalf("unexpected error building url: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		resp, err := http.Get(tagsURL)
+		if err != nil {
+			b.Fatalf("unexpected error getting tags: %v", err)
+		}
+		resp.Body.Close()
+	}
+}
+
+func BenchmarkTagsByMediaType(b *testing.B) {
+	imageName, _ := reference.WithName("test")
+
+	env := newTestEnv(b, true)
+	defer env.Shutdown()
+
+	for i := 0; i < 10; i++ {
+		putManifestAPISchema2(b, env, imageName, fmt.Sprintf("helm%d", i), helm.MediaTypeImageConfig)
+	}
+	for i := 0; i < 10; i++ {
+		putManifestAPISchema2(b, env, imageName, fmt.Sprintf("docker%d", i), schema2.MediaTypeImageConfig)
+	}
+	for i := 0; i < 10; i++ {
+		createRepository(env, b, "test", fmt.Sprintf("v1%d", i))
+	}
+
+	b.ResetTimer()
+
+	b.Run("type=helm", func(b *testing.B) {
+		benchmarkTagsByMediaType(b, "helm", env, imageName)
+	})
+	b.Run("type=docker", func(b *testing.B) {
+		benchmarkTagsByMediaType(b, "docker", env, imageName)
+	})
+	b.Run("type=all", func(b *testing.B) {
+		benchmarkTagsByMediaType(b, "", env, imageName)
+	})
+}
