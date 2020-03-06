@@ -1993,7 +1993,7 @@ func newTestEnvMirror(t *testing.T, deleteEnabled bool) *testEnv {
 
 }
 
-func newTestEnv(t *testing.T, deleteEnabled bool) *testEnv {
+func newTestEnv(t testing.TB, deleteEnabled bool) *testEnv {
 	config := configuration.Configuration{
 		Storage: configuration.Storage{
 			"testdriver": configuration.Parameters{},
@@ -2010,7 +2010,7 @@ func newTestEnv(t *testing.T, deleteEnabled bool) *testEnv {
 	return newTestEnvWithConfig(t, &config)
 }
 
-func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *testEnv {
+func newTestEnvWithConfig(t testing.TB, config *configuration.Configuration) *testEnv {
 	ctx := context.Background()
 
 	app := NewApp(ctx, config)
@@ -2041,7 +2041,7 @@ func (t *testEnv) Shutdown() {
 	t.server.Close()
 }
 
-func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *http.Response {
+func putManifest(t testing.TB, msg, url, contentType string, v interface{}) *http.Response {
 	var body []byte
 
 	switch m := v.(type) {
@@ -2082,7 +2082,7 @@ func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *htt
 	return resp
 }
 
-func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location string, uuid string) {
+func startPushLayer(t testing.TB, env *testEnv, name reference.Named) (location string, uuid string) {
 	layerUploadURL, err := env.builder.BuildBlobUploadURL(name)
 	if err != nil {
 		t.Fatalf("unexpected error building layer upload url: %v", err)
@@ -2125,7 +2125,7 @@ func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location 
 
 // doPushLayer pushes the layer content returning the url on success returning
 // the response. If you're only expecting a successful response, use pushLayer.
-func doPushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
+func doPushLayer(t testing.TB, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
 	u, err := url.Parse(uploadURLBase)
 	if err != nil {
 		t.Fatalf("unexpected error parsing pushLayer url: %v", err)
@@ -2148,7 +2148,7 @@ func doPushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst dig
 }
 
 // pushLayer pushes the layer content returning the url on success.
-func pushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
+func pushLayer(t testing.TB, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
 	digester := digest.Canonical.Digester()
 
 	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, io.TeeReader(body, digester.Hash()))
@@ -2250,7 +2250,7 @@ func pushChunk(t *testing.T, ub *v2.URLBuilder, name reference.Named, uploadURLB
 	return resp.Header.Get("Location"), dgst
 }
 
-func checkResponse(t *testing.T, msg string, resp *http.Response, expectedStatus int) {
+func checkResponse(t testing.TB, msg string, resp *http.Response, expectedStatus int) {
 	if resp.StatusCode != expectedStatus {
 		t.Logf("unexpected status %s: %v != %v", msg, resp.StatusCode, expectedStatus)
 		maybeDumpResponse(t, resp)
@@ -2324,7 +2324,7 @@ func checkBodyHasErrorCodes(t *testing.T, msg string, resp *http.Response, error
 	return errs, p, counts
 }
 
-func maybeDumpResponse(t *testing.T, resp *http.Response) {
+func maybeDumpResponse(t testing.TB, resp *http.Response) {
 	if d, err := httputil.DumpResponse(resp, true); err != nil {
 		t.Logf("error dumping response: %v", err)
 	} else {
@@ -2335,7 +2335,7 @@ func maybeDumpResponse(t *testing.T, resp *http.Response) {
 // matchHeaders checks that the response has at least the headers. If not, the
 // test will fail. If a passed in header value is "*", any non-zero value will
 // suffice as a match.
-func checkHeaders(t *testing.T, resp *http.Response, headers http.Header) {
+func checkHeaders(t testing.TB, resp *http.Response, headers http.Header) {
 	for k, vs := range headers {
 		if resp.Header.Get(k) == "" {
 			t.Fatalf("response missing header %q", k)
@@ -2358,13 +2358,13 @@ func checkHeaders(t *testing.T, resp *http.Response, headers http.Header) {
 	}
 }
 
-func checkErr(t *testing.T, err error, msg string) {
+func checkErr(t testing.TB, err error, msg string) {
 	if err != nil {
 		t.Fatalf("unexpected error %s: %v", msg, err)
 	}
 }
 
-func createRepository(env *testEnv, t *testing.T, imageName string, tag string) digest.Digest {
+func createRepository(env *testEnv, t testing.TB, imageName string, tag string) digest.Digest {
 	imageNameRef, err := reference.WithName(imageName)
 	if err != nil {
 		t.Fatalf("unable to parse reference: %v", err)
@@ -2608,7 +2608,7 @@ func makeSchema2Manifest(mediaType string) *schema2.Manifest {
 	}
 }
 
-func putManifestAPISchema2(t *testing.T, env *testEnv, imageName reference.Named, tag string, mediaType string) manifestArgs {
+func putManifestAPISchema2(t testing.TB, env *testEnv, imageName reference.Named, tag string, mediaType string) manifestArgs {
 	args := manifestArgs{
 		imageName: imageName,
 		mediaType: schema2.MediaTypeManifest,
@@ -2717,8 +2717,7 @@ func testRequestGetTagsByMediaType(t *testing.T, env *testEnv, imageName referen
 func TestGetTagsByMediaType(t *testing.T) {
 	imageName, _ := reference.WithName("test")
 
-	deleteEnabled := true
-	env := newTestEnv(t, deleteEnabled)
+	env := newTestEnv(t, true)
 	defer env.Shutdown()
 
 	putManifestAPISchema2(t, env, imageName, "latest", helm.MediaTypeImageConfig)
