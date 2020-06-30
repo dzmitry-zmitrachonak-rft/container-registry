@@ -18,7 +18,7 @@ type ManifestReader interface {
 	Count(ctx context.Context) (int, error)
 	Config(ctx context.Context, m *models.Manifest) (*models.ManifestConfiguration, error)
 	Layers(ctx context.Context, m *models.Manifest) (models.Layers, error)
-	Lists(ctx context.Context, m *models.Manifest) (models.ManifestLists, error)
+	AssociatedManifests(ctx context.Context, m *models.Manifest) (models.Manifests, error)
 	Repositories(ctx context.Context, m *models.Manifest) (models.Repositories, error)
 }
 
@@ -29,6 +29,8 @@ type ManifestWriter interface {
 	Mark(ctx context.Context, m *models.Manifest) error
 	AssociateLayer(ctx context.Context, m *models.Manifest, l *models.Layer) error
 	DissociateLayer(ctx context.Context, m *models.Manifest, l *models.Layer) error
+	AssociateManifest(ctx context.Context, parent *models.Manifest, child *models.Manifest) error
+	DissociateManifest(ctx context.Context, parent *models.Manifest, child *models.Manifest) error
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -155,22 +157,6 @@ func (s *manifestStore) Layers(ctx context.Context, m *models.Manifest) (models.
 	return scanFullLayers(rows)
 }
 
-// Lists finds all manifest lists which reference a manifest, through the ManifestListItem relationship entity.
-func (s *manifestStore) Lists(ctx context.Context, m *models.Manifest) (models.ManifestLists, error) {
-	q := `SELECT ml.id, ml.schema_version, ml.media_type, ml.digest_hex, ml.payload, ml.created_at, ml.marked_at
-		FROM manifest_lists as ml
-		JOIN manifest_list_items as mli ON mli.manifest_list_id = ml.id
-		JOIN manifests as m ON m.id = mli.manifest_id
-		WHERE m.id = $1`
-
-	rows, err := s.db.QueryContext(ctx, q, m.ID)
-	if err != nil {
-		return nil, fmt.Errorf("error finding manifest lists: %w", err)
-	}
-
-	return scanFullManifestLists(rows)
-}
-
 // Repositories finds all repositories which reference a manifest.
 func (s *manifestStore) Repositories(ctx context.Context, m *models.Manifest) (models.Repositories, error) {
 	q := `SELECT r.id, r.name, r.path, r.parent_id, r.created_at, updated_at FROM repositories as r
@@ -186,6 +172,21 @@ func (s *manifestStore) Repositories(ctx context.Context, m *models.Manifest) (m
 	return scanFullRepositories(rows)
 }
 
+// AssociatedManifests finds all manifests associated with a manifest list (if any).
+func (s *manifestStore) AssociatedManifests(ctx context.Context, m *models.Manifest) (models.Manifests, error) {
+	q := `SELECT m.id, m.schema_version, m.media_type, m.digest_hex, m.payload, m.created_at, m.marked_at
+		FROM manifests AS m
+		JOIN manifest_list_manifests AS mlm ON mlm.parent_id = $1
+		WHERE m.id = mlm.child_id`
+
+	rows, err := s.db.QueryContext(ctx, q, m.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error finding associated manifests: %w", err)
+	}
+
+	return scanFullManifests(rows)
+}
+
 // Create saves a new Manifest.
 func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	q := `INSERT INTO manifests (schema_version, media_type, digest_hex, payload)
@@ -194,6 +195,36 @@ func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	row := s.db.QueryRowContext(ctx, q, m.SchemaVersion, m.MediaType, m.Digest.Hex(), m.Payload)
 	if err := row.Scan(&m.ID, &m.CreatedAt); err != nil {
 		return fmt.Errorf("error creating manifest: %w", err)
+	}
+
+	return nil
+}
+
+// AssociateManifest associates a parent manifest (manifest list) and a child manifest (manifest or manifest list). It
+// does nothing if already associated.
+func (s *manifestStore) AssociateManifest(ctx context.Context, parent *models.Manifest, child *models.Manifest) error {
+	q := `INSERT INTO manifest_list_manifests (parent_id, child_id) VALUES ($1, $2)
+		ON CONFLICT (parent_id, child_id) DO NOTHING`
+
+	if _, err := s.db.ExecContext(ctx, q, parent.ID, child.ID); err != nil {
+		return fmt.Errorf("error associating manifest: %w", err)
+	}
+
+	return nil
+}
+
+// DissociateManifest dissociates a parent manifest (manifest list) and a child manifest (manifest or manifest list). It
+// does nothing if not associated.
+func (s *manifestStore) DissociateManifest(ctx context.Context, parent *models.Manifest, child *models.Manifest) error {
+	q := "DELETE FROM manifest_list_manifests WHERE parent_id = $1 AND child_id = $2"
+
+	res, err := s.db.ExecContext(ctx, q, parent.ID, child.ID)
+	if err != nil {
+		return fmt.Errorf("error dissociating manifest: %w", err)
+	}
+
+	if _, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("error dissociating manifest: %w", err)
 	}
 
 	return nil
