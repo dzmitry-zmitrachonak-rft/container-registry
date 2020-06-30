@@ -1068,6 +1068,7 @@ func TestManifestAPI(t *testing.T) {
 	schema2Args := manifestArgs{
 		imageName: schema2RepoRef,
 		mediaType: schema2.MediaTypeManifest,
+		manifest:  deserializedManifest,
 		dgst:      digest.FromBytes(payload),
 	}
 
@@ -1085,6 +1086,7 @@ func TestManifestAPI(t *testing.T) {
 	schema2Args = manifestArgs{
 		imageName: schema2RepoRef,
 		mediaType: schema2.MediaTypeManifest,
+		manifest:  deserializedManifest,
 		dgst:      digest.FromBytes(payload),
 	}
 
@@ -1198,6 +1200,7 @@ func TestManifestDelete(t *testing.T) {
 	schema2Args := manifestArgs{
 		imageName: schema2RepoRef,
 		mediaType: schema2.MediaTypeManifest,
+		manifest:  deserializedManifest,
 		dgst:      digest.FromBytes(payload),
 	}
 
