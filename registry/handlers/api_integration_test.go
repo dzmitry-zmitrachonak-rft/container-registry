@@ -2243,6 +2243,47 @@ func TestManifestAPI_Get_Schema2ByTagNotAssociatedWithRepository(t *testing.T) {
 	checkBodyHasErrorCodes(t, "getting non-existent manifest", resp, v2.ErrorCodeManifestUnknown)
 }
 
+func TestManifestAPI_Get_Schema2ByTagNotAssociatedManifest(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	if !env.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	tagName := "missingmanifesttag"
+	repoPath := "schema2/missingmanifest"
+
+	deserializedManifest := putRandomSchema2ManifestByTag(t, env, repoPath, tagName)
+
+	// Remove the manifest manually from the database to bypass the tag unlinking
+	// that would happen with deleting the manifest with the API.
+	_, payload, err := deserializedManifest.Payload()
+	require.NoError(t, err)
+
+	dgst := digest.FromBytes(payload)
+
+	manifestStore := datastore.NewManifestStore(env.db)
+	dbManifest, err := manifestStore.FindByDigest(env.ctx, dgst)
+
+	err = manifestStore.Delete(env.ctx, dbManifest.ID)
+	require.NoError(t, err)
+
+	// Test that we get the appropreate error.
+	manifestURL := buildManifestTagURL(t, env, repoPath, tagName)
+
+	req, err := http.NewRequest("GET", manifestURL, nil)
+	require.NoError(t, err)
+	req.Header.Set("Accept", schema2.MediaTypeManifest)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	checkResponse(t, "getting non-existent manifest", resp, http.StatusNotFound)
+	checkBodyHasErrorCodes(t, "getting non-existent manifest", resp, v2.ErrorCodeManifestUnknown)
+}
+
 func TestManifestAPI_Head_Schema2(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.Shutdown()
@@ -2453,8 +2494,7 @@ func TestManifestAPI_Put_TagReadOnly(t *testing.T)    {}
 
 // TODO: Break out logic from testManifestAPISchema2 into these tests.
 // https://gitlab.com/gitlab-org/container-registry/-/issues/140
-func TestManifestAPI_Get_Schema2ByDigestAsSchema1(t *testing.T)    {}
-func TestManifestAPI_Get_Schema2ByTagMissingManifest(t *testing.T) {}
+func TestManifestAPI_Get_Schema2ByDigestAsSchema1(t *testing.T) {}
 
 // TODO: Break out logic from testManifestDelete into these tests.
 // https://gitlab.com/gitlab-org/container-registry/-/issues/144
