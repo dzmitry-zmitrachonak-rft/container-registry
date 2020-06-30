@@ -1182,14 +1182,14 @@ func TestGetManifestWithStorageError(t *testing.T) {
 }
 
 func TestManifestDelete(t *testing.T) {
-	schema1RepoRef, _ := reference.WithName("foo/schema1")
+	schema1Repo, _ := reference.WithName("foo/schema1")
 
 	schema2Path := "foo/schema2"
 	schema2RepoRef, _ := reference.WithName("foo/schema2")
 
 	env := newTestEnv(t, withDelete, withSchema1Compatibility)
 	defer env.Shutdown()
-	schema1Args := testManifestAPISchema1(t, env, schema1RepoRef)
+	schema1Args := testManifestAPISchema1(t, env, schema1Repo)
 	testManifestDelete(t, env, schema1Args)
 
 	deserializedManifest := putRandomSchema2ManifestByTag(t, env, schema2Path, "latest")
