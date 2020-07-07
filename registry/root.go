@@ -29,6 +29,7 @@ func init() {
 	GCCmd.Flags().BoolVarP(&removeUntagged, "delete-untagged", "m", false, "delete manifests that are not currently referenced via tag")
 	GCCmd.Flags().StringVarP(&debugAddr, "debug-server", "s", "", "run a pprof debug server at <address:port>")
 
+	MigrateCmd.AddCommand(MigrateNewCmd)
 	DBCmd.AddCommand(MigrateCmd)
 	DBCmd.AddCommand(ImportCmd)
 	ImportCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "do not commit changes to the database")
@@ -151,6 +152,26 @@ var MigrateCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to run database migrations: %v", err)
 			os.Exit(1)
 		}
+	},
+}
+
+// MigrateNewCmd is the `new` sub-command of `database migrate` that creates a new migration file based on a template.
+var MigrateNewCmd = &cobra.Command{
+	Use:   "new [name]",
+	Short: "Create new migration",
+	Long:  "Create new migration. This command should be run from the root of the repository.",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		migrationsDir := "migrations"
+
+		fp, err := migrations.NewFromTemplate(migrationsDir, name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println(fp)
 	},
 }
 
