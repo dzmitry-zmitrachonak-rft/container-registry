@@ -30,6 +30,7 @@ func init() {
 	GCCmd.Flags().StringVarP(&debugAddr, "debug-server", "s", "", "run a pprof debug server at <address:port>")
 
 	MigrateCmd.AddCommand(MigrateNewCmd)
+	MigrateCmd.AddCommand(MigrateUpCmd)
 	DBCmd.AddCommand(MigrateCmd)
 	DBCmd.AddCommand(ImportCmd)
 	ImportCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "do not commit changes to the database")
@@ -121,11 +122,20 @@ var DBCmd = &cobra.Command{
 	},
 }
 
-// MigrateCmd is the `migrate` sub-command of `database` that migrates the database to the latest version.
+// MigrateCmd is the `migrate` sub-command of `database` that manages database migrations.
 var MigrateCmd = &cobra.Command{
 	Use:   "migrate",
-	Short: "Run new migrations",
-	Long:  "Run new migrations",
+	Short: "Manage migrations",
+	Long:  "Manage migrations",
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Usage()
+	},
+}
+
+var MigrateUpCmd = &cobra.Command{
+	Use:   "up",
+	Short: "Apply up migrations",
+	Long:  "Apply up migrations",
 	Run: func(cmd *cobra.Command, args []string) {
 		config, err := resolveConfiguration(args)
 		if err != nil {
