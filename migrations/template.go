@@ -49,8 +49,8 @@ func NewFromTemplate(dir, name string) (string, error) {
 	}
 
 	t := time.Now().UTC().Format(migrationSeqFormat)
-	fp := filepath.Join(dir, fmt.Sprintf("%s_%s.go", t, name))
-	f, err := os.Create(fp)
+	path := filepath.Join(dir, fmt.Sprintf("%s_%s.go", t, name))
+	f, err := os.Create(path)
 	if err != nil {
 		return "", fmt.Errorf("unable to create file: %w", err)
 	}
@@ -66,5 +66,5 @@ func NewFromTemplate(dir, name string) (string, error) {
 		return "", fmt.Errorf("failure processing template: %w", err)
 	}
 
-	return fp, nil
+	return path, nil
 }
