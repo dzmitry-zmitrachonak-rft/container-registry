@@ -128,7 +128,7 @@ CREATE TABLE public.manifest_lists (
 	digest_algorithm smallint NOT NULL,
 	digest_hex bytea NOT NULL,
 	payload bytea NOT NULL,
-	media_type text,
+	media_type text NOT NULL,
 	CONSTRAINT pk_manifest_lists PRIMARY KEY (id),
 	CONSTRAINT uq_manifest_lists_digest_algorithm_digest_hex UNIQUE (digest_algorithm,digest_hex),
 	CONSTRAINT ck_manifest_lists_media_type_enum CHECK (((media_type IN ('application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json')))),
