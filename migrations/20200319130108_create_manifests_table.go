@@ -18,12 +18,12 @@ func init() {
                 CONSTRAINT pk_manifests PRIMARY KEY (id),
                 CONSTRAINT uq_manifests_digest_algorithm_digest_hex UNIQUE (digest_algorithm, digest_hex),
                 CONSTRAINT ck_manifests_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2))),
-				CONSTRAINT ck_manifests_media_type_enum CHECK ((media_type IN (
-					'application/vnd.oci.image.manifest.v1+json', 
-					'application/vnd.docker.distribution.manifest.v1+json',
-					'application/vnd.docker.distribution.manifest.v1+prettyjws',
-					'application/vnd.docker.distribution.manifest.v2+json'
-				)))
+                CONSTRAINT ck_manifests_media_type_enum CHECK ((media_type IN (
+                    'application/vnd.oci.image.manifest.v1+json', 
+                    'application/vnd.docker.distribution.manifest.v1+json',
+                    'application/vnd.docker.distribution.manifest.v1+prettyjws',
+                    'application/vnd.docker.distribution.manifest.v2+json'
+                )))
             )`,
 		},
 		Down: []string{
