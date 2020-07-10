@@ -1,3 +1,34 @@
+-- Database generated with pgModeler (PostgreSQL Database Modeler).
+-- pgModeler  version: 0.9.2
+-- PostgreSQL version: 11.0
+-- Project Site: pgmodeler.io
+-- Model Author: ---
+
+-- object: withspace | type: ROLE --
+-- DROP ROLE IF EXISTS withspace;
+CREATE ROLE withspace WITH 
+	INHERIT
+	LOGIN
+	ENCRYPTED PASSWORD '********';
+-- ddl-end --
+
+-- object: withspecial | type: ROLE --
+-- DROP ROLE IF EXISTS withspecial;
+CREATE ROLE withspecial WITH 
+	INHERIT
+	LOGIN
+	ENCRYPTED PASSWORD '********';
+-- ddl-end --
+
+-- object: normal | type: ROLE --
+-- DROP ROLE IF EXISTS normal;
+CREATE ROLE normal WITH 
+	INHERIT
+	LOGIN
+	ENCRYPTED PASSWORD '********';
+-- ddl-end --
+
+
 -- Database creation must be done outside a multicommand file.
 -- These commands were put in this file only as a convenience.
 -- -- object: registry | type: DATABASE --
@@ -59,7 +90,11 @@ CREATE TABLE public.manifests (
 	media_type text NOT NULL,
 	CONSTRAINT pk_manifests PRIMARY KEY (id),
 	CONSTRAINT uq_manifests_digest_hex UNIQUE (digest_hex),
-	CONSTRAINT ck_manifests_media_type_length CHECK ((char_length(media_type) <= 255))
+	CONSTRAINT ck_manifests_media_type_enum CHECK (((media_type IN ('application/vnd.oci.image.manifest.v1+json', 
+					'application/vnd.docker.distribution.manifest.v1+json',
+					'application/vnd.docker.distribution.manifest.v1+prettyjws',
+					'application/vnd.docker.distribution.manifest.v2+json'
+))))
 
 );
 -- ddl-end --
@@ -77,7 +112,18 @@ CREATE TABLE public.blobs (
 	media_type text NOT NULL,
 	CONSTRAINT pk_blobs PRIMARY KEY (id),
 	CONSTRAINT uq_blobs_digest_hex UNIQUE (digest_hex),
-	CONSTRAINT ck_blobs_media_type_length CHECK ((char_length(media_type) <= 255))
+	CONSTRAINT ck_blobs_media_type_enum CHECK (((media_type IN (
+					'application/vnd.oci.image.layer.v1.tar',
+					'application/vnd.oci.image.layer.v1.tar+gzip',
+					'application/vnd.oci.image.layer.v1.tar+zstd',
+					'application/vnd.docker.container.image.rootfs.diff+x-gtar',
+					'application/vnd.docker.image.rootfs.diff.tar',
+					'application/vnd.docker.image.rootfs.diff.tar.gzip',
+					'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip',
+					'application/vnd.oci.image.config.v1+json',
+					'application/vnd.docker.container.image.v1+json',
+					'application/vnd.docker.plugin.v1+json'
+				))))
 
 );
 -- ddl-end --
@@ -111,7 +157,7 @@ CREATE TABLE public.manifest_lists (
 	media_type text,
 	CONSTRAINT pk_manifest_lists PRIMARY KEY (id),
 	CONSTRAINT uq_manifest_lists_digest_hex UNIQUE (digest_hex),
-	CONSTRAINT ck_manifest_lists_media_type_length CHECK ((char_length(media_type) <= 255))
+	CONSTRAINT ck_manifest_lists_media_type_enum CHECK (((media_type IN ('application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json'))))
 
 );
 -- ddl-end --
@@ -453,3 +499,35 @@ ALTER TABLE public.repository_blobs ADD CONSTRAINT fk_repository_blobs_blob_id_b
 REFERENCES public.blobs (id) MATCH FULL
 ON DELETE CASCADE ON UPDATE NO ACTION;
 -- ddl-end --
+
+-- object: grant_8885239338 | type: PERMISSION --
+GRANT CONNECT,TEMPORARY
+   ON DATABASE registry
+   TO PUBLIC;
+-- ddl-end --
+
+-- object: grant_b658ad3042 | type: PERMISSION --
+GRANT CREATE,CONNECT,TEMPORARY
+   ON DATABASE registry
+   TO postgres;
+-- ddl-end --
+
+-- object: grant_5c6a6fad1c | type: PERMISSION --
+GRANT CREATE,CONNECT,TEMPORARY
+   ON DATABASE registry
+   TO withspace;
+-- ddl-end --
+
+-- object: grant_a5c340e6cd | type: PERMISSION --
+GRANT CREATE,CONNECT,TEMPORARY
+   ON DATABASE registry
+   TO withspecial;
+-- ddl-end --
+
+-- object: grant_f345b03905 | type: PERMISSION --
+GRANT CREATE,CONNECT,TEMPORARY
+   ON DATABASE registry
+   TO normal;
+-- ddl-end --
+
+

@@ -134,8 +134,12 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<constraint name="uq_manifests_digest_hex" type="uq-constr" table="public.manifests">
 		<columns names="digest_hex" ref-type="src-columns"/>
 	</constraint>
-	<constraint name="ck_manifests_media_type_length" type="ck-constr" table="public.manifests">
-			<expression><![CDATA[(char_length(media_type) <= 255)]]></expression>
+	<constraint name="ck_manifests_media_type_enum" type="ck-constr" table="public.manifests">
+			<expression><![CDATA[((media_type IN ('application/vnd.oci.image.manifest.v1+json', 
+					'application/vnd.docker.distribution.manifest.v1+json',
+					'application/vnd.docker.distribution.manifest.v1+prettyjws',
+					'application/vnd.docker.distribution.manifest.v2+json'
+)))]]></expression>
 	</constraint>
 </table>
 
@@ -168,8 +172,19 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<constraint name="uq_blobs_digest_hex" type="uq-constr" table="public.blobs">
 		<columns names="digest_hex" ref-type="src-columns"/>
 	</constraint>
-	<constraint name="ck_blobs_media_type_length" type="ck-constr" table="public.blobs">
-			<expression><![CDATA[(char_length(media_type) <= 255)]]></expression>
+	<constraint name="ck_blobs_media_type_enum" type="ck-constr" table="public.blobs">
+			<expression><![CDATA[((media_type IN (
+					'application/vnd.oci.image.layer.v1.tar',
+					'application/vnd.oci.image.layer.v1.tar+gzip',
+					'application/vnd.oci.image.layer.v1.tar+zstd',
+					'application/vnd.docker.container.image.rootfs.diff+x-gtar',
+					'application/vnd.docker.image.rootfs.diff.tar',
+					'application/vnd.docker.image.rootfs.diff.tar.gzip',
+					'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip',
+					'application/vnd.oci.image.config.v1+json',
+					'application/vnd.docker.container.image.v1+json',
+					'application/vnd.docker.plugin.v1+json'
+				)))]]></expression>
 	</constraint>
 </table>
 
@@ -230,8 +245,8 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<constraint name="uq_manifest_lists_digest_hex" type="uq-constr" table="public.manifest_lists">
 		<columns names="digest_hex" ref-type="src-columns"/>
 	</constraint>
-	<constraint name="ck_manifest_lists_media_type_length" type="ck-constr" table="public.manifest_lists">
-			<expression><![CDATA[(char_length(media_type) <= 255)]]></expression>
+	<constraint name="ck_manifest_lists_media_type_enum" type="ck-constr" table="public.manifest_lists">
+			<expression><![CDATA[((media_type IN ('application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json')))]]></expression>
 	</constraint>
 </table>
 

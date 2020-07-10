@@ -16,7 +16,10 @@ func init() {
                 media_type text,
                 CONSTRAINT pk_manifest_lists PRIMARY KEY (id),
                 CONSTRAINT uq_manifest_lists_digest_hex UNIQUE (digest_hex),
-                CONSTRAINT ck_manifest_lists_media_type_length CHECK ((char_length(media_type) <= 255))
+                CONSTRAINT ck_manifest_lists_media_type_enum CHECK ((media_type IN (
+					'application/vnd.oci.image.index.v1+json',
+					'application/vnd.docker.distribution.manifest.list.v2+json'
+				)))
             )`,
 		},
 		Down: []string{
