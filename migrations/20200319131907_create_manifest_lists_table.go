@@ -19,9 +19,9 @@ func init() {
                 CONSTRAINT uq_manifest_lists_digest_algorithm_digest_hex UNIQUE (digest_algorithm, digest_hex),
                 CONSTRAINT ck_manifest_lists_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2))),
                 CONSTRAINT ck_manifest_lists_media_type_enum CHECK ((media_type IN (
-					'application/vnd.oci.image.index.v1+json',
-					'application/vnd.docker.distribution.manifest.list.v2+json'
-				)))
+                    'application/vnd.oci.image.index.v1+json',
+                    'application/vnd.docker.distribution.manifest.list.v2+json'
+                )))
             )`,
 		},
 		Down: []string{
