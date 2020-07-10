@@ -11,11 +11,13 @@ func init() {
                 created_at timestamp WITH time zone NOT NULL DEFAULT now(),
                 marked_at timestamp WITH time zone,
                 schema_version integer NOT NULL,
+                digest_algorithm smallint NOT NULL,
                 digest_hex bytea NOT NULL,
                 payload bytea NOT NULL,
                 media_type text,
                 CONSTRAINT pk_manifest_lists PRIMARY KEY (id),
-                CONSTRAINT uq_manifest_lists_digest_hex UNIQUE (digest_hex),
+                CONSTRAINT uq_manifest_lists_digest_algorithm_digest_hex UNIQUE (digest_algorithm, digest_hex),
+                CONSTRAINT ck_manifest_lists_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2))),
                 CONSTRAINT ck_manifest_lists_media_type_enum CHECK ((media_type IN (
 					'application/vnd.oci.image.index.v1+json',
 					'application/vnd.docker.distribution.manifest.list.v2+json'

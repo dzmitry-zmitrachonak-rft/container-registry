@@ -85,16 +85,18 @@ CREATE TABLE public.manifests (
 	created_at timestamp with time zone NOT NULL DEFAULT now(),
 	marked_at timestamp with time zone,
 	schema_version integer NOT NULL,
+	digest_algorithm smallint NOT NULL,
 	digest_hex bytea NOT NULL,
 	payload bytea NOT NULL,
 	media_type text NOT NULL,
 	CONSTRAINT pk_manifests PRIMARY KEY (id),
-	CONSTRAINT uq_manifests_digest_hex UNIQUE (digest_hex),
+	CONSTRAINT uq_manifests_digest_algorithm_digest_hex UNIQUE (digest_algorithm,digest_hex),
 	CONSTRAINT ck_manifests_media_type_enum CHECK (((media_type IN ('application/vnd.oci.image.manifest.v1+json', 
 					'application/vnd.docker.distribution.manifest.v1+json',
 					'application/vnd.docker.distribution.manifest.v1+prettyjws',
 					'application/vnd.docker.distribution.manifest.v2+json'
-))))
+)))),
+	CONSTRAINT ck_manifests_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2)))
 
 );
 -- ddl-end --
@@ -108,10 +110,11 @@ CREATE TABLE public.blobs (
 	size bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT now(),
 	marked_at timestamp with time zone,
+	digest_algorithm smallint NOT NULL,
 	digest_hex bytea NOT NULL,
 	media_type text NOT NULL,
 	CONSTRAINT pk_blobs PRIMARY KEY (id),
-	CONSTRAINT uq_blobs_digest_hex UNIQUE (digest_hex),
+	CONSTRAINT uq_blobs_digest_algorithm_digest_hex UNIQUE (digest_algorithm,digest_hex),
 	CONSTRAINT ck_blobs_media_type_enum CHECK (((media_type IN (
 					'application/vnd.oci.image.layer.v1.tar',
 					'application/vnd.oci.image.layer.v1.tar+gzip',
@@ -123,7 +126,8 @@ CREATE TABLE public.blobs (
 					'application/vnd.oci.image.config.v1+json',
 					'application/vnd.docker.container.image.v1+json',
 					'application/vnd.docker.plugin.v1+json'
-				))))
+				)))),
+	CONSTRAINT ck_blobs_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2)))
 
 );
 -- ddl-end --
@@ -152,12 +156,14 @@ CREATE TABLE public.manifest_lists (
 	created_at timestamp with time zone NOT NULL DEFAULT now(),
 	marked_at timestamp with time zone,
 	schema_version integer NOT NULL,
+	digest_algorithm smallint NOT NULL,
 	digest_hex bytea NOT NULL,
 	payload bytea NOT NULL,
 	media_type text,
 	CONSTRAINT pk_manifest_lists PRIMARY KEY (id),
-	CONSTRAINT uq_manifest_lists_digest_hex UNIQUE (digest_hex),
-	CONSTRAINT ck_manifest_lists_media_type_enum CHECK (((media_type IN ('application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json'))))
+	CONSTRAINT uq_manifest_lists_digest_algorithm_digest_hex UNIQUE (digest_algorithm,digest_hex),
+	CONSTRAINT ck_manifest_lists_media_type_enum CHECK (((media_type IN ('application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json')))),
+	CONSTRAINT ck_manifest_lists_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2)))
 
 );
 -- ddl-end --
@@ -500,31 +506,31 @@ REFERENCES public.blobs (id) MATCH FULL
 ON DELETE CASCADE ON UPDATE NO ACTION;
 -- ddl-end --
 
--- object: grant_8885239338 | type: PERMISSION --
+-- object: grant_be0d68ff60 | type: PERMISSION --
 GRANT CONNECT,TEMPORARY
    ON DATABASE registry
    TO PUBLIC;
 -- ddl-end --
 
--- object: grant_b658ad3042 | type: PERMISSION --
+-- object: grant_15fc9a664b | type: PERMISSION --
 GRANT CREATE,CONNECT,TEMPORARY
    ON DATABASE registry
    TO postgres;
 -- ddl-end --
 
--- object: grant_5c6a6fad1c | type: PERMISSION --
+-- object: grant_12a388e8ee | type: PERMISSION --
 GRANT CREATE,CONNECT,TEMPORARY
    ON DATABASE registry
    TO withspace;
 -- ddl-end --
 
--- object: grant_a5c340e6cd | type: PERMISSION --
+-- object: grant_bf808e57d7 | type: PERMISSION --
 GRANT CREATE,CONNECT,TEMPORARY
    ON DATABASE registry
    TO withspecial;
 -- ddl-end --
 
--- object: grant_f345b03905 | type: PERMISSION --
+-- object: grant_1593d49e4c | type: PERMISSION --
 GRANT CREATE,CONNECT,TEMPORARY
    ON DATABASE registry
    TO normal;
