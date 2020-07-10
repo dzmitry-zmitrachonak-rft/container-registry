@@ -22,6 +22,8 @@ func init() {
                     'application/vnd.oci.image.layer.v1.tar',
                     'application/vnd.oci.image.layer.v1.tar+gzip',
                     'application/vnd.oci.image.layer.v1.tar+zstd',
+					'application/vnd.oci.image.layer.nondistributable.v1.tar',
+					'application/vnd.oci.image.layer.nondistributable.v1.tar+gzip',
                     'application/vnd.docker.container.image.rootfs.diff+x-gtar',
                     'application/vnd.docker.image.rootfs.diff.tar',
                     'application/vnd.docker.image.rootfs.diff.tar.gzip',

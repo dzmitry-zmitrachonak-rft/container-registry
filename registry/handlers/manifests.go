@@ -876,7 +876,7 @@ func dbPutManifestSchema2(ctx context.Context, db datastore.Queryer, dgst digest
 				return fmt.Errorf("layer blob %s not found in database", reqLayer.Digest)
 			}
 
-			// TODO: update the layer blob media_type here, it was set to "application/octect-stream" during the upload
+			// TODO: update the layer blob media_type here, it was set to "application/octet-stream" during the upload
 			// 		 but now we know its concrete type (reqLayer.MediaType).
 
 			if err := mStore.AssociateLayerBlob(ctx, dbManifest, dbBlob); err != nil {
@@ -911,7 +911,7 @@ func dbPutManifestSchema2(ctx context.Context, db datastore.Queryer, dgst digest
 				return err
 			}
 		}
-		// TODO: update the config blob media_type here, it was set to "application/octect-stream" during the upload
+		// TODO: update the config blob media_type here, it was set to "application/octet-stream" during the upload
 		// 		 but now we know its concrete type (manifest.Config.MediaType).
 	}
 
@@ -942,7 +942,7 @@ func dbPutManifestSchema1(ctx context.Context, db datastore.Queryer, dgst digest
 
 		m := &models.Manifest{
 			SchemaVersion: manifest.SchemaVersion,
-			MediaType:     manifest.MediaType,
+			MediaType:     schema1.MediaTypeSignedManifest,
 			Digest:        dgst,
 			Payload:       manifest.Canonical,
 		}
@@ -965,7 +965,7 @@ func dbPutManifestSchema1(ctx context.Context, db datastore.Queryer, dgst digest
 				return fmt.Errorf("layer blob %s not found in database", layer.BlobSum)
 			}
 
-			// TODO: update the layer blob media_type here, it was set to "application/octect-stream" during the upload
+			// TODO: update the layer blob media_type here, it was set to "application/octet-stream" during the upload
 			// 		 but now we know its concrete type (reqLayer.MediaType).
 
 			if err := mStore.AssociateLayerBlob(ctx, dbManifest, dbBlob); err != nil {
