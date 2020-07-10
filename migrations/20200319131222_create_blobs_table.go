@@ -17,21 +17,21 @@ func init() {
                 CONSTRAINT pk_blobs PRIMARY KEY (id),
                 CONSTRAINT uq_blobs_digest_algorithm_digest_hex UNIQUE (digest_algorithm, digest_hex),
                 CONSTRAINT ck_blobs_digest_algorithm_enum CHECK ((digest_algorithm IN (1, 2))),
-				CONSTRAINT ck_blobs_media_type_enum CHECK ((media_type IN (
-					'application/octet-stream',
-					'application/vnd.oci.image.layer.v1.tar',
-					'application/vnd.oci.image.layer.v1.tar+gzip',
-					'application/vnd.oci.image.layer.v1.tar+zstd',
-					'application/vnd.docker.container.image.rootfs.diff+x-gtar',
-					'application/vnd.docker.image.rootfs.diff.tar',
-					'application/vnd.docker.image.rootfs.diff.tar.gzip',
-					'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip',
-					'application/vnd.oci.image.config.v1+json',
-					'application/vnd.docker.container.image.v1+json',
-					'application/vnd.docker.plugin.v1+json',
-					'application/tar+gzip',
-					'application/vnd.cncf.helm.config.v1+json'
-				)))
+                CONSTRAINT ck_blobs_media_type_enum CHECK ((media_type IN (
+                    'application/octet-stream',
+                    'application/vnd.oci.image.layer.v1.tar',
+                    'application/vnd.oci.image.layer.v1.tar+gzip',
+                    'application/vnd.oci.image.layer.v1.tar+zstd',
+                    'application/vnd.docker.container.image.rootfs.diff+x-gtar',
+                    'application/vnd.docker.image.rootfs.diff.tar',
+                    'application/vnd.docker.image.rootfs.diff.tar.gzip',
+                    'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip',
+                    'application/vnd.oci.image.config.v1+json',
+                    'application/vnd.docker.container.image.v1+json',
+                    'application/vnd.docker.plugin.v1+json',
+                    'application/tar+gzip',
+                    'application/vnd.cncf.helm.config.v1+json'
+                )))
             )`,
 		},
 		Down: []string{
