@@ -13,6 +13,7 @@ import (
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema1"
@@ -586,30 +587,16 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 					errcode.ErrorCodeUnknown.WithDetail(fmt.Errorf("failed to write manifest to database: %v", err)))
 				return
 			}
-		case *schema2.DeserializedManifest:
+		case ConfiguredLayerManifest:
 			// The config payload should already be pushed up and stored as a blob.
-			cfgPayload, err := imh.Repository.Blobs(imh).Get(imh, reqManifest.Config.Digest)
+			cfgPayload, err := imh.Repository.Blobs(imh).Get(imh, reqManifest.Target().Digest)
 			if err != nil {
 				imh.Errors = append(imh.Errors,
 					errcode.ErrorCodeUnknown.WithDetail(fmt.Errorf("failed to obtain configuration payload: %v", err)))
 				return
 			}
 
-			if err = dbPutManifestSchema2(imh, tx, imh.Digest, reqManifest, jsonBuf.Bytes(), cfgPayload, imh.Repository.Named()); err != nil {
-				imh.Errors = append(imh.Errors,
-					errcode.ErrorCodeUnknown.WithDetail(fmt.Errorf("failed to write manifest to database: %v", err)))
-				return
-			}
-		case *ocischema.DeserializedManifest:
-			// The config payload should already be pushed up and stored as a blob.
-			cfgPayload, err := imh.Repository.Blobs(imh).Get(imh, reqManifest.Config.Digest)
-			if err != nil {
-				imh.Errors = append(imh.Errors,
-					errcode.ErrorCodeUnknown.WithDetail(fmt.Errorf("failed to obtain manifest configuration payload: %v", err)))
-				return
-			}
-
-			if err = dbPutManifestOCI(imh, tx, imh.Digest, reqManifest, jsonBuf.Bytes(), cfgPayload, imh.Repository.Named()); err != nil {
+			if err = dbPutConfiguredLayerManifest(imh, tx, imh.Digest, reqManifest, jsonBuf.Bytes(), cfgPayload, imh.Repository.Named()); err != nil {
 				imh.Errors = append(imh.Errors,
 					errcode.ErrorCodeUnknown.WithDetail(fmt.Errorf("failed to write manifest to database: %v", err)))
 				return
@@ -743,102 +730,22 @@ func dbTagManifest(ctx context.Context, db datastore.Queryer, dgst digest.Digest
 	})
 }
 
-func dbPutManifestOCI(ctx context.Context, db datastore.Queryer, dgst digest.Digest, manifest *ocischema.DeserializedManifest, payload, cfgPayload []byte, path reference.Named) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": path.Name(), "manifest_digest": dgst, "schema_version": manifest.Versioned.SchemaVersion})
-	log.Debug("putting manifest")
-
-	// Find or create the configuration.
-	cfgStore := datastore.NewConfigurationStore(db)
-	blobStore := datastore.NewBlobStore(db)
-
-	dbCfg, err := cfgStore.FindByDigest(ctx, manifest.Config.Digest)
-	if err != nil {
-		return err
-	}
-
-	if dbCfg == nil {
-		log.Debug("manifest config not found in database")
-
-		dbCfgBlob, err := blobStore.FindByDigest(ctx, manifest.Config.Digest)
-		if err != nil {
-			return err
-		}
-		if dbCfgBlob == nil {
-			return fmt.Errorf("config blob %s not found in database", manifest.Config.Digest)
-		}
-
-		dbCfg = &models.Configuration{BlobID: dbCfgBlob.ID, Payload: cfgPayload}
-		if err := cfgStore.Create(ctx, dbCfg); err != nil {
-			return err
-		}
-	}
-	// TODO: update the config blob media_type here, it was set to "application/octect-stream" during the upload
-	// 		 but now we know its concrete type (manifest.Config.MediaType).
-
-	mStore := datastore.NewManifestStore(db)
-	dbManifest, err := mStore.FindByDigest(ctx, dgst)
-	if err != nil {
-		return err
-	}
-	if dbManifest == nil {
-		log.Debug("manifest not found in database")
-
-		m := &models.Manifest{
-			ConfigurationID: sql.NullInt64{Int64: dbCfg.ID, Valid: true},
-			SchemaVersion:   manifest.SchemaVersion,
-			MediaType:       manifest.MediaType,
-			Digest:          dgst,
-			Payload:         payload,
-		}
-
-		if err := mStore.Create(ctx, m); err != nil {
-			return err
-		}
-
-		dbManifest = m
-
-		// find and associate manifest layer blobs
-		for _, reqLayer := range manifest.Layers {
-			dbBlob, err := blobStore.FindByDigest(ctx, reqLayer.Digest)
-			if err != nil {
-				return err
-			}
-
-			if dbBlob == nil {
-				return fmt.Errorf("layer blob %s not found in database", reqLayer.Digest)
-			}
-
-			// TODO: update the layer blob media_type here, it was set to "application/octect-stream" during the upload
-			// 		 but now we know its concrete type (reqLayer.MediaType).
-
-			if err := mStore.AssociateLayerBlob(ctx, dbManifest, dbBlob); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Associate manifest and repository.
-	repositoryStore := datastore.NewRepositoryStore(db)
-	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, path.Name())
-	if err != nil {
-		return err
-	}
-
-	if err := repositoryStore.AssociateManifest(ctx, dbRepo, dbManifest); err != nil {
-		return err
-	}
-	return nil
+type ConfiguredLayerManifest interface {
+	Layers() []distribution.Descriptor
+	Target() distribution.Descriptor
+	Serialize() ([]byte, error)
+	Versioned() manifest.Versioned
 }
 
-func dbPutManifestSchema2(ctx context.Context, db datastore.Queryer, dgst digest.Digest, manifest *schema2.DeserializedManifest, payload, cfgPayload []byte, path reference.Named) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": path.Name(), "manifest_digest": dgst, "schema_version": manifest.Versioned.SchemaVersion})
+func dbPutConfiguredLayerManifest(ctx context.Context, db datastore.Queryer, dgst digest.Digest, manifest ConfiguredLayerManifest, payload, cfgPayload []byte, path reference.Named) error {
+	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": path.Name(), "manifest_digest": dgst, "schema_version": manifest.Versioned().SchemaVersion})
 	log.Debug("putting manifest")
 
 	// Find or create the configuration.
 	cfgStore := datastore.NewConfigurationStore(db)
 	blobStore := datastore.NewBlobStore(db)
 
-	dbCfg, err := cfgStore.FindByDigest(ctx, manifest.Config.Digest)
+	dbCfg, err := cfgStore.FindByDigest(ctx, manifest.Target().Digest)
 	if err != nil {
 		return err
 	}
@@ -846,12 +753,12 @@ func dbPutManifestSchema2(ctx context.Context, db datastore.Queryer, dgst digest
 	if dbCfg == nil {
 		log.Debug("manifest config not found in database")
 
-		dbCfgBlob, err := blobStore.FindByDigest(ctx, manifest.Config.Digest)
+		dbCfgBlob, err := blobStore.FindByDigest(ctx, manifest.Target().Digest)
 		if err != nil {
 			return err
 		}
 		if dbCfgBlob == nil {
-			return fmt.Errorf("config blob %s not found in database", manifest.Config.Digest)
+			return fmt.Errorf("config blob %s not found in database", manifest.Target().Digest)
 		}
 
 		dbCfg = &models.Configuration{BlobID: dbCfgBlob.ID, Payload: cfgPayload}
@@ -872,8 +779,8 @@ func dbPutManifestSchema2(ctx context.Context, db datastore.Queryer, dgst digest
 
 		m := &models.Manifest{
 			ConfigurationID: sql.NullInt64{Int64: dbCfg.ID, Valid: true},
-			SchemaVersion:   manifest.SchemaVersion,
-			MediaType:       manifest.MediaType,
+			SchemaVersion:   manifest.Versioned().SchemaVersion,
+			MediaType:       manifest.Versioned().MediaType,
 			Digest:          dgst,
 			Payload:         payload,
 		}
@@ -885,7 +792,7 @@ func dbPutManifestSchema2(ctx context.Context, db datastore.Queryer, dgst digest
 		dbManifest = m
 
 		// find and associate manifest layer blobs
-		for _, reqLayer := range manifest.Layers {
+		for _, reqLayer := range manifest.Layers() {
 			dbBlob, err := blobStore.FindByDigest(ctx, reqLayer.Digest)
 			if err != nil {
 				return err
