@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/docker/distribution/configuration"
 	_ "github.com/docker/distribution/registry/storage/driver/inmemory"
 )
@@ -101,4 +103,100 @@ func TestGracefulShutdown(t *testing.T) {
 	if body, err := ioutil.ReadAll(resp.Body); err != nil || string(body) != "{}" {
 		t.Error("Body is not {}; ", string(body))
 	}
+}
+
+func requireEnvNotSet(t *testing.T, names ...string) {
+	t.Helper()
+
+	for _, name := range names {
+		_, ok := os.LookupEnv(name)
+		require.False(t, ok)
+	}
+}
+
+func requireEnvSet(t *testing.T, name, value string) {
+	t.Helper()
+
+	require.Equal(t, value, os.Getenv(name))
+}
+
+func TestConfigureStackDriver_Disabled(t *testing.T) {
+	config := &configuration.Configuration{}
+
+	requireEnvNotSet(t, "GITLAB_CONTINUOUS_PROFILING")
+	require.NoError(t, configureStackdriver(config))
+	requireEnvNotSet(t, "GITLAB_CONTINUOUS_PROFILING")
+}
+
+func TestConfigureStackDriver_Enabled(t *testing.T) {
+	config := &configuration.Configuration{
+		Monitoring: configuration.Monitoring{
+			Stackdriver: configuration.StackdriverProfiler{
+				Enabled: true,
+			},
+		},
+	}
+
+	requireEnvNotSet(t, "GITLAB_CONTINUOUS_PROFILING")
+	require.NoError(t, configureStackdriver(config))
+	requireEnvSet(t, "GITLAB_CONTINUOUS_PROFILING", "stackdriver")
+	require.NoError(t, os.Unsetenv("GITLAB_CONTINUOUS_PROFILING"))
+}
+
+func TestConfigureStackDriver_WithParams(t *testing.T) {
+	config := &configuration.Configuration{
+		Monitoring: configuration.Monitoring{
+			Stackdriver: configuration.StackdriverProfiler{
+				Enabled:        true,
+				Service:        "registry",
+				ServiceVersion: "2.9.1",
+				ProjectID:      "internal",
+			},
+		},
+	}
+
+	requireEnvNotSet(t, "GITLAB_CONTINUOUS_PROFILING")
+	require.NoError(t, configureStackdriver(config))
+	defer os.Unsetenv("GITLAB_CONTINUOUS_PROFILING")
+
+	requireEnvSet(t, "GITLAB_CONTINUOUS_PROFILING", "stackdriver?project_id=internal&service=registry&service_version=2.9.1")
+
+}
+
+func TestConfigureStackDriver_WithKeyFile(t *testing.T) {
+	config := &configuration.Configuration{
+		Monitoring: configuration.Monitoring{
+			Stackdriver: configuration.StackdriverProfiler{
+				Enabled: true,
+				KeyFile: "/path/to/credentials.json",
+			},
+		},
+	}
+
+	requireEnvNotSet(t, "GITLAB_CONTINUOUS_PROFILING")
+	require.NoError(t, configureStackdriver(config))
+	defer os.Unsetenv("GITLAB_CONTINUOUS_PROFILING")
+
+	requireEnvSet(t, "GITLAB_CONTINUOUS_PROFILING", "stackdriver")
+}
+
+func TestConfigureStackDriver_DoesNotOverrideGitlabContinuousProfilingEnvVar(t *testing.T) {
+	value := "stackdriver?project_id=foo&service=bar&service_version=1"
+	require.NoError(t, os.Setenv("GITLAB_CONTINUOUS_PROFILING", value))
+
+	config := &configuration.Configuration{
+		Monitoring: configuration.Monitoring{
+			Stackdriver: configuration.StackdriverProfiler{
+				Enabled:        true,
+				Service:        "registry",
+				ServiceVersion: "2.9.1",
+				ProjectID:      "internal",
+			},
+		},
+	}
+
+	require.NoError(t, configureStackdriver(config))
+	defer os.Unsetenv("GITLAB_CONTINUOUS_PROFILING")
+
+	requireEnvSet(t, "GITLAB_CONTINUOUS_PROFILING", value)
 }

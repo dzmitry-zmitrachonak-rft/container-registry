@@ -7,21 +7,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	prometheus "github.com/docker/distribution/metrics"
-
 	logrus_bugsnag "github.com/Shopify/logrus-bugsnag"
 	logstash "github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/bugsnag/bugsnag-go"
+	prometheus "github.com/docker/distribution/metrics"
 	"github.com/docker/go-metrics"
 	gorhandlers "github.com/gorilla/handlers"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/yvasiyarov/gorelic"
+	"gitlab.com/gitlab-org/labkit/monitoring"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -84,6 +85,13 @@ var ServeCmd = &cobra.Command{
 			log.Info("providing prometheus metrics on ", path)
 			http.Handle(path, metrics.Handler())
 		}
+
+		go func() {
+			opts := configureMonitoring(config)
+			if err := monitoring.Start(opts...); err != nil {
+				log.WithError(err).Error("unable to start monitoring service")
+			}
+		}()
 
 		if err = registry.ListenAndServe(); err != nil {
 			log.Fatalln(err)
@@ -360,6 +368,70 @@ func configureBugsnag(config *configuration.Configuration) {
 	}
 
 	log.AddHook(hook)
+}
+
+func configureMonitoring(config *configuration.Configuration) []monitoring.Option {
+	opts := []monitoring.Option{
+		monitoring.WithoutMetrics(),
+		monitoring.WithoutPprof(),
+		monitoring.WithProfilerCredentialsFile(config.Monitoring.Stackdriver.KeyFile),
+	}
+
+	if !config.Monitoring.Stackdriver.Enabled {
+		opts = append(opts, monitoring.WithoutContinuousProfiling())
+	} else {
+		if err := configureStackdriver(config); err != nil {
+			log.WithError(err).Error("failed to configure Stackdriver profiler")
+			return opts
+		}
+		log.Info("starting Stackdriver profiler")
+	}
+
+	return opts
+}
+
+func configureStackdriver(config *configuration.Configuration) error {
+	if !config.Monitoring.Stackdriver.Enabled {
+		return nil
+	}
+
+	// the GITLAB_CONTINUOUS_PROFILING env var (as per the LabKit spec) takes precedence over any application
+	// configuration settings and is required to configure the Stackdriver service.
+	envVar := "GITLAB_CONTINUOUS_PROFILING"
+	var service, serviceVersion, projectID string
+
+	// if it's not set then we must set it based on the registry settings, with URL encoded settings for Stackdriver,
+	// see https://pkg.go.dev/gitlab.com/gitlab-org/labkit/monitoring?tab=doc for details.
+	if _, ok := os.LookupEnv(envVar); !ok {
+		service = config.Monitoring.Stackdriver.Service
+		serviceVersion = config.Monitoring.Stackdriver.ServiceVersion
+		projectID = config.Monitoring.Stackdriver.ProjectID
+
+		u, err := url.Parse("stackdriver")
+		if err != nil {
+			// this should never happen
+			return fmt.Errorf("failed to parse base URL: %w", err)
+		}
+
+		q := u.Query()
+		if service != "" {
+			q.Add("service", service)
+		}
+		if serviceVersion != "" {
+			q.Add("service_version", serviceVersion)
+		}
+		if projectID != "" {
+			q.Add("project_id", projectID)
+		}
+		u.RawQuery = q.Encode()
+
+		log.WithFields(log.Fields{"name": envVar, "value": u.String()}).Debug("setting environment variable")
+		if err := os.Setenv(envVar, u.String()); err != nil {
+			return fmt.Errorf("unable to set environment variable %q: %w", envVar, err)
+		}
+	}
+
+	return nil
 }
 
 // panicHandler add an HTTP handler to web app. The handler recover the happening
