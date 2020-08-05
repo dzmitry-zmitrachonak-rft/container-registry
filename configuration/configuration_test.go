@@ -2,13 +2,16 @@ package configuration
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	. "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 )
@@ -362,6 +365,53 @@ func (suite *ConfigSuite) TestParseInvalidLoglevel(c *C) {
 	c.Assert(err, NotNil)
 }
 
+type parameterTest struct {
+	name    string
+	value   string
+	want    string
+	wantErr bool
+	err     string
+}
+
+type parameterValidator func(t *testing.T, want interface{}, got *Configuration)
+
+func testParameter(t *testing.T, yml string, envVar string, tests []parameterTest, fn parameterValidator) {
+	t.Helper()
+
+	testCases := []string{"yaml", "env"}
+
+	for _, testCase := range testCases {
+		t.Run(testCase, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					var input string
+
+					if testCase == "env" {
+						// if testing with an environment variable we need to set it and defer the unset
+						require.NoError(t, os.Setenv(envVar, test.value))
+						defer func() { require.NoError(t, os.Unsetenv(envVar)) }()
+						// we also need to make sure to clean the YAML parameter
+						input = fmt.Sprintf(yml, "")
+					} else {
+						input = fmt.Sprintf(yml, test.value)
+					}
+
+					got, err := Parse(bytes.NewReader([]byte(input)))
+
+					if test.wantErr {
+						require.Error(t, err)
+						require.EqualError(t, err, test.err)
+						require.Nil(t, got)
+					} else {
+						require.NoError(t, err)
+						fn(t, test.want, got)
+					}
+				})
+			}
+		})
+	}
+}
+
 // TestParseWithDifferentEnvReporting validates that environment variables
 // properly override reporting parameters
 func (suite *ConfigSuite) TestParseWithDifferentEnvReporting(c *C) {
@@ -472,6 +522,150 @@ func (suite *ConfigSuite) TestParseEnvMany(c *C) {
 
 	_, err := Parse(bytes.NewReader([]byte(configYamlV0_1)))
 	c.Assert(err, IsNil)
+}
+
+func boolParameterTests(defaultValue bool) []parameterTest {
+	return []parameterTest{
+		{
+			name:  "true",
+			value: "true",
+			want:  "true",
+		},
+		{
+			name:  "false",
+			value: "false",
+			want:  "false",
+		},
+		{
+			name: "default",
+			want: strconv.FormatBool(defaultValue),
+		},
+	}
+}
+
+func TestParseHTTPMonitoringStackdriverEnabled(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+monitoring:
+  stackdriver:
+    enabled: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Monitoring.Stackdriver.Enabled))
+	}
+
+	testParameter(t, yml, "REGISTRY_MONITORING_STACKDRIVER_ENABLED", tt, validator)
+}
+
+func TestParseMonitoringStackdriver_Service(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+monitoring:
+  stackdriver:
+    service: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "registry",
+			want:  "registry",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Monitoring.Stackdriver.Service)
+	}
+
+	testParameter(t, yml, "REGISTRY_MONITORING_STACKDRIVER_SERVICE", tt, validator)
+}
+
+func TestParseMonitoringStackdriver_ServiceVersion(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+monitoring:
+  stackdriver:
+    serviceversion: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "1.0.0",
+			want:  "1.0.0",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Monitoring.Stackdriver.ServiceVersion)
+	}
+
+	testParameter(t, yml, "REGISTRY_MONITORING_STACKDRIVER_SERVICEVERSION", tt, validator)
+}
+
+func TestParseMonitoringStackdriver_ProjectID(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+monitoring:
+  stackdriver:
+    projectid: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "tBXV4hFr4QJM6oGkqzhC",
+			want:  "tBXV4hFr4QJM6oGkqzhC",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Monitoring.Stackdriver.ProjectID)
+	}
+
+	testParameter(t, yml, "REGISTRY_MONITORING_STACKDRIVER_PROJECTID", tt, validator)
+}
+
+func TestParseMonitoringStackdriver_KeyFile(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+monitoring:
+  stackdriver:
+    keyfile: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "/foo/bar.json",
+			want:  "/foo/bar.json",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Monitoring.Stackdriver.KeyFile)
+	}
+
+	testParameter(t, yml, "REGISTRY_MONITORING_STACKDRIVER_KEYFILE", tt, validator)
 }
 
 func checkStructs(c *C, t reflect.Type, structsChecked map[string]struct{}) {
