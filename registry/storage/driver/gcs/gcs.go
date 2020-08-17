@@ -56,7 +56,7 @@ const (
 	defaultMaxConcurrency    = 50
 	minConcurrency           = 25
 	maxDeleteConcurrency     = 150
-	maxWalkConcurrency       = 100
+	maxWalkConcurrency       = 1070
 	maxTries                 = 5
 )
 
@@ -268,7 +268,7 @@ func New(params driverParameters) (storagedriver.StorageDriver, error) {
 	return &Wrapper{
 		baseEmbed: baseEmbed{
 			Base: base.Base{
-				StorageDriver: base.NewRegulator(d, params.maxConcurrency),
+				StorageDriver: d,
 			},
 		},
 	}, nil
