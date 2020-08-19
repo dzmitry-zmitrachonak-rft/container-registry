@@ -802,6 +802,8 @@ type Ignore struct {
 // Reporting defines error reporting methods.
 type Reporting struct {
 	// Bugsnag configures error reporting for Bugsnag (bugsnag.com).
+	// NOTE: This is deprecated (https://gitlab.com/gitlab-org/container-registry/-/issues/179) and will be removed by
+	// January 22nd, 2021.
 	Bugsnag BugsnagReporting `yaml:"bugsnag,omitempty"`
 	// NewRelic configures error reporting for NewRelic (newrelic.com)
 	NewRelic NewRelicReporting `yaml:"newrelic,omitempty"`
