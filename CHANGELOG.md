@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+## [v2.10.1-gitlab] - 2020-09-08
+## Added
+- registry: Add new configuration for changing the output for logs and the access logs format
+
+## Changed
+- registry: Use GitLab LabKit for correlation and logging
+- registry: Normalize log messages
+
 ## [v2.10.0-gitlab] - 2020-08-05
 ## Added
 - registry: Add support for continuous profiling with Google Stackdriver
