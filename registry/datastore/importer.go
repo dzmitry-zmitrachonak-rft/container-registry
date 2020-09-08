@@ -27,6 +27,8 @@ type Importer struct {
 	storageDriver driver.StorageDriver
 	registry      distribution.Namespace
 
+	db                 *DB
+	tx                 *Tx
 	repositoryStore    *repositoryStore
 	configurationStore *configurationStore
 	manifestStore      *manifestStore
@@ -36,6 +38,7 @@ type Importer struct {
 	importDanglingManifests bool
 	importDanglingBlobs     bool
 	requireEmptyDatabase    bool
+	dryRun                  bool
 }
 
 // ImporterOption provides functional options for the Importer.
@@ -59,23 +62,67 @@ func WithRequireEmptyDatabase(imp *Importer) {
 	imp.requireEmptyDatabase = true
 }
 
+// WithDryRun configures the Importer to use a single transacton which is rolled
+// back and the end of an import cycle.
+func WithDryRun(imp *Importer) {
+	imp.dryRun = true
+}
+
 // NewImporter creates a new Importer.
-func NewImporter(db Queryer, storageDriver driver.StorageDriver, registry distribution.Namespace, opts ...ImporterOption) *Importer {
+func NewImporter(db *DB, storageDriver driver.StorageDriver, registry distribution.Namespace, opts ...ImporterOption) *Importer {
 	imp := &Importer{
-		storageDriver:      storageDriver,
-		registry:           registry,
-		configurationStore: NewConfigurationStore(db),
-		manifestStore:      NewManifestStore(db),
-		blobStore:          NewBlobStore(db),
-		repositoryStore:    NewRepositoryStore(db),
-		tagStore:           NewTagStore(db),
+		storageDriver: storageDriver,
+		registry:      registry,
+		db:            db,
 	}
 
 	for _, o := range opts {
 		o(imp)
 	}
 
+	imp.loadStores(imp.db)
+
 	return imp
+}
+
+func (imp *Importer) beginTx(ctx context.Context) error {
+	if imp.dryRun {
+		return nil
+	}
+
+	tx, err := imp.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	imp.tx = tx
+	imp.loadStores(imp.tx)
+
+	return nil
+}
+
+func (imp *Importer) loadStores(db Queryer) {
+	imp.configurationStore = NewConfigurationStore(db)
+	imp.manifestStore = NewManifestStore(db)
+	imp.blobStore = NewBlobStore(db)
+	imp.repositoryStore = NewRepositoryStore(db)
+	imp.tagStore = NewTagStore(db)
+}
+
+func (imp *Importer) rollback() error {
+	if imp.dryRun {
+		return nil
+	}
+
+	return imp.tx.Rollback()
+}
+
+func (imp *Importer) commit() error {
+	if imp.dryRun {
+		return nil
+	}
+
+	return imp.tx.Commit()
 }
 
 func (imp *Importer) findOrCreateDBManifest(ctx context.Context, m *models.Manifest) (*models.Manifest, error) {
@@ -629,6 +676,15 @@ func (imp *Importer) isDatabaseEmpty(ctx context.Context) (bool, error) {
 
 // ImportAll populates the registry database with metadata from all repositories in the storage backend.
 func (imp *Importer) ImportAll(ctx context.Context) error {
+	if imp.dryRun {
+		tx, err := imp.db.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("beging dry run transaction: %w", err)
+		}
+		imp.loadStores(tx)
+		defer tx.Rollback()
+	}
+
 	start := time.Now()
 	log := logrus.New()
 	log.Info("starting metadata import")
@@ -644,6 +700,11 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	}
 
 	if imp.importDanglingBlobs {
+		if err := imp.beginTx(ctx); err != nil {
+			return fmt.Errorf("creating blob import transaction: %w", err)
+		}
+		defer imp.rollback()
+
 		var index int
 		blobStart := time.Now()
 		log.Info("importing all blobs")
@@ -671,6 +732,10 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 		blobEnd := time.Since(blobStart).Seconds()
 		log.WithField("duration_s", blobEnd).Info("blob import complete")
+
+		if err := imp.commit(); err != nil {
+			return fmt.Errorf("committing blobs: %w", err)
+		}
 	}
 
 	repositoryEnumerator, ok := imp.registry.(distribution.RepositoryEnumerator)
@@ -680,6 +745,11 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 	index := 0
 	err := repositoryEnumerator.Enumerate(ctx, func(path string) error {
+		if err := imp.beginTx(ctx); err != nil {
+			return fmt.Errorf("creating repository import transaction: %w", err)
+		}
+		defer imp.rollback()
+
 		index++
 		repoStart := time.Now()
 		log := logrus.WithFields(logrus.Fields{"path": path, "count": index})
@@ -696,11 +766,20 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 		repoEnd := time.Since(repoStart).Seconds()
 		log.WithField("duration_s", repoEnd).Info("import complete")
 
+		if err := imp.commit(); err != nil {
+			return fmt.Errorf("committing repository: %w", err)
+		}
+
 		return nil
 	})
 	if err != nil {
 		return err
 	}
+
+	if err := imp.beginTx(ctx); err != nil {
+		return fmt.Errorf("creating repository import transaction: %w", err)
+	}
+	defer imp.rollback()
 
 	counters, err := imp.countRows(ctx)
 	if err != nil {
@@ -720,6 +799,20 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 // Import populates the registry database with metadata from a specific repository in the storage backend.
 func (imp *Importer) Import(ctx context.Context, path string) error {
+	if imp.dryRun {
+		tx, err := imp.db.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("beging dry run transaction: %w", err)
+		}
+		imp.loadStores(tx)
+		defer tx.Rollback()
+	}
+
+	if err := imp.beginTx(ctx); err != nil {
+		return fmt.Errorf("creating repository import transaction: %w", err)
+	}
+	defer imp.rollback()
+
 	start := time.Now()
 	logrus.Info("starting metadata import")
 
@@ -753,6 +846,10 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 
 	t := time.Since(start).Seconds()
 	logrus.WithField("duration_s", t).WithFields(logCounters).Info("metadata import complete")
+
+	if err := imp.commit(); err != nil {
+		return fmt.Errorf("committing repository: %w", err)
+	}
 
 	return err
 }
