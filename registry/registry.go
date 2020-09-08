@@ -13,26 +13,27 @@ import (
 	"syscall"
 	"time"
 
+	"gitlab.com/gitlab-org/labkit/monitoring"
+
 	logrus_bugsnag "github.com/Shopify/logrus-bugsnag"
 	logstash "github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/bugsnag/bugsnag-go"
-	prometheus "github.com/docker/distribution/metrics"
-	"github.com/docker/go-metrics"
-	gorhandlers "github.com/gorilla/handlers"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/yvasiyarov/gorelic"
-	"gitlab.com/gitlab-org/labkit/monitoring"
-	"golang.org/x/crypto/acme"
-	"golang.org/x/crypto/acme/autocert"
-
 	"github.com/docker/distribution/configuration"
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/health"
+	prometheus "github.com/docker/distribution/metrics"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/listener"
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/distribution/version"
+	"github.com/docker/go-metrics"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/yvasiyarov/gorelic"
+	"gitlab.com/gitlab-org/labkit/correlation"
+	logkit "gitlab.com/gitlab-org/labkit/log"
+	"golang.org/x/crypto/acme"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 // this channel gets notified when process receives signal. It is global to ease unit testing
@@ -129,9 +130,10 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 	handler = alive("/", handler)
 	handler = health.Handler(handler)
 	handler = panicHandler(handler)
-	if !config.Log.AccessLog.Disabled {
-		handler = gorhandlers.CombinedLoggingHandler(os.Stdout, handler)
+	if handler, err = configureAccessLogging(config, handler); err != nil {
+		return nil, fmt.Errorf("error configuring access logger: %v", err)
 	}
+	handler = correlation.InjectCorrelationID(handler)
 
 	// expose build info through Prometheus (`registry_build_info` gauge)
 	if app.Config.HTTP.Debug.Prometheus.Enabled {
@@ -286,38 +288,28 @@ func configureReporting(app *handlers.App) http.Handler {
 	return handler
 }
 
-// configureLogging prepares the context with a logger using the
-// configuration.
+// configureLogging prepares the context with a logger using the configuration.
 func configureLogging(ctx context.Context, config *configuration.Configuration) (context.Context, error) {
-	log.SetLevel(logLevel(config.Log.Level))
-
-	formatter := config.Log.Formatter
-	if formatter == "" {
-		formatter = "text" // default formatter
-	}
-
-	switch formatter {
-	case "json":
-		log.SetFormatter(&log.JSONFormatter{
-			TimestampFormat: time.RFC3339Nano,
-		})
-	case "text":
-		log.SetFormatter(&log.TextFormatter{
-			TimestampFormat: time.RFC3339Nano,
-		})
-	case "logstash":
-		log.SetFormatter(&logstash.LogstashFormatter{
-			TimestampFormat: time.RFC3339Nano,
-		})
-	default:
-		// just let the library use default on empty string.
-		if config.Log.Formatter != "" {
-			return ctx, fmt.Errorf("unsupported logging formatter: %q", config.Log.Formatter)
+	switch config.Log.Formatter {
+	case configuration.LogFormatLogstash:
+		// we don't use logstash at GitLab, so we don't initialize the global logger through LabKit
+		l, err := log.ParseLevel(config.Log.Level.String())
+		if err != nil {
+			return nil, err
 		}
-	}
-
-	if config.Log.Formatter != "" {
-		log.Debugf("using %q logging formatter", config.Log.Formatter)
+		log.SetLevel(l)
+		log.SetOutput(config.Log.Output.Descriptor())
+		log.SetFormatter(&logstash.LogstashFormatter{TimestampFormat: time.RFC3339Nano})
+	default:
+		// the registry doesn't log to a file, so we can ignore the io.Closer (noop) returned by LabKit (we could also
+		// ignore the error, but keeping it for future proofing)
+		if _, err := logkit.Initialize(
+			logkit.WithFormatter(config.Log.Formatter.String()),
+			logkit.WithLogLevel(config.Log.Level.String()),
+			logkit.WithOutputName(config.Log.Output.String()),
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	if len(config.Log.Fields) > 0 {
@@ -334,14 +326,23 @@ func configureLogging(ctx context.Context, config *configuration.Configuration) 
 	return ctx, nil
 }
 
-func logLevel(level configuration.Loglevel) log.Level {
-	l, err := log.ParseLevel(string(level))
-	if err != nil {
-		l = log.InfoLevel
-		log.Warnf("error parsing level %q: %v, using %q	", level, err, l)
+func configureAccessLogging(config *configuration.Configuration, h http.Handler) (http.Handler, error) {
+	if config.Log.AccessLog.Disabled {
+		return h, nil
 	}
 
-	return l
+	logger := log.New()
+	// the registry doesn't log to a file, so we can ignore the io.Closer (noop) returned by LabKit (we could also
+	// ignore the error, but keeping it for future proofing)
+	if _, err := logkit.Initialize(
+		logkit.WithLogger(logger),
+		logkit.WithFormatter(config.Log.AccessLog.Formatter.String()),
+		logkit.WithOutputName(config.Log.Output.String()),
+	); err != nil {
+		return nil, err
+	}
+
+	return logkit.AccessLogger(h, logkit.WithAccessLogger(logger)), nil
 }
 
 // configureBugsnag configures bugsnag reporting, if enabled
