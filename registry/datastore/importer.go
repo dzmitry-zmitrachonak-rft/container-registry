@@ -24,9 +24,8 @@ import (
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
 // one-off migration, starting with an empty database.
 type Importer struct {
-	storageDriver driver.StorageDriver
-	registry      distribution.Namespace
-
+	storageDriver      driver.StorageDriver
+	registry           distribution.Namespace
 	db                 *DB
 	tx                 *Tx
 	repositoryStore    *repositoryStore
