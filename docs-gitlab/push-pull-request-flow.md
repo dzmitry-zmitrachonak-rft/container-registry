@@ -71,6 +71,45 @@ sequenceDiagram
   R->>C: 201 Created
 ```
 
+## Push Flow Diagram Errors Omitted
+
+```mermaid
+graph TD
+    c{{Get /v/2}};
+    d{{HEAD /v2/<name>/blobs/<digest>}};
+    e{{POST /v2/<name>/blobs/uploads/}};
+    f{{PATCH /v2/<name>/blobs/uploads/<uuid>}};
+    g{{PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>}};
+    h{{POST /v2/<name>/blobs/uploads/?mount=<digest>&from=<source name>}};
+    i{{HEAD /v2/<name>/blobs/<digest>}};
+    j{{PUT /v2/<name>/manifests/<reference>}};
+    l1[Layer 1];
+    l2[Layer 2];
+    l3[Layer N...];
+    c1[Config];
+    c -- 200 OK --> p[Upload Layers and Config in Parallel];
+    p --> l1;
+    p --> l2;
+    p --> l3;
+    p --> c1;
+    l1 --> d;
+    l2 --> d;
+    l3 --> d;
+    c1 --> d;
+    d -- 200 OK Already exists --> pe;
+    d -- 404 Not Found: Large layer multipart upload --> e;
+    e -- 202 Accepted --> f;
+    f -- Loop for each Chunk --> f;
+    f -- 202 Accepted --> g;
+    g -- 201 Created --> i;
+    d -- 404 Not Found: Small layer and config monolithic upload --> g;
+    d -- 404 Not Found: Cross Repository Blob Mounting --> h;
+    h -- 201 Created -->i;
+    i -- 200 OK --> pe[All Layers and Config Pushed];
+    pe --> j;
+    j -- 201 Created -->z[Push Complete];
+```
+
 ## Pull
 
 ```mermaid
