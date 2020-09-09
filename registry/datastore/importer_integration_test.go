@@ -129,7 +129,15 @@ func TestImporter_ImportAll_AllowIdempotent(t *testing.T) {
 func TestImporter_ImportAll_DryRun(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
-	imp := newImporter(t, suite.db, datastore.WithImportDanglingBlobs, datastore.WithDryRun)
+	imp := newImporter(t, suite.db, datastore.WithDryRun)
+	require.NoError(t, imp.ImportAll(suite.ctx))
+	validateImport(t, suite.db)
+}
+
+func TestImporter_ImportAll_DryRunDanglingBlobs(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporter(t, suite.db, datastore.WithDryRun, datastore.WithImportDanglingBlobs)
 	require.NoError(t, imp.ImportAll(suite.ctx))
 	validateImport(t, suite.db)
 }
@@ -175,7 +183,7 @@ func TestImporter_Import_AllowIdempotent(t *testing.T) {
 func TestImporter_Import_DryRun(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
-	imp := newImporter(t, suite.db, datastore.WithImportDanglingBlobs, datastore.WithDryRun)
+	imp := newImporter(t, suite.db, datastore.WithDryRun)
 	require.NoError(t, imp.Import(suite.ctx, "a-simple"))
 	validateImport(t, suite.db)
 }
