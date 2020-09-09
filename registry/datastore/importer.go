@@ -764,7 +764,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 			}
 		}
 		repoEnd := time.Since(repoStart).Seconds()
-		log.WithField("duration_s", repoEnd).Info("import complete")
+		log.WithField("duration_s", repoEnd).Info("repository import complete")
 
 		if err := imp.commit(); err != nil {
 			return fmt.Errorf("committing repository: %w", err)
