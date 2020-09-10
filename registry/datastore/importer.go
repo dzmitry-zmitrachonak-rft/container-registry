@@ -699,15 +699,15 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	}
 
 	if imp.importDanglingBlobs {
-		if err := imp.beginTx(ctx); err != nil {
-			return fmt.Errorf("creating blob import transaction: %w", err)
-		}
-		defer imp.rollback()
-
 		var index int
 		blobStart := time.Now()
 		log.Info("importing all blobs")
 		err := imp.registry.Blobs().Enumerate(ctx, func(desc distribution.Descriptor) error {
+			if err := imp.beginTx(ctx); err != nil {
+				return fmt.Errorf("creating blob import transaction: %w", err)
+			}
+			defer imp.rollback()
+
 			index++
 			log := log.WithFields(logrus.Fields{"digest": desc.Digest, "count": index, "size": desc.Size})
 			log.Info("importing blob")
@@ -723,6 +723,10 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 				}
 			}
 
+			if err := imp.commit(); err != nil {
+				return fmt.Errorf("committing blobs: %w", err)
+			}
+
 			return nil
 		})
 		if err != nil {
@@ -731,10 +735,6 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 		blobEnd := time.Since(blobStart).Seconds()
 		log.WithField("duration_s", blobEnd).Info("blob import complete")
-
-		if err := imp.commit(); err != nil {
-			return fmt.Errorf("committing blobs: %w", err)
-		}
 	}
 
 	repositoryEnumerator, ok := imp.registry.(distribution.RepositoryEnumerator)
