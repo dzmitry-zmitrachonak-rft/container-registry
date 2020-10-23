@@ -92,7 +92,7 @@ func (s *configurationStore) FindByID(ctx context.Context, id int64) (*models.Co
 	q := `SELECT
 			c.id,
 			c.blob_id,
-			b.media_type,
+			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
 			c.payload,
@@ -100,6 +100,7 @@ func (s *configurationStore) FindByID(ctx context.Context, id int64) (*models.Co
 		FROM
 			configurations AS c
 			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
 			c.id = $1`
 	row := s.db.QueryRowContext(ctx, q, id)
@@ -112,7 +113,7 @@ func (s *configurationStore) FindByDigest(ctx context.Context, d digest.Digest) 
 	q := `SELECT
 			c.id,
 			c.blob_id,
-			b.media_type,
+			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
 			c.payload,
@@ -120,6 +121,7 @@ func (s *configurationStore) FindByDigest(ctx context.Context, d digest.Digest) 
 		FROM
 			configurations AS c
 			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
 			digest = decode($1, 'hex')`
 
@@ -137,14 +139,15 @@ func (s *configurationStore) FindAll(ctx context.Context) (models.Configurations
 	q := `SELECT
 			c.id,
 			c.blob_id,
-			b.media_type,
+			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
 			c.payload,
 			c.created_at
 		FROM
 			configurations AS c
-			JOIN blobs AS b ON c.blob_id = b.id`
+			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN media_types AS mt ON mt.id = b.media_type_id`
 	rows, err := s.db.QueryContext(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("finding configurations: %w", err)
@@ -168,18 +171,19 @@ func (s *configurationStore) Count(ctx context.Context) (int, error) {
 // Manifests finds the manifests that reference a configuration.
 func (s *configurationStore) Manifests(ctx context.Context, c *models.Configuration) (models.Manifests, error) {
 	q := `SELECT
-			id,
-			configuration_id,
-			schema_version,
-			media_type,
-			encode(digest, 'hex') as digest,
-			payload,
-			created_at,
-			marked_at
+			m.id,
+			m.configuration_id,
+			m.schema_version,
+			mt.media_type,
+			encode(m.digest, 'hex') as digest,
+			m.payload,
+			m.created_at,
+			m.marked_at
 		FROM
-			manifests
+			manifests AS m
+			JOIN media_types AS mt ON mt.id = m.media_type_id
 		WHERE
-			configuration_id = $1`
+			m.configuration_id = $1`
 
 	rows, err := s.db.QueryContext(ctx, q, c.ID)
 	if err != nil {

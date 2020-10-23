@@ -141,18 +141,19 @@ func (s *tagStore) Repository(ctx context.Context, t *models.Tag) (*models.Repos
 // Manifest finds a tag manifest. A tag can be associated with either a manifest or a manifest list.
 func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifest, error) {
 	q := `SELECT
-			id,
-			configuration_id,
-			schema_version,
-			media_type,
-			encode(digest, 'hex') as digest,
-			payload,
-			created_at,
-			marked_at
+			m.id,
+			m.configuration_id,
+			m.schema_version,
+			mt.media_type,
+			encode(m.digest, 'hex') as digest,
+			m.payload,
+			m.created_at,
+			m.marked_at
 		FROM
-			manifests
+			manifests AS m
+			JOIN media_types AS mt ON mt.id = m.media_type_id
 		WHERE
-			id = $1`
+			m.id = $1`
 	row := s.db.QueryRowContext(ctx, q, t.ManifestID)
 
 	return scanFullManifest(row)

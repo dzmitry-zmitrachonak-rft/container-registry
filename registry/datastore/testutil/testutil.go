@@ -21,6 +21,7 @@ type table string
 
 const (
 	RepositoriesTable        table = "repositories"
+	MediaTypesTable          table = "media_types"
 	ConfigurationsTable      table = "configurations"
 	ManifestsTable           table = "manifests"
 	ManifestReferencesTable  table = "manifest_references"
@@ -86,7 +87,7 @@ func (t table) DumpAsJSON(ctx context.Context, db datastore.Queryer) ([]byte, er
 					schema_version,
 					encode(digest, 'hex') as digest,
 					convert_from(payload, 'UTF8')::json AS payload,
-					media_type
+					media_type_id
 				FROM %s
 			) t;`
 		query = fmt.Sprintf(s, t)

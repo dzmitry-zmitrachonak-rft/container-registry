@@ -42,7 +42,7 @@ VALUES (
 
 INSERT INTO "media_types" (
     "id",
-    "type")
+    "media_type")
 VALUES (
            1,
            'application/vnd.docker.image.rootfs.diff.tar.gzip'),
@@ -519,8 +519,6 @@ VALUES (
            7,
            12,
            11);
-
-select * from repository_blobs;
 
 INSERT INTO "repository_blobs" (
     "id",
