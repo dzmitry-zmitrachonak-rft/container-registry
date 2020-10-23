@@ -94,16 +94,17 @@ func scanFullBlobs(rows *sql.Rows) (models.Blobs, error) {
 // FindByID finds a blob by ID.
 func (s *blobStore) FindByID(ctx context.Context, id int64) (*models.Blob, error) {
 	q := `SELECT
-			id,
-			media_type,
-			encode(digest, 'hex') as digest,
-			size,
-			created_at,
-			marked_at
+			b.id,
+			mt.media_type,
+			encode(b.digest, 'hex') as digest,
+			b.size,
+			b.created_at,
+			b.marked_at
 		FROM
-			blobs
+			blobs AS b
+			JOIN media_types AS mt ON b.media_type_id = mt.id
 		WHERE
-			id = $1`
+			b.id = $1`
 	row := s.db.QueryRowContext(ctx, q, id)
 
 	return scanFullBlob(row)
@@ -112,16 +113,17 @@ func (s *blobStore) FindByID(ctx context.Context, id int64) (*models.Blob, error
 // FindByDigest finds a blob by digest.
 func (s *blobStore) FindByDigest(ctx context.Context, d digest.Digest) (*models.Blob, error) {
 	q := `SELECT
-			id,
-			media_type,
-			encode(digest, 'hex') as digest,
-			size,
-			created_at,
-			marked_at
+			b.id,
+			mt.media_type,
+			encode(b.digest, 'hex') as digest,
+			b.size,
+			b.created_at,
+			b.marked_at
 		FROM
-			blobs
+			blobs AS b
+			JOIN media_types AS mt ON b.media_type_id = mt.id
 		WHERE
-			digest = decode($1, 'hex')`
+			b.digest = decode($1, 'hex')`
 
 	dgst, err := NewDigest(d)
 	if err != nil {
@@ -135,14 +137,15 @@ func (s *blobStore) FindByDigest(ctx context.Context, d digest.Digest) (*models.
 // FindAll finds all blobs.
 func (s *blobStore) FindAll(ctx context.Context) (models.Blobs, error) {
 	q := `SELECT
-			id,
-			media_type,
-			encode(digest, 'hex') as digest,
-			size,
-			created_at,
-			marked_at
+			b.id,
+			mt.media_type,
+			encode(b.digest, 'hex') as digest,
+			b.size,
+			b.created_at,
+			b.marked_at
 		FROM
-			blobs`
+			blobs AS b
+			JOIN media_types AS mt ON b.media_type_id = mt.id`
 	rows, err := s.db.QueryContext(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("finding blobs: %w", err)
@@ -165,8 +168,8 @@ func (s *blobStore) Count(ctx context.Context) (int, error) {
 
 // Create saves a new blob.
 func (s *blobStore) Create(ctx context.Context, b *models.Blob) error {
-	q := `INSERT INTO blobs (media_type, digest, size)
-			VALUES ($1, decode($2, 'hex'), $3)
+	q := `INSERT INTO blobs (digest, media_type_id, size)
+			VALUES (decode($1, 'hex'), $2, $3)
 		RETURNING
 			id, created_at`
 
@@ -174,7 +177,11 @@ func (s *blobStore) Create(ctx context.Context, b *models.Blob) error {
 	if err != nil {
 		return err
 	}
-	row := s.db.QueryRowContext(ctx, q, b.MediaType, dgst, b.Size)
+	mediaTypeID, err := mapMediaType(ctx, s.db, b.MediaType)
+	if err != nil {
+		return err
+	}
+	row := s.db.QueryRowContext(ctx, q, dgst, mediaTypeID, b.Size)
 	if err := row.Scan(&b.ID, &b.CreatedAt); err != nil {
 		return fmt.Errorf("creating blob: %w", err)
 	}
@@ -187,8 +194,8 @@ func (s *blobStore) Create(ctx context.Context, b *models.Blob) error {
 // on write operations between the corresponding read (FindByDigest) and write (Create) operations. Separate Find* and
 // Create method calls should be preferred to this when race conditions are not a concern.
 func (s *blobStore) CreateOrFind(ctx context.Context, b *models.Blob) error {
-	q := `INSERT INTO blobs (media_type, digest, size)
-			VALUES ($1, decode($2, 'hex'), $3)
+	q := `INSERT INTO blobs (digest, media_type_id, size)
+			VALUES (decode($1, 'hex'), $2, $3)
 		ON CONFLICT (digest)
 			DO NOTHING
 		RETURNING
@@ -198,8 +205,12 @@ func (s *blobStore) CreateOrFind(ctx context.Context, b *models.Blob) error {
 	if err != nil {
 		return err
 	}
-	row := s.db.QueryRowContext(ctx, q, b.MediaType, dgst, b.Size)
+	mediaTypeID, err := mapMediaType(ctx, s.db, b.MediaType)
+	if err != nil {
+		return err
+	}
 
+	row := s.db.QueryRowContext(ctx, q, dgst, mediaTypeID, b.Size)
 	if err := row.Scan(&b.ID, &b.CreatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("creating blob: %w", err)
@@ -218,9 +229,19 @@ func (s *blobStore) CreateOrFind(ctx context.Context, b *models.Blob) error {
 // UpdateMediaType updates an existing blob media type. Blobs are usually received and stored with a generic media type
 // of application/octet-stream. Once we know their concrete media type we can update them.
 func (s *blobStore) UpdateMediaType(ctx context.Context, b *models.Blob) error {
-	q := "UPDATE blobs SET media_type = $1 WHERE id = $2"
+	q := `UPDATE
+			blobs
+		SET
+			media_type_id = $1
+		WHERE
+			id = $2`
 
-	res, err := s.db.ExecContext(ctx, q, b.MediaType, b.ID)
+	mediaTypeID, err := mapMediaType(ctx, s.db, b.MediaType)
+	if err != nil {
+		return err
+	}
+
+	res, err := s.db.ExecContext(ctx, q, mediaTypeID, b.ID)
 	if err != nil {
 		return fmt.Errorf("updating blob media type: %w", err)
 	}

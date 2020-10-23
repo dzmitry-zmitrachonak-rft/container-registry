@@ -23,7 +23,7 @@ SELECT
     m.repository_id,
     m.created_at,
     m.schema_version,
-    mt.type,
+    mt.media_type,
     m.digest,
     m.payload
 FROM
@@ -53,7 +53,7 @@ SELECT
 ```sql
 SELECT
     b.digest,
-    mt.type,
+    mt.media_type,
     b.size,
     b.created_at
 FROM
@@ -166,6 +166,7 @@ PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>
    ON CONFLICT (digest)
        DO NOTHING
    RETURNING
+       id,
        created_at;
    ```
 
@@ -236,7 +237,7 @@ A manifest can be pulled by digest or tag.
        m.repository_id,
        m.created_at,
        m.schema_version,
-       mt.type,
+       mt.media_type,
        m.digest,
        m.payload
    FROM
