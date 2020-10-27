@@ -185,7 +185,6 @@ func (s *manifestStore) Count(ctx context.Context) (int, error) {
 func (s *manifestStore) Config(ctx context.Context, m *models.Manifest) (*models.Configuration, error) {
 	q := `SELECT
 			c.id,
-			c.blob_id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
@@ -193,7 +192,7 @@ func (s *manifestStore) Config(ctx context.Context, m *models.Manifest) (*models
 			c.created_at
 		FROM
 			configurations AS c
-			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN blobs AS b ON c.blob_digest = b.digest
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
 			c.id = $1`
@@ -206,15 +205,13 @@ func (s *manifestStore) Config(ctx context.Context, m *models.Manifest) (*models
 // LayerBlobs finds layer blobs associated with a manifest, through the `manifest_layers` relationship entity.
 func (s *manifestStore) LayerBlobs(ctx context.Context, m *models.Manifest) (models.Blobs, error) {
 	q := `SELECT
-			b.id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
-			b.created_at,
-			b.marked_at
+			b.created_at
 		FROM
 			blobs AS b
-			JOIN manifest_layers AS ml ON ml.blob_id = b.id
+			JOIN manifest_layers AS ml ON ml.blob_digest = b.digest
 			JOIN manifests AS m ON m.id = ml.manifest_id
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
@@ -378,12 +375,17 @@ func (s *manifestStore) DissociateManifest(ctx context.Context, ml *models.Manif
 
 // AssociateLayerBlob associates a layer blob and a manifest. It does nothing if already associated.
 func (s *manifestStore) AssociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error {
-	q := `INSERT INTO manifest_layers (manifest_id, blob_id)
-			VALUES ($1, $2)
-		ON CONFLICT (manifest_id, blob_id)
+	q := `INSERT INTO manifest_layers (manifest_id, blob_digest)
+			VALUES ($1, decode($2, 'hex'))
+		ON CONFLICT (manifest_id, blob_digest)
 			DO NOTHING`
 
-	if _, err := s.db.ExecContext(ctx, q, m.ID, b.ID); err != nil {
+	dgst, err := NewDigest(b.Digest)
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.db.ExecContext(ctx, q, m.ID, dgst); err != nil {
 		return fmt.Errorf("associating layer blob: %w", err)
 	}
 
@@ -392,9 +394,14 @@ func (s *manifestStore) AssociateLayerBlob(ctx context.Context, m *models.Manife
 
 // DissociateLayerBlob dissociates a layer blob and a manifest. It does nothing if not associated.
 func (s *manifestStore) DissociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error {
-	q := "DELETE FROM manifest_layers WHERE manifest_id = $1 AND blob_id = $2"
+	q := "DELETE FROM manifest_layers WHERE manifest_id = $1 AND blob_digest = decode($2, 'hex')"
 
-	res, err := s.db.ExecContext(ctx, q, m.ID, b.ID)
+	dgst, err := NewDigest(b.Digest)
+	if err != nil {
+		return err
+	}
+
+	res, err := s.db.ExecContext(ctx, q, m.ID, dgst)
 	if err != nil {
 		return fmt.Errorf("dissociating layer blob: %w", err)
 	}

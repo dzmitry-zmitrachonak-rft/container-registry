@@ -43,7 +43,7 @@ func NewConfigurationStore(db Queryer) *configurationStore {
 func scanFullConfiguration(row *sql.Row) (*models.Configuration, error) {
 	var dgst Digest
 	c := new(models.Configuration)
-	err := row.Scan(&c.ID, &c.BlobID, &c.MediaType, &dgst, &c.Size, &c.Payload, &c.CreatedAt)
+	err := row.Scan(&c.ID, &c.MediaType, &dgst, &c.Size, &c.Payload, &c.CreatedAt)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("scaning configuration: %w", err)
@@ -67,7 +67,7 @@ func scanFullConfigurations(rows *sql.Rows) (models.Configurations, error) {
 	for rows.Next() {
 		var dgst Digest
 		c := new(models.Configuration)
-		err := rows.Scan(&c.ID, &c.BlobID, &c.MediaType, &dgst, &c.Size, &c.Payload, &c.CreatedAt)
+		err := rows.Scan(&c.ID, &c.MediaType, &dgst, &c.Size, &c.Payload, &c.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scanning configuration: %w", err)
 		}
@@ -91,7 +91,6 @@ func scanFullConfigurations(rows *sql.Rows) (models.Configurations, error) {
 func (s *configurationStore) FindByID(ctx context.Context, id int64) (*models.Configuration, error) {
 	q := `SELECT
 			c.id,
-			c.blob_id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
@@ -99,7 +98,7 @@ func (s *configurationStore) FindByID(ctx context.Context, id int64) (*models.Co
 			c.created_at
 		FROM
 			configurations AS c
-			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN blobs AS b ON c.blob_digest = b.digest
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
 			c.id = $1`
@@ -112,7 +111,6 @@ func (s *configurationStore) FindByID(ctx context.Context, id int64) (*models.Co
 func (s *configurationStore) FindByDigest(ctx context.Context, d digest.Digest) (*models.Configuration, error) {
 	q := `SELECT
 			c.id,
-			c.blob_id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
@@ -120,7 +118,7 @@ func (s *configurationStore) FindByDigest(ctx context.Context, d digest.Digest) 
 			c.created_at
 		FROM
 			configurations AS c
-			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN blobs AS b ON c.blob_digest = b.digest
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
 			digest = decode($1, 'hex')`
@@ -138,7 +136,6 @@ func (s *configurationStore) FindByDigest(ctx context.Context, d digest.Digest) 
 func (s *configurationStore) FindAll(ctx context.Context) (models.Configurations, error) {
 	q := `SELECT
 			c.id,
-			c.blob_id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
@@ -146,7 +143,7 @@ func (s *configurationStore) FindAll(ctx context.Context) (models.Configurations
 			c.created_at
 		FROM
 			configurations AS c
-			JOIN blobs AS b ON c.blob_id = b.id
+			JOIN blobs AS b ON c.blob_digest = b.digest
 			JOIN media_types AS mt ON mt.id = b.media_type_id`
 	rows, err := s.db.QueryContext(ctx, q)
 	if err != nil {
@@ -195,12 +192,16 @@ func (s *configurationStore) Manifests(ctx context.Context, c *models.Configurat
 
 // Create saves a new configuration.
 func (s *configurationStore) Create(ctx context.Context, c *models.Configuration) error {
-	q := `INSERT INTO configurations (blob_id, payload)
-			VALUES ($1, $2)
+	q := `INSERT INTO configurations (blob_digest, payload)
+			VALUES (decode($1, 'hex'), $2)
 		RETURNING
 			id, created_at`
 
-	row := s.db.QueryRowContext(ctx, q, c.BlobID, c.Payload)
+	dgst, err := NewDigest(c.Digest)
+	if err != nil {
+		return err
+	}
+	row := s.db.QueryRowContext(ctx, q, dgst, c.Payload)
 	if err := row.Scan(&c.ID, &c.CreatedAt); err != nil {
 		return fmt.Errorf("creating configuration: %w", err)
 	}

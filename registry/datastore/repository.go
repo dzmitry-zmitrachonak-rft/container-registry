@@ -487,15 +487,13 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 // Blobs finds all blobs associated with the repository.
 func (s *repositoryStore) Blobs(ctx context.Context, r *models.Repository) (models.Blobs, error) {
 	q := `SELECT
-			b.id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
-			b.created_at,
-			b.marked_at
+			b.created_at
 		FROM
 			blobs AS b
-			JOIN repository_blobs AS rb ON rb.blob_id = b.id
+			JOIN repository_blobs AS rb ON rb.blob_digest = b.digest
 			JOIN repositories AS r ON r.id = rb.repository_id
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
@@ -733,12 +731,16 @@ func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repositor
 
 // LinkBlob links a blob to a repository. It does nothing if already linked.
 func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error {
-	q := `INSERT INTO repository_blobs (repository_id, blob_id)
-			VALUES ($1, $2)
-		ON CONFLICT (repository_id, blob_id)
+	q := `INSERT INTO repository_blobs (repository_id, blob_digest)
+			VALUES ($1, decode($2, 'hex'))
+		ON CONFLICT (repository_id, blob_digest)
 			DO NOTHING`
 
-	if _, err := s.db.ExecContext(ctx, q, r.ID, b.ID); err != nil {
+	dgst, err := NewDigest(b.Digest)
+	if err != nil {
+		return err
+	}
+	if _, err := s.db.ExecContext(ctx, q, r.ID, dgst); err != nil {
 		return fmt.Errorf("linking blob: %w", err)
 	}
 
@@ -747,9 +749,13 @@ func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, b 
 
 // UnlinkBlob unlinks a blob from a repository. It does nothing if not linked.
 func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error {
-	q := "DELETE FROM repository_blobs WHERE repository_id = $1 AND blob_id = $2"
+	q := "DELETE FROM repository_blobs WHERE repository_id = $1 AND blob_digest = decode($2, 'hex')"
 
-	res, err := s.db.ExecContext(ctx, q, r.ID, b.ID)
+	dgst, err := NewDigest(b.Digest)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.ExecContext(ctx, q, r.ID, dgst)
 	if err != nil {
 		return fmt.Errorf("linking blob: %w", err)
 	}

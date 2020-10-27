@@ -194,7 +194,6 @@ func TestManifestStore_Config(t *testing.T) {
 	local := c.CreatedAt.Location()
 	expected := &models.Configuration{
 		ID:        1,
-		BlobID:    8,
 		MediaType: "application/vnd.docker.container.image.v1+json",
 		Digest:    "sha256:ea8a54fd13889d3649d0a4e45735116474b8a650815a2cda4940f652158579b9",
 		Size:      123,
@@ -215,14 +214,12 @@ func TestManifestStore_Layers(t *testing.T) {
 	local := bb[0].CreatedAt.Location()
 	expected := models.Blobs{
 		{
-			ID:        1,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
 			Size:      2802957,
 			CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
 		},
 		{
-			ID:        2,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:6b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21",
 			Size:      108,
@@ -369,7 +366,7 @@ func TestManifestStore_AssociateLayerBlob(t *testing.T) {
 
 	s := datastore.NewManifestStore(suite.db)
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{ID: 3}
+	b := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
 
 	err := s.AssociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
@@ -381,7 +378,6 @@ func TestManifestStore_AssociateLayerBlob(t *testing.T) {
 	local := bb[0].CreatedAt.Location()
 	expected := models.Blobs{
 		{
-			ID:        3,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1",
 			Size:      109,
@@ -497,7 +493,7 @@ func TestManifestStore_AssociateLayerBlob_AlreadyAssociatedDoesNotFail(t *testin
 
 	// see testdata/fixtures/manifest_layers.sql
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{ID: 1}
+	b := &models.Blob{Digest: "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9"}
 	err := s.AssociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
 }
@@ -507,7 +503,7 @@ func TestManifestStore_DissociateLayerBlob(t *testing.T) {
 
 	s := datastore.NewManifestStore(suite.db)
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{ID: 1}
+	b := &models.Blob{Digest: "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9"}
 
 	err := s.DissociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
@@ -519,7 +515,6 @@ func TestManifestStore_DissociateLayerBlob(t *testing.T) {
 	local := bb[0].CreatedAt.Location()
 	unexpected := models.Blobs{
 		{
-			ID:        1,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
 			Size:      2802957,
@@ -534,7 +529,7 @@ func TestManifestStore_DissociateLayerBlob_NotAssociatedDoesNotFail(t *testing.T
 
 	s := datastore.NewManifestStore(suite.db)
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{ID: 5}
+	b := &models.Blob{Digest: "sha256:c4039fd85dccc8e267c98447f8f1b27a402dbb4259d86586f4097acb5e6634af"}
 
 	err := s.DissociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)

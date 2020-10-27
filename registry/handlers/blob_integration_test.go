@@ -109,7 +109,7 @@ func TestDeleteBlobDB(t *testing.T) {
 	require.NoError(t, err)
 
 	// the layer blob should still be there
-	b2, err := bStore.FindByID(env.ctx, b.ID)
+	b2, err := bStore.FindByDigest(env.ctx, b.Digest)
 	require.NoError(t, err)
 	require.NotNil(t, b2)
 

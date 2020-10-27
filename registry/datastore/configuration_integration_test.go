@@ -39,7 +39,6 @@ func TestConfigurationStore_FindByID(t *testing.T) {
 	// see testdata/fixtures/configurations.sql
 	expected := &models.Configuration{
 		ID:        1,
-		BlobID:    8,
 		MediaType: "application/vnd.docker.container.image.v1+json",
 		Digest:    "sha256:ea8a54fd13889d3649d0a4e45735116474b8a650815a2cda4940f652158579b9",
 		Size:      123,
@@ -68,7 +67,6 @@ func TestConfigurationStore_FindByDigest(t *testing.T) {
 	// see testdata/fixtures/configurations.sql
 	excepted := &models.Configuration{
 		ID:        2,
-		BlobID:    9,
 		MediaType: "application/vnd.docker.container.image.v1+json",
 		Digest:    "sha256:9ead3a93fc9c9dd8f35221b1f22b155a513815b7b00425d6645b34d98e83b073",
 		Size:      321,
@@ -99,7 +97,6 @@ func TestConfigurationStore_FindAll(t *testing.T) {
 	expected := models.Configurations{
 		{
 			ID:        1,
-			BlobID:    8,
 			MediaType: "application/vnd.docker.container.image.v1+json",
 			Digest:    "sha256:ea8a54fd13889d3649d0a4e45735116474b8a650815a2cda4940f652158579b9",
 			Size:      123,
@@ -108,7 +105,6 @@ func TestConfigurationStore_FindAll(t *testing.T) {
 		},
 		{
 			ID:        2,
-			BlobID:    9,
 			MediaType: "application/vnd.docker.container.image.v1+json",
 			Digest:    "sha256:9ead3a93fc9c9dd8f35221b1f22b155a513815b7b00425d6645b34d98e83b073",
 			Size:      321,
@@ -117,7 +113,6 @@ func TestConfigurationStore_FindAll(t *testing.T) {
 		},
 		{
 			ID:        3,
-			BlobID:    10,
 			MediaType: "application/vnd.docker.container.image.v1+json",
 			Digest:    "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
 			Size:      252,
@@ -177,7 +172,7 @@ func TestConfigurationStore_Create(t *testing.T) {
 
 	s := datastore.NewConfigurationStore(suite.db)
 	c := &models.Configuration{
-		BlobID:  10,
+		Digest:  "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
 		Payload: json.RawMessage(`{"architecture":"amd64","config":"foo"}`),
 	}
 	err := s.Create(suite.ctx, c)

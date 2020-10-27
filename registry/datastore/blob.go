@@ -3,7 +3,6 @@ package datastore
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/docker/distribution/registry/datastore/models"
@@ -13,7 +12,6 @@ import (
 // BlobReader is the interface that defines read operations for a blob store.
 type BlobReader interface {
 	FindAll(ctx context.Context) (models.Blobs, error)
-	FindByID(ctx context.Context, id int64) (*models.Blob, error)
 	FindByDigest(ctx context.Context, d digest.Digest) (*models.Blob, error)
 	Count(ctx context.Context) (int, error)
 }
@@ -23,8 +21,7 @@ type BlobWriter interface {
 	Create(ctx context.Context, b *models.Blob) error
 	CreateOrFind(ctx context.Context, b *models.Blob) error
 	UpdateMediaType(ctx context.Context, b *models.Blob) error
-	Mark(ctx context.Context, b *models.Blob) error
-	Delete(ctx context.Context, id int64) error
+	Delete(ctx context.Context, d digest.Digest) error
 }
 
 // BlobStore is the interface that a blob store should conform to.
@@ -47,7 +44,7 @@ func scanFullBlob(row *sql.Row) (*models.Blob, error) {
 	var dgst Digest
 	b := new(models.Blob)
 
-	if err := row.Scan(&b.ID, &b.MediaType, &dgst, &b.Size, &b.CreatedAt, &b.MarkedAt); err != nil {
+	if err := row.Scan(&b.MediaType, &dgst, &b.Size, &b.CreatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("scanning blob: %w", err)
 		}
@@ -71,7 +68,7 @@ func scanFullBlobs(rows *sql.Rows) (models.Blobs, error) {
 		var dgst Digest
 		b := new(models.Blob)
 
-		err := rows.Scan(&b.ID, &b.MediaType, &dgst, &b.Size, &b.CreatedAt, &b.MarkedAt)
+		err := rows.Scan(&b.MediaType, &dgst, &b.Size, &b.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scanning blob: %w", err)
 		}
@@ -91,34 +88,13 @@ func scanFullBlobs(rows *sql.Rows) (models.Blobs, error) {
 	return bb, nil
 }
 
-// FindByID finds a blob by ID.
-func (s *blobStore) FindByID(ctx context.Context, id int64) (*models.Blob, error) {
-	q := `SELECT
-			b.id,
-			mt.media_type,
-			encode(b.digest, 'hex') as digest,
-			b.size,
-			b.created_at,
-			b.marked_at
-		FROM
-			blobs AS b
-			JOIN media_types AS mt ON b.media_type_id = mt.id
-		WHERE
-			b.id = $1`
-	row := s.db.QueryRowContext(ctx, q, id)
-
-	return scanFullBlob(row)
-}
-
 // FindByDigest finds a blob by digest.
 func (s *blobStore) FindByDigest(ctx context.Context, d digest.Digest) (*models.Blob, error) {
 	q := `SELECT
-			b.id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
-			b.created_at,
-			b.marked_at
+			b.created_at
 		FROM
 			blobs AS b
 			JOIN media_types AS mt ON b.media_type_id = mt.id
@@ -137,12 +113,10 @@ func (s *blobStore) FindByDigest(ctx context.Context, d digest.Digest) (*models.
 // FindAll finds all blobs.
 func (s *blobStore) FindAll(ctx context.Context) (models.Blobs, error) {
 	q := `SELECT
-			b.id,
 			mt.media_type,
 			encode(b.digest, 'hex') as digest,
 			b.size,
-			b.created_at,
-			b.marked_at
+			b.created_at
 		FROM
 			blobs AS b
 			JOIN media_types AS mt ON b.media_type_id = mt.id`
@@ -171,7 +145,7 @@ func (s *blobStore) Create(ctx context.Context, b *models.Blob) error {
 	q := `INSERT INTO blobs (digest, media_type_id, size)
 			VALUES (decode($1, 'hex'), $2, $3)
 		RETURNING
-			id, created_at`
+			created_at`
 
 	dgst, err := NewDigest(b.Digest)
 	if err != nil {
@@ -182,7 +156,7 @@ func (s *blobStore) Create(ctx context.Context, b *models.Blob) error {
 		return err
 	}
 	row := s.db.QueryRowContext(ctx, q, dgst, mediaTypeID, b.Size)
-	if err := row.Scan(&b.ID, &b.CreatedAt); err != nil {
+	if err := row.Scan(&b.CreatedAt); err != nil {
 		return fmt.Errorf("creating blob: %w", err)
 	}
 
@@ -199,7 +173,7 @@ func (s *blobStore) CreateOrFind(ctx context.Context, b *models.Blob) error {
 		ON CONFLICT (digest)
 			DO NOTHING
 		RETURNING
-			id, created_at`
+			created_at`
 
 	dgst, err := NewDigest(b.Digest)
 	if err != nil {
@@ -211,7 +185,7 @@ func (s *blobStore) CreateOrFind(ctx context.Context, b *models.Blob) error {
 	}
 
 	row := s.db.QueryRowContext(ctx, q, dgst, mediaTypeID, b.Size)
-	if err := row.Scan(&b.ID, &b.CreatedAt); err != nil {
+	if err := row.Scan(&b.CreatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("creating blob: %w", err)
 		}
@@ -234,14 +208,18 @@ func (s *blobStore) UpdateMediaType(ctx context.Context, b *models.Blob) error {
 		SET
 			media_type_id = $1
 		WHERE
-			id = $2`
+			digest = decode($2, 'hex')`
 
 	mediaTypeID, err := mapMediaType(ctx, s.db, b.MediaType)
 	if err != nil {
 		return err
 	}
+	dgst, err := NewDigest(b.Digest)
+	if err != nil {
+		return err
+	}
 
-	res, err := s.db.ExecContext(ctx, q, mediaTypeID, b.ID)
+	res, err := s.db.ExecContext(ctx, q, mediaTypeID, dgst)
 	if err != nil {
 		return fmt.Errorf("updating blob media type: %w", err)
 	}
@@ -257,32 +235,15 @@ func (s *blobStore) UpdateMediaType(ctx context.Context, b *models.Blob) error {
 	return nil
 }
 
-// Mark marks a blob during garbage collection.
-func (s *blobStore) Mark(ctx context.Context, b *models.Blob) error {
-	q := `UPDATE
-			blobs
-		SET
-			marked_at = NOW()
-		WHERE
-			id = $1
-		RETURNING
-			marked_at`
-
-	if err := s.db.QueryRowContext(ctx, q, b.ID).Scan(&b.MarkedAt); err != nil {
-		if err == sql.ErrNoRows {
-			return errors.New("blob not found")
-		}
-		return fmt.Errorf("soft deleting blobs: %w", err)
-	}
-
-	return nil
-}
-
 // Delete deletes a blob.
-func (s *blobStore) Delete(ctx context.Context, id int64) error {
-	q := "DELETE FROM blobs WHERE id = $1"
+func (s *blobStore) Delete(ctx context.Context, d digest.Digest) error {
+	q := "DELETE FROM blobs WHERE digest = decode($1, 'hex')"
 
-	res, err := s.db.ExecContext(ctx, q, id)
+	dgst, err := NewDigest(d)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.ExecContext(ctx, q, dgst)
 	if err != nil {
 		return fmt.Errorf("deleting blob: %w", err)
 	}

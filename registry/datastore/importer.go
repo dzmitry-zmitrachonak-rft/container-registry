@@ -166,7 +166,7 @@ func (imp *Importer) findOrCreateDBManifestConfig(ctx context.Context, d distrib
 
 	if dbConfig == nil {
 		dbConfig = &models.Configuration{
-			BlobID:  dbBlob.ID,
+			Digest:  dbBlob.Digest,
 			Payload: payload,
 		}
 		if err := imp.configurationStore.Create(ctx, dbConfig); err != nil {
@@ -302,7 +302,7 @@ func (imp *Importer) importSchema2Manifest(ctx context.Context, fsRepo distribut
 	}
 
 	// link configuration to repository
-	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{ID: dbConfig.BlobID}); err != nil {
+	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{Digest: dbConfig.Digest}); err != nil {
 		return nil, fmt.Errorf("error associating manifest with repository: %w", err)
 	}
 
@@ -350,7 +350,7 @@ func (imp *Importer) importOCIManifest(ctx context.Context, fsRepo distribution.
 	}
 
 	// link configuration to repository
-	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{ID: dbConfig.BlobID}); err != nil {
+	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{Digest: dbConfig.Digest}); err != nil {
 		return nil, fmt.Errorf("error associating manifest with repository: %w", err)
 	}
 
