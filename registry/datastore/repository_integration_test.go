@@ -856,21 +856,18 @@ func TestRepositoryStore_Layers(t *testing.T) {
 	local := ll[0].CreatedAt.Location()
 	expected := models.Blobs{
 		{
-			ID:        1,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
 			Size:      2802957,
 			CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
 		},
 		{
-			ID:        2,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:6b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21",
 			Size:      108,
 			CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
 		},
 		{
-			ID:        3,
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1",
 			Size:      109,
@@ -1378,7 +1375,7 @@ func isLayerLinked(t *testing.T, r *models.Repository, l *models.Blob) bool {
 	require.NoError(t, err)
 
 	for _, layer := range ll {
-		if layer.ID == l.ID {
+		if layer.Digest == l.Digest {
 			return true
 		}
 	}
@@ -1393,7 +1390,7 @@ func TestRepositoryStore_LinkLayer(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
 
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{ID: 4}
+	l := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
 
 	err := s.LinkBlob(suite.ctx, r, l)
 	require.NoError(t, err)
@@ -1408,7 +1405,7 @@ func TestRepositoryStore_LinkLayer_AlreadyLinkedDoesNotFail(t *testing.T) {
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{ID: 1}
+	l := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
 	require.True(t, isLayerLinked(t, r, l))
 
 	err := s.LinkBlob(suite.ctx, r, l)
@@ -1422,7 +1419,7 @@ func TestRepositoryStore_UnlinkLayer(t *testing.T) {
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{ID: 1}
+	l := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
 	require.True(t, isLayerLinked(t, r, l))
 
 	err := s.UnlinkBlob(suite.ctx, r, l)
@@ -1437,7 +1434,7 @@ func TestRepositoryStore_UnlinkLayer_NotLinkedDoesNotFail(t *testing.T) {
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{ID: 4}
+	l := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
 	require.False(t, isLayerLinked(t, r, l))
 
 	err := s.UnlinkBlob(suite.ctx, r, l)

@@ -928,7 +928,7 @@ func dbFindOrCreateRepositoryConfig(ctx context.Context, db datastore.Queryer, b
 			return nil, err
 		}
 
-		dbCfg = &models.Configuration{BlobID: dbCfgBlob.ID, Payload: cfgPayload}
+		dbCfg = &models.Configuration{Digest: dbCfgBlob.Digest, Payload: cfgPayload}
 		if err := cfgStore.Create(ctx, dbCfg); err != nil {
 			return nil, err
 		}
