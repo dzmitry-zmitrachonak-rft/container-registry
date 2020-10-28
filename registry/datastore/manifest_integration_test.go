@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/docker/distribution/manifest/manifestlist"
 
 	"github.com/docker/distribution/registry/datastore"
@@ -23,7 +21,7 @@ func reloadManifestFixtures(tb testing.TB) {
 		tb, suite.db, suite.basePath,
 		// Manifest has a relationship with Repository and ManifestLayer (insert order matters)
 		testutil.RepositoriesTable, testutil.BlobsTable, testutil.ManifestsTable,
-		testutil.ManifestReferencesTable, testutil.RepositoryManifestsTable, testutil.ManifestLayersTable,
+		testutil.ManifestReferencesTable, testutil.RepositoryManifestsTable, testutil.LayersTable,
 	)
 }
 
@@ -32,7 +30,7 @@ func unloadManifestFixtures(tb testing.TB) {
 		suite.db,
 		// Manifest has a relationship with Repository and ManifestLayer (insert order matters)
 		testutil.RepositoriesTable, testutil.BlobsTable, testutil.ManifestsTable,
-		testutil.ManifestReferencesTable, testutil.RepositoryManifestsTable, testutil.ManifestLayersTable,
+		testutil.ManifestReferencesTable, testutil.RepositoryManifestsTable, testutil.LayersTable,
 	))
 }
 
@@ -181,7 +179,6 @@ func TestManifestStore_FindAll(t *testing.T) {
 			CreatedAt:     testutil.ParseTimestamp(t, "2020-04-02 18:45:04.470711", local),
 		},
 	}
-	spew.Dump("============EXPECTED===========", expected)
 	require.Equal(t, expected, mm)
 }
 
@@ -213,7 +210,7 @@ func TestManifestStore_Layers(t *testing.T) {
 	bb, err := s.LayerBlobs(suite.ctx, &models.Manifest{ID: 1})
 	require.NoError(t, err)
 
-	// see testdata/fixtures/manifest_layers.sql
+	// see testdata/fixtures/layers.sql
 	local := bb[0].CreatedAt.Location()
 	expected := models.Blobs{
 		{
@@ -352,11 +349,15 @@ func TestManifestStore_Create_NonUniqueDigestFails(t *testing.T) {
 
 func TestManifestStore_AssociateLayerBlob(t *testing.T) {
 	reloadManifestFixtures(t)
-	require.NoError(t, testutil.TruncateTables(suite.db, testutil.ManifestLayersTable))
+	require.NoError(t, testutil.TruncateTables(suite.db, testutil.LayersTable))
 
 	s := datastore.NewManifestStore(suite.db)
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
+	b := &models.Blob{
+		MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+		Digest:    "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1",
+		Size:      109,
+	}
 
 	err := s.AssociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
@@ -364,7 +365,7 @@ func TestManifestStore_AssociateLayerBlob(t *testing.T) {
 	bb, err := s.LayerBlobs(suite.ctx, m)
 	require.NoError(t, err)
 
-	// see testdata/fixtures/manifest_layers.sql
+	// see testdata/fixtures/layers.sql
 	local := bb[0].CreatedAt.Location()
 	expected := models.Blobs{
 		{
@@ -481,9 +482,13 @@ func TestManifestStore_AssociateLayerBlob_AlreadyAssociatedDoesNotFail(t *testin
 
 	s := datastore.NewManifestStore(suite.db)
 
-	// see testdata/fixtures/manifest_layers.sql
+	// see testdata/fixtures/layers.sql
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{Digest: "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9"}
+	b := &models.Blob{
+		MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+		Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
+		Size:      2802957,
+	}
 	err := s.AssociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
 }
@@ -493,15 +498,18 @@ func TestManifestStore_DissociateLayerBlob(t *testing.T) {
 
 	s := datastore.NewManifestStore(suite.db)
 	m := &models.Manifest{ID: 1}
-	b := &models.Blob{Digest: "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9"}
-
+	b := &models.Blob{
+		MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+		Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
+		Size:      2802957,
+	}
 	err := s.DissociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
 
 	bb, err := s.LayerBlobs(suite.ctx, m)
 	require.NoError(t, err)
 
-	// see testdata/fixtures/manifest_layers.sql
+	// see testdata/fixtures/layers.sql
 	local := bb[0].CreatedAt.Location()
 	unexpected := models.Blobs{
 		{
