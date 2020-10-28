@@ -432,18 +432,20 @@ func (s *repositoryStore) CountAfterPath(ctx context.Context, path string) (int,
 func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (models.Manifests, error) {
 	q := `SELECT
 			m.id,
-			m.configuration_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
 			m.payload,
-			m.created_at,
-			m.marked_at
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.created_at
 		FROM
 			manifests AS m
 			JOIN repository_manifests AS rm ON rm.manifest_id = m.id
 			JOIN repositories AS r ON r.id = rm.repository_id
 			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
 			r.id = $1`
 
@@ -459,18 +461,20 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Manifest, error) {
 	q := `SELECT
 			m.id,
-			m.configuration_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
 			m.payload,
-			m.created_at,
-			m.marked_at
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.created_at
 		FROM
 			manifests AS m
 			JOIN repository_manifests AS rm ON rm.manifest_id = m.id
 			JOIN repositories AS r ON r.id = rm.repository_id
 			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
 			r.id = $1
 			AND m.digest = decode($2, 'hex')`

@@ -3,6 +3,7 @@ package datastore
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -16,7 +17,6 @@ type ManifestReader interface {
 	FindByID(ctx context.Context, id int64) (*models.Manifest, error)
 	FindByDigest(ctx context.Context, d digest.Digest) (*models.Manifest, error)
 	Count(ctx context.Context) (int, error)
-	Config(ctx context.Context, m *models.Manifest) (*models.Configuration, error)
 	LayerBlobs(ctx context.Context, m *models.Manifest) (models.Blobs, error)
 	References(ctx context.Context, m *models.Manifest) (models.Manifests, error)
 	Repositories(ctx context.Context, m *models.Manifest) (models.Repositories, error)
@@ -25,7 +25,6 @@ type ManifestReader interface {
 // ManifestWriter is the interface that defines write operations for a Manifest store.
 type ManifestWriter interface {
 	Create(ctx context.Context, m *models.Manifest) error
-	Mark(ctx context.Context, m *models.Manifest) error
 	AssociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error
 	DissociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error
 	AssociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error
@@ -51,9 +50,11 @@ func NewManifestStore(db Queryer) *manifestStore {
 
 func scanFullManifest(row *sql.Row) (*models.Manifest, error) {
 	var dgst Digest
+	var cfgDigest, cfgMediaType sql.NullString
+	var cfgPayload *json.RawMessage
 	m := new(models.Manifest)
 
-	err := row.Scan(&m.ID, &m.ConfigurationID, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload, &m.CreatedAt, &m.MarkedAt)
+	err := row.Scan(&m.ID, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload, &cfgMediaType, &cfgDigest, &cfgPayload, &m.CreatedAt)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("scaning manifest: %w", err)
@@ -67,6 +68,19 @@ func scanFullManifest(row *sql.Row) (*models.Manifest, error) {
 	}
 	m.Digest = d
 
+	if cfgDigest.Valid {
+		d, err := Digest(cfgDigest.String).Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		m.Configuration = &models.Configuration{
+			MediaType: cfgMediaType.String,
+			Digest:    d,
+			Payload:   *cfgPayload,
+		}
+	}
+
 	return m, nil
 }
 
@@ -76,9 +90,11 @@ func scanFullManifests(rows *sql.Rows) (models.Manifests, error) {
 
 	for rows.Next() {
 		var dgst Digest
+		var cfgDigest, cfgMediaType sql.NullString
+		var cfgPayload *json.RawMessage
 		m := new(models.Manifest)
 
-		err := rows.Scan(&m.ID, &m.ConfigurationID, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload, &m.CreatedAt, &m.MarkedAt)
+		err := rows.Scan(&m.ID, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload, &cfgMediaType, &cfgDigest, &cfgPayload, &m.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scanning manifest: %w", err)
 		}
@@ -88,6 +104,19 @@ func scanFullManifests(rows *sql.Rows) (models.Manifests, error) {
 			return nil, err
 		}
 		m.Digest = d
+
+		if cfgDigest.Valid {
+			d, err := Digest(cfgDigest.String).Parse()
+			if err != nil {
+				return nil, err
+			}
+
+			m.Configuration = &models.Configuration{
+				MediaType: cfgMediaType.String,
+				Digest:    d,
+				Payload:   *cfgPayload,
+			}
+		}
 
 		mm = append(mm, m)
 	}
@@ -102,16 +131,18 @@ func scanFullManifests(rows *sql.Rows) (models.Manifests, error) {
 func (s *manifestStore) FindByID(ctx context.Context, id int64) (*models.Manifest, error) {
 	q := `SELECT
 			m.id,
-			m.configuration_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
 			m.payload,
-			m.created_at,
-			m.marked_at
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.created_at
 		FROM
 			manifests AS m
 			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
 			m.id = $1`
 
@@ -124,16 +155,18 @@ func (s *manifestStore) FindByID(ctx context.Context, id int64) (*models.Manifes
 func (s *manifestStore) FindByDigest(ctx context.Context, d digest.Digest) (*models.Manifest, error) {
 	q := `SELECT
 			m.id,
-			m.configuration_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
 			m.payload,
-			m.created_at,
-			m.marked_at
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.created_at
 		FROM
 			manifests AS m
 			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
 			m.digest = decode($1, 'hex')`
 
@@ -150,16 +183,18 @@ func (s *manifestStore) FindByDigest(ctx context.Context, d digest.Digest) (*mod
 func (s *manifestStore) FindAll(ctx context.Context) (models.Manifests, error) {
 	q := `SELECT
 			m.id,
-			m.configuration_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
 			m.payload,
-			m.created_at,
-			m.marked_at
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.created_at
 		FROM
 			manifests AS m
-			JOIN media_types AS mt ON mt.id = m.media_type_id`
+			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id`
 
 	rows, err := s.db.QueryContext(ctx, q)
 	if err != nil {
@@ -179,27 +214,6 @@ func (s *manifestStore) Count(ctx context.Context) (int, error) {
 	}
 
 	return count, nil
-}
-
-// Config finds the configuration associated with a manifest.
-func (s *manifestStore) Config(ctx context.Context, m *models.Manifest) (*models.Configuration, error) {
-	q := `SELECT
-			c.id,
-			mt.media_type,
-			encode(b.digest, 'hex') as digest,
-			b.size,
-			c.payload,
-			c.created_at
-		FROM
-			configurations AS c
-			JOIN blobs AS b ON c.blob_digest = b.digest
-			JOIN media_types AS mt ON mt.id = b.media_type_id
-		WHERE
-			c.id = $1`
-
-	row := s.db.QueryRowContext(ctx, q, m.ConfigurationID)
-
-	return scanFullConfiguration(row)
 }
 
 // LayerBlobs finds layer blobs associated with a manifest, through the `manifest_layers` relationship entity.
@@ -253,17 +267,19 @@ func (s *manifestStore) Repositories(ctx context.Context, m *models.Manifest) (m
 func (s *manifestStore) References(ctx context.Context, m *models.Manifest) (models.Manifests, error) {
 	q := `SELECT DISTINCT
 			m.id,
-			m.configuration_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
 			m.payload,
-			m.created_at,
-			m.marked_at
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.created_at
 		FROM
 			manifests AS m
 			JOIN manifest_references AS mr ON mr.child_id = m.id
 			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
 			mr.parent_id = $1`
 
@@ -297,8 +313,9 @@ func mapMediaType(ctx context.Context, db Queryer, mediaType string) (int, error
 
 // Create saves a new Manifest.
 func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
-	q := `INSERT INTO manifests (configuration_id, schema_version, media_type_id, digest, payload)
-			VALUES ($1, $2, $3, decode($4, 'hex'), $5)
+	q := `INSERT INTO manifests (schema_version, media_type_id, digest, payload, configuration_media_type_id, 
+				configuration_blob_digest, configuration_payload)
+			VALUES ($1, $2, decode($3, 'hex'), $4, $5, decode($6, 'hex'), $7)
 		RETURNING
 			id, created_at`
 
@@ -310,30 +327,29 @@ func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	if err != nil {
 		return err
 	}
-	row := s.db.QueryRowContext(ctx, q, m.ConfigurationID, m.SchemaVersion, mediaTypeID, dgst, m.Payload)
-	if err := row.Scan(&m.ID, &m.CreatedAt); err != nil {
-		return fmt.Errorf("creating manifest: %w", err)
+
+	var configDgst sql.NullString
+	var configMediaTypeID sql.NullInt32
+	var configPayload *json.RawMessage
+	if m.Configuration != nil {
+		dgst, err := NewDigest(m.Configuration.Digest)
+		if err != nil {
+			return err
+		}
+		configDgst.Valid = true
+		configDgst.String = dgst.String()
+		id, err := mapMediaType(ctx, s.db, m.Configuration.MediaType)
+		if err != nil {
+			return err
+		}
+		configMediaTypeID.Valid = true
+		configMediaTypeID.Int32 = int32(id)
+		configPayload = &m.Configuration.Payload
 	}
 
-	return nil
-}
-
-// Mark marks a Manifest during garbage collection.
-func (s *manifestStore) Mark(ctx context.Context, m *models.Manifest) error {
-	q := `UPDATE
-			manifests
-		SET
-			marked_at = NOW()
-		WHERE
-			id = $1
-		RETURNING
-			marked_at`
-
-	if err := s.db.QueryRowContext(ctx, q, m.ID).Scan(&m.MarkedAt); err != nil {
-		if err == sql.ErrNoRows {
-			return errors.New("manifest not found")
-		}
-		return fmt.Errorf("soft deleting manifest: %w", err)
+	row := s.db.QueryRowContext(ctx, q, m.SchemaVersion, mediaTypeID, dgst, m.Payload, configMediaTypeID, configDgst, configPayload)
+	if err := row.Scan(&m.ID, &m.CreatedAt); err != nil {
+		return fmt.Errorf("creating manifest: %w", err)
 	}
 
 	return nil
