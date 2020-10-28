@@ -21,26 +21,19 @@ type Repository struct {
 type Repositories []*Repository
 
 type Configuration struct {
-	ID        int64
 	MediaType string
 	Digest    digest.Digest
-	Size      int64
 	Payload   json.RawMessage
-	CreatedAt time.Time
 }
 
-// Configurations is a slice of Configuration pointers.
-type Configurations []*Configuration
-
 type Manifest struct {
-	ID              int64
-	ConfigurationID sql.NullInt64
-	SchemaVersion   int
-	MediaType       string
-	Digest          digest.Digest
-	Payload         json.RawMessage
-	CreatedAt       time.Time
-	MarkedAt        sql.NullTime
+	ID            int64
+	SchemaVersion int
+	MediaType     string
+	Digest        digest.Digest
+	Payload       json.RawMessage
+	Configuration *Configuration
+	CreatedAt     time.Time
 }
 
 // Manifests is a slice of Manifest pointers.

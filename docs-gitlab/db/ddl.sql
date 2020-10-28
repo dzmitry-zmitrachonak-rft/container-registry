@@ -58,7 +58,7 @@ CREATE TABLE public.manifests (
     CONSTRAINT fk_manifests_repository_id_repositories FOREIGN KEY (repository_id) REFERENCES repositories (id) ON DELETE CASCADE,
     CONSTRAINT fk_manifests_media_type_id_media_types FOREIGN KEY (media_type_id) REFERENCES media_types (id),
     CONSTRAINT fk_manifests_configuration_media_type_id_media_types FOREIGN KEY (configuration_media_type_id) REFERENCES media_types (id),
-    CONSTRAINT fk_repository_blobs_blob_digest_blobs FOREIGN KEY (configuration_blob_digest) REFERENCES blobs (digest),
+    CONSTRAINT fk_manifests_configuration_blob_digest_blobs FOREIGN KEY (configuration_blob_digest) REFERENCES blobs (digest),
     CONSTRAINT uq_manifests_repository_id_digest UNIQUE (repository_id, digest)
 )
 PARTITION BY HASH (repository_id);

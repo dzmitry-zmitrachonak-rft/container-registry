@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -845,7 +844,14 @@ func dbPutManifestOCIOrSchema2(
 	log.Debug("putting manifest")
 
 	// Find the config now to ensure that the config's blob is associated with the repository.
-	dbCfg, err := dbFindOrCreateRepositoryConfig(ctx, db, blobService, cfgDesc, repoPath, fallback)
+	dbCfgBlob, err := dbFindRepositoryBlob(ctx, db, blobService, cfgDesc, repoPath, fallback)
+	if err != nil {
+		return err
+	}
+	// TODO: update the config blob media_type here, it was set to "application/octet-stream" during the upload
+	// 		 but now we know its concrete type (cfgDesc.MediaType).
+
+	cfgPayload, err := blobService.Get(ctx, dbCfgBlob.Digest)
 	if err != nil {
 		return err
 	}
@@ -859,11 +865,15 @@ func dbPutManifestOCIOrSchema2(
 		log.Debug("manifest not found in database")
 
 		m := &models.Manifest{
-			ConfigurationID: sql.NullInt64{Int64: dbCfg.ID, Valid: true},
-			SchemaVersion:   versioned.SchemaVersion,
-			MediaType:       versioned.MediaType,
-			Digest:          dgst,
-			Payload:         payload,
+			SchemaVersion: versioned.SchemaVersion,
+			MediaType:     versioned.MediaType,
+			Digest:        dgst,
+			Payload:       payload,
+			Configuration: &models.Configuration{
+				MediaType: dbCfgBlob.MediaType,
+				Digest:    dbCfgBlob.Digest,
+				Payload:   cfgPayload,
+			},
 		}
 
 		if err := mStore.Create(ctx, m); err != nil {
@@ -899,44 +909,6 @@ func dbPutManifestOCIOrSchema2(
 		return err
 	}
 	return nil
-}
-
-// dbFindOrCreateRepositoryConfig finds the manifiest config, ensuring its blob
-// is in the database and linked in the repository. Optionally, the search for
-// the config blob can fallback to the filesystem if it is not found in the
-// database. If found, the blob will be backfilled into the database and
-// associated with the repository.
-func dbFindOrCreateRepositoryConfig(ctx context.Context, db datastore.Queryer, blobService distribution.BlobService, desc distribution.Descriptor, repoPath string, fallback bool) (*models.Configuration, error) {
-	cfgStore := datastore.NewConfigurationStore(db)
-
-	// Check for the blob now, to ensure that the config blob is associated with the repository.
-	dbCfgBlob, err := dbFindRepositoryBlob(ctx, db, blobService, desc, repoPath, fallback)
-	if err != nil {
-		return nil, err
-	}
-
-	dbCfg, err := cfgStore.FindByDigest(ctx, desc.Digest)
-	if err != nil {
-		return nil, err
-	}
-
-	if dbCfg == nil {
-		dcontext.GetLogger(ctx).WithField("digest", desc.Digest).Debug("manifest config not found in database")
-
-		cfgPayload, err := blobService.Get(ctx, desc.Digest)
-		if err != nil {
-			return nil, err
-		}
-
-		dbCfg = &models.Configuration{Digest: dbCfgBlob.Digest, Payload: cfgPayload}
-		if err := cfgStore.Create(ctx, dbCfg); err != nil {
-			return nil, err
-		}
-	}
-	// TODO: update the config blob media_type here, it was set to "application/octet-stream" during the upload
-	// 		 but now we know its concrete type (cfgDesc.MediaType).
-
-	return dbCfg, nil
 }
 
 // dbFindRepositoryBlob finds a blob which is linked to the repository.

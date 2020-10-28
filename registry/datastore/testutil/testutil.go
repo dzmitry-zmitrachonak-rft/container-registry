@@ -22,7 +22,6 @@ type table string
 const (
 	RepositoriesTable        table = "repositories"
 	MediaTypesTable          table = "media_types"
-	ConfigurationsTable      table = "configurations"
 	ManifestsTable           table = "manifests"
 	ManifestReferencesTable  table = "manifest_references"
 	RepositoryManifestsTable table = "repository_manifests"
@@ -35,7 +34,6 @@ const (
 // AllTables represents all tables in the test database.
 var AllTables = []table{
 	RepositoriesTable,
-	ConfigurationsTable,
 	ManifestsTable,
 	ManifestReferencesTable,
 	RepositoryManifestsTable,
@@ -63,31 +61,20 @@ func (t table) seedFileName() string {
 func (t table) DumpAsJSON(ctx context.Context, db datastore.Queryer) ([]byte, error) {
 	var query string
 	switch t {
-	case ConfigurationsTable:
-		s := `SELECT
-				json_agg(t)
-			FROM (
-				SELECT
-					id,
-					blob_digest,
-					created_at,
-					convert_from(payload, 'UTF8')::json AS payload
-				FROM %s
-			) t;`
-		query = fmt.Sprintf(s, t)
 	case ManifestsTable:
 		s := `SELECT
 				json_agg(t)
 			FROM (
 				SELECT
 					id,
-					configuration_id,
 					created_at,
-					marked_at,
 					schema_version,
 					encode(digest, 'hex') as digest,
 					convert_from(payload, 'UTF8')::json AS payload,
-					media_type_id
+					media_type_id,
+					configuration_media_type_id,
+					convert_from(configuration_payload, 'UTF8')::json AS configuration_payload,
+					encode(configuration_blob_digest, 'hex') as configuration_blob_digest
 				FROM %s
 			) t;`
 		query = fmt.Sprintf(s, t)
