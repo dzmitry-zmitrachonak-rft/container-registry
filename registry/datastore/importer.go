@@ -243,6 +243,7 @@ func (imp *Importer) importLayers(ctx context.Context, fsRepo distribution.Repos
 func (imp *Importer) importSchema1Manifest(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m *schema1.SignedManifest, dgst digest.Digest) (*models.Manifest, error) {
 	// find or create DB manifest
 	dbManifest, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+		RepositoryID:  dbRepo.ID,
 		SchemaVersion: m.SchemaVersion,
 		MediaType:     schema1.MediaTypeManifest,
 		Digest:        dgst,
@@ -255,11 +256,6 @@ func (imp *Importer) importSchema1Manifest(ctx context.Context, fsRepo distribut
 	// import manifest layers
 	if err := imp.importSchema1Layers(ctx, fsRepo, dbRepo, dbManifest, m.FSLayers); err != nil {
 		return nil, fmt.Errorf("error importing layers: %w", err)
-	}
-
-	// associate manifest with repository
-	if err := imp.repositoryStore.AssociateManifest(ctx, dbRepo, dbManifest); err != nil {
-		return nil, fmt.Errorf("error associating manifest with repository: %w", err)
 	}
 
 	return dbManifest, nil
@@ -285,11 +281,12 @@ func (imp *Importer) importSchema2Manifest(ctx context.Context, fsRepo distribut
 
 	// link configuration to repository
 	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{Digest: dbConfigBlob.Digest}); err != nil {
-		return nil, fmt.Errorf("error associating manifest with repository: %w", err)
+		return nil, fmt.Errorf("error associating configuration blob with repository: %w", err)
 	}
 
 	// find or create DB manifest
 	dbManifest, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+		RepositoryID:  dbRepo.ID,
 		SchemaVersion: m.SchemaVersion,
 		MediaType:     m.MediaType,
 		Digest:        dgst,
@@ -307,11 +304,6 @@ func (imp *Importer) importSchema2Manifest(ctx context.Context, fsRepo distribut
 	// import manifest layers
 	if err := imp.importLayers(ctx, fsRepo, dbRepo, dbManifest, m.Layers); err != nil {
 		return nil, fmt.Errorf("error importing layers: %w", err)
-	}
-
-	// associate repository with manifest
-	if err := imp.repositoryStore.AssociateManifest(ctx, dbRepo, dbManifest); err != nil {
-		return nil, fmt.Errorf("error associating manifest with repository: %w", err)
 	}
 
 	return dbManifest, nil
@@ -342,6 +334,7 @@ func (imp *Importer) importOCIManifest(ctx context.Context, fsRepo distribution.
 
 	// find or create DB manifest
 	dbManifest, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+		RepositoryID:  dbRepo.ID,
 		SchemaVersion: m.SchemaVersion,
 		MediaType:     v1.MediaTypeImageManifest,
 		Digest:        dgst,
@@ -359,11 +352,6 @@ func (imp *Importer) importOCIManifest(ctx context.Context, fsRepo distribution.
 	// import manifest layers
 	if err := imp.importLayers(ctx, fsRepo, dbRepo, dbManifest, m.Layers); err != nil {
 		return nil, fmt.Errorf("error importing layers: %w", err)
-	}
-
-	// associate repository with manifest
-	if err := imp.repositoryStore.AssociateManifest(ctx, dbRepo, dbManifest); err != nil {
-		return nil, fmt.Errorf("error associating manifest with repository: %w", err)
 	}
 
 	return dbManifest, nil
@@ -384,6 +372,7 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 
 	// create manifest list on DB
 	dbManifestList, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+		RepositoryID:  dbRepo.ID,
 		SchemaVersion: ml.SchemaVersion,
 		MediaType:     mediaType,
 		Digest:        dgst,
@@ -424,11 +413,6 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 			logrus.WithError(err).Error("associating manifest and manifest list")
 			continue
 		}
-	}
-
-	// associate repository and manifest list
-	if err := imp.repositoryStore.AssociateManifest(ctx, dbRepo, dbManifestList); err != nil {
-		return nil, fmt.Errorf("associating repository and manifest list: %w", err)
 	}
 
 	return dbManifestList, nil

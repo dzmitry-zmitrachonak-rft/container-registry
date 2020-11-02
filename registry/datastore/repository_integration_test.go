@@ -449,6 +449,7 @@ func TestRepositoryStore_Manifests(t *testing.T) {
 	expected := models.Manifests{
 		{
 			ID:            1,
+			RepositoryID:  3,
 			SchemaVersion: 2,
 			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
 			Digest:        "sha256:bd165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155",
@@ -462,6 +463,7 @@ func TestRepositoryStore_Manifests(t *testing.T) {
 		},
 		{
 			ID:            2,
+			RepositoryID:  3,
 			SchemaVersion: 2,
 			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
 			Digest:        "sha256:56b4b2228127fd594c5ab2925409713bd015ae9aa27eef2e0ddd90bcb2b1533f",
@@ -474,7 +476,8 @@ func TestRepositoryStore_Manifests(t *testing.T) {
 			CreatedAt: testutil.ParseTimestamp(t, "2020-03-02 17:50:26.461745", local),
 		},
 		{
-			ID:            5,
+			ID:            6,
+			RepositoryID:  3,
 			SchemaVersion: 2,
 			MediaType:     manifestlist.MediaTypeManifestList,
 			Digest:        "sha256:dc27c897a7e24710a2821878456d56f3965df7cc27398460aa6f21f8b385d2d0",
@@ -520,7 +523,7 @@ func TestRepositoryStore_Tags(t *testing.T) {
 			ID:           8,
 			Name:         "rc2",
 			RepositoryID: 4,
-			ManifestID:   6,
+			ManifestID:   7,
 			CreatedAt:    testutil.ParseTimestamp(t, "2020-04-15 09:47:26.461413", local),
 		},
 	}
@@ -558,7 +561,7 @@ func TestRepositoryStore_TagsPaginated(t *testing.T) {
 					ID:           8,
 					Name:         "rc2",
 					RepositoryID: 4,
-					ManifestID:   6,
+					ManifestID:   7,
 				},
 				{
 					ID:           6,
@@ -589,7 +592,7 @@ func TestRepositoryStore_TagsPaginated(t *testing.T) {
 					ID:           8,
 					Name:         "rc2",
 					RepositoryID: 4,
-					ManifestID:   6,
+					ManifestID:   7,
 				},
 			},
 		},
@@ -628,7 +631,7 @@ func TestRepositoryStore_TagsPaginated(t *testing.T) {
 					ID:           8,
 					Name:         "rc2",
 					RepositoryID: 4,
-					ManifestID:   6,
+					ManifestID:   7,
 				},
 				{
 					ID:           6,
@@ -820,6 +823,7 @@ func TestRepositoryStore_FindManifestByDigest(t *testing.T) {
 	// see testdata/fixtures/repository_manifests.sql
 	expected := &models.Manifest{
 		ID:            2,
+		RepositoryID:  3,
 		SchemaVersion: 2,
 		MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:        d,
@@ -1293,69 +1297,6 @@ func TestRepositoryStore_Update_NotFound(t *testing.T) {
 	}
 	err := s.Update(suite.ctx, update)
 	require.EqualError(t, err, "repository not found")
-}
-
-func TestRepositoryStore_AssociateManifest(t *testing.T) {
-	reloadManifestFixtures(t)
-	require.NoError(t, testutil.TruncateTables(suite.db, testutil.RepositoryManifestsTable))
-
-	s := datastore.NewRepositoryStore(suite.db)
-	// see testdata/fixtures/repository_manifests.sql
-	r := &models.Repository{ID: 4}
-	m := &models.Manifest{ID: 2}
-
-	err := s.AssociateManifest(suite.ctx, r, m)
-	require.NoError(t, err)
-
-	mm, err := s.Manifests(suite.ctx, r)
-	require.NoError(t, err)
-
-	var assocManifestIDs []int64
-	for _, m := range mm {
-		assocManifestIDs = append(assocManifestIDs, m.ID)
-	}
-	require.Contains(t, assocManifestIDs, int64(2))
-}
-
-func TestRepositoryStore_AssociateManifest_AlreadyAssociatedDoesNotFail(t *testing.T) {
-	reloadManifestFixtures(t)
-
-	s := datastore.NewRepositoryStore(suite.db)
-	// see testdata/fixtures/repository_manifests.sql
-	r := &models.Repository{ID: 3}
-	m := &models.Manifest{ID: 1}
-	err := s.AssociateManifest(suite.ctx, r, m)
-	require.NoError(t, err)
-}
-
-func TestRepositoryStore_DissociateManifest(t *testing.T) {
-	reloadManifestFixtures(t)
-
-	s := datastore.NewRepositoryStore(suite.db)
-	// see testdata/fixtures/repository_manifests.sql
-	r := &models.Repository{ID: 3}
-	m := &models.Manifest{ID: 1}
-
-	err := s.DissociateManifest(suite.ctx, r, m)
-	require.NoError(t, err)
-
-	mm, err := s.Manifests(suite.ctx, r)
-	require.NoError(t, err)
-
-	for _, m := range mm {
-		require.NotEqual(t, 1, m.ID)
-	}
-}
-
-func TestRepositoryStore_DissociateManifest_NotAssociatedDoesNotFail(t *testing.T) {
-	reloadManifestFixtures(t)
-
-	s := datastore.NewRepositoryStore(suite.db)
-	// see testdata/fixtures/repository_manifests.sql
-	r := &models.Repository{ID: 4}
-	m := &models.Manifest{ID: 1}
-	err := s.DissociateManifest(suite.ctx, r, m)
-	require.NoError(t, err)
 }
 
 func TestRepositoryStore_UntagManifest(t *testing.T) {

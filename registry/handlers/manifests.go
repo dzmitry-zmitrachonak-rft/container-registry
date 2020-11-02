@@ -843,8 +843,15 @@ func dbPutManifestOCIOrSchema2(
 	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": dgst, "schema_version": versioned.SchemaVersion})
 	log.Debug("putting manifest")
 
+	// create or find target repository
+	repositoryStore := datastore.NewRepositoryStore(db)
+	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, repoPath)
+	if err != nil {
+		return err
+	}
+
 	// Find the config now to ensure that the config's blob is associated with the repository.
-	dbCfgBlob, err := dbFindRepositoryBlob(ctx, db, blobService, cfgDesc, repoPath, fallback)
+	dbCfgBlob, err := dbFindRepositoryBlob(ctx, db, blobService, cfgDesc, dbRepo.Path, fallback)
 	if err != nil {
 		return err
 	}
@@ -865,6 +872,7 @@ func dbPutManifestOCIOrSchema2(
 		log.Debug("manifest not found in database")
 
 		m := &models.Manifest{
+			RepositoryID:  dbRepo.ID,
 			SchemaVersion: versioned.SchemaVersion,
 			MediaType:     versioned.MediaType,
 			Digest:        dgst,
@@ -884,7 +892,7 @@ func dbPutManifestOCIOrSchema2(
 
 		// find and associate manifest layer blobs
 		for _, reqLayer := range layers {
-			dbBlob, err := dbFindRepositoryBlob(ctx, db, blobService, reqLayer, repoPath, fallback)
+			dbBlob, err := dbFindRepositoryBlob(ctx, db, blobService, reqLayer, dbRepo.Path, fallback)
 			if err != nil {
 				return err
 			}
@@ -898,16 +906,6 @@ func dbPutManifestOCIOrSchema2(
 		}
 	}
 
-	// Associate manifest and repository.
-	repositoryStore := datastore.NewRepositoryStore(db)
-	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, repoPath)
-	if err != nil {
-		return err
-	}
-
-	if err := repositoryStore.AssociateManifest(ctx, dbRepo, dbManifest); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -1042,6 +1040,13 @@ func dbPutManifestSchema1(
 	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": dgst, "schema_version": manifest.Versioned.SchemaVersion})
 	log.Debug("putting manifest")
 
+	// create or find target repository
+	repositoryStore := datastore.NewRepositoryStore(db)
+	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, repoPath)
+	if err != nil {
+		return err
+	}
+
 	mStore := datastore.NewManifestStore(db)
 	dbManifest, err := mStore.FindByDigest(ctx, dgst)
 	if err != nil {
@@ -1051,6 +1056,7 @@ func dbPutManifestSchema1(
 		log.Debug("manifest not found in database")
 
 		m := &models.Manifest{
+			RepositoryID:  dbRepo.ID,
 			SchemaVersion: manifest.SchemaVersion,
 			MediaType:     schema1.MediaTypeSignedManifest,
 			Digest:        dgst,
@@ -1065,7 +1071,7 @@ func dbPutManifestSchema1(
 
 		// find and associate manifest layer blobs
 		for _, layer := range manifest.FSLayers {
-			dbBlob, err := dbFindRepositoryBlob(ctx, db, blobStatter, distribution.Descriptor{Digest: layer.BlobSum}, repoPath, fallback)
+			dbBlob, err := dbFindRepositoryBlob(ctx, db, blobStatter, distribution.Descriptor{Digest: layer.BlobSum}, dbRepo.Path, fallback)
 			if err != nil {
 				return err
 			}
@@ -1079,16 +1085,6 @@ func dbPutManifestSchema1(
 		}
 	}
 
-	// Associate manifest and repository.
-	repositoryStore := datastore.NewRepositoryStore(db)
-	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, repoPath)
-	if err != nil {
-		return err
-	}
-
-	if err := repositoryStore.AssociateManifest(ctx, dbRepo, dbManifest); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -1105,6 +1101,13 @@ func dbPutManifestList(
 	fallback bool) error {
 	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": dgst})
 	log.Debug("putting manifest list")
+
+	// create or find target repository
+	repositoryStore := datastore.NewRepositoryStore(db)
+	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, repoPath)
+	if err != nil {
+		return err
+	}
 
 	mStore := datastore.NewManifestStore(db)
 	dbManifestList, err := mStore.FindByDigest(ctx, dgst)
@@ -1123,6 +1126,7 @@ func dbPutManifestList(
 		}
 
 		dbManifestList = &models.Manifest{
+			RepositoryID:  dbRepo.ID,
 			SchemaVersion: manifestList.SchemaVersion,
 			MediaType:     mediaType,
 			Digest:        dgst,
@@ -1134,7 +1138,7 @@ func dbPutManifestList(
 
 		// Associate manifests to the manifest list.
 		for _, m := range manifestList.Manifests {
-			dbManifest, err := dbFindManifestListManifest(ctx, db, blobService, manifestService, m.Digest, schema1SigningKey, repoPath, fallback)
+			dbManifest, err := dbFindManifestListManifest(ctx, db, blobService, manifestService, m.Digest, schema1SigningKey, dbRepo.Path, fallback)
 			if err != nil {
 				return err
 			}
@@ -1145,14 +1149,7 @@ func dbPutManifestList(
 		}
 	}
 
-	// Associate manifest list and repository.
-	repositoryStore := datastore.NewRepositoryStore(db)
-	dbRepo, err := repositoryStore.CreateOrFindByPath(ctx, repoPath)
-	if err != nil {
-		return err
-	}
-
-	return repositoryStore.AssociateManifest(ctx, dbRepo, dbManifestList)
+	return nil
 }
 
 // applyResourcePolicy checks whether the resource class matches what has
@@ -1261,11 +1258,9 @@ func dbDeleteManifest(ctx context.Context, db datastore.Queryer, repoPath string
 	}
 
 	log.Debug("manifest found in database")
-	if err := rStore.DissociateManifest(ctx, r, m); err != nil {
-		return err
-	}
+	mStore := datastore.NewManifestStore(db)
 
-	return rStore.UntagManifest(ctx, r, m)
+	return mStore.Delete(ctx, m)
 }
 
 // DeleteManifest removes the manifest with the given digest from the registry.

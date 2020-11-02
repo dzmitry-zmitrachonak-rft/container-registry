@@ -121,14 +121,14 @@ func TestTagStore_FindAll(t *testing.T) {
 			ID:           7,
 			Name:         "0.2.0",
 			RepositoryID: 3,
-			ManifestID:   5,
+			ManifestID:   6,
 			CreatedAt:    testutil.ParseTimestamp(t, "2020-04-15 09:47:26.461413", local),
 		},
 		{
 			ID:           8,
 			Name:         "rc2",
 			RepositoryID: 4,
-			ManifestID:   6,
+			ManifestID:   7,
 			CreatedAt:    testutil.ParseTimestamp(t, "2020-04-15 09:47:26.461413", local),
 		},
 	}
@@ -181,14 +181,16 @@ func TestTagStore_Manifest(t *testing.T) {
 	s := datastore.NewTagStore(suite.db)
 
 	m, err := s.Manifest(suite.ctx, &models.Tag{
-		ID:         2,
-		ManifestID: 2,
+		ID:           2,
+		RepositoryID: 3,
+		ManifestID:   2,
 	})
 	require.NoError(t, err)
 
 	// see testdata/fixtures/tags.sql
 	excepted := &models.Manifest{
 		ID:            2,
+		RepositoryID:  3,
 		SchemaVersion: 2,
 		MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
 		Digest:        "sha256:56b4b2228127fd594c5ab2925409713bd015ae9aa27eef2e0ddd90bcb2b1533f",
@@ -240,10 +242,10 @@ func TestTagStore_Update(t *testing.T) {
 	s := datastore.NewTagStore(suite.db)
 	// see testdata/fixtures/tags.sql
 	update := &models.Tag{
-		ID:           5,
+		ID:           4,
 		Name:         "2.0.0",
 		RepositoryID: 4,
-		ManifestID:   5,
+		ManifestID:   3,
 	}
 	err := s.Update(suite.ctx, update)
 	require.NoError(t, err)
@@ -262,7 +264,7 @@ func TestTagStore_Update_NotFound(t *testing.T) {
 		ID:           100,
 		Name:         "foo",
 		RepositoryID: 4,
-		ManifestID:   1,
+		ManifestID:   3,
 	}
 
 	err := s.Update(suite.ctx, update)

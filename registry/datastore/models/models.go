@@ -28,6 +28,7 @@ type Configuration struct {
 
 type Manifest struct {
 	ID            int64
+	RepositoryID  int64
 	SchemaVersion int
 	MediaType     string
 	Digest        digest.Digest

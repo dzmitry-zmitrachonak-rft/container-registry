@@ -41,8 +41,6 @@ type RepositoryWriter interface {
 	CreateOrFind(ctx context.Context, r *models.Repository) error
 	CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error)
 	Update(ctx context.Context, r *models.Repository) error
-	AssociateManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error
-	DissociateManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error
 	UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error
 	LinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error
 	UnlinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error
@@ -172,9 +170,9 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 			EXISTS (
 				SELECT
 				FROM
-					repository_manifests AS rm
+					manifests AS m
 				WHERE
-					rm.repository_id = r.id)
+					m.repository_id = r.id)
 			AND r.path > $1
 		ORDER BY
 			r.path
@@ -415,9 +413,9 @@ func (s *repositoryStore) CountAfterPath(ctx context.Context, path string) (int,
 			EXISTS (
 				SELECT
 				FROM
-					repository_manifests AS rm
+					manifests AS m
 				WHERE
-					rm.repository_id = r.id)
+					m.repository_id = r.id)
 			AND r.path > $1`
 
 	var count int
@@ -432,6 +430,7 @@ func (s *repositoryStore) CountAfterPath(ctx context.Context, path string) (int,
 func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (models.Manifests, error) {
 	q := `SELECT
 			m.id,
+			m.repository_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
@@ -442,12 +441,11 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 			m.created_at
 		FROM
 			manifests AS m
-			JOIN repository_manifests AS rm ON rm.manifest_id = m.id
-			JOIN repositories AS r ON r.id = rm.repository_id
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			r.id = $1`
+			m.repository_id = $1
+		ORDER BY m.id`
 
 	rows, err := s.db.QueryContext(ctx, q, r.ID)
 	if err != nil {
@@ -461,6 +459,7 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Manifest, error) {
 	q := `SELECT
 			m.id,
+			m.repository_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
@@ -471,12 +470,10 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 			m.created_at
 		FROM
 			manifests AS m
-			JOIN repository_manifests AS rm ON rm.manifest_id = m.id
-			JOIN repositories AS r ON r.id = rm.repository_id
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			r.id = $1
+			m.repository_id = $1
 			AND m.digest = decode($2, 'hex')`
 
 	dgst, err := NewDigest(d)
@@ -686,36 +683,6 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 			return fmt.Errorf("repository not found")
 		}
 		return fmt.Errorf("updating repository: %w", err)
-	}
-
-	return nil
-}
-
-// AssociateManifest associates a manifest and a repository. It does nothing if already associated.
-func (s *repositoryStore) AssociateManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error {
-	q := `INSERT INTO repository_manifests (repository_id, manifest_id)
-			VALUES ($1, $2)
-		ON CONFLICT (repository_id, manifest_id)
-			DO NOTHING`
-
-	if _, err := s.db.ExecContext(ctx, q, r.ID, m.ID); err != nil {
-		return fmt.Errorf("associating manifest: %w", err)
-	}
-
-	return nil
-}
-
-// DissociateManifest dissociates a manifest and a repository. It does nothing if not associated.
-func (s *repositoryStore) DissociateManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error {
-	q := "DELETE FROM repository_manifests WHERE repository_id = $1 AND manifest_id = $2"
-
-	res, err := s.db.ExecContext(ctx, q, r.ID, m.ID)
-	if err != nil {
-		return fmt.Errorf("dissociating manifest: %w", err)
-	}
-
-	if _, err := res.RowsAffected(); err != nil {
-		return fmt.Errorf("dissociating manifest: %w", err)
 	}
 
 	return nil

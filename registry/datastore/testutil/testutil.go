@@ -20,15 +20,14 @@ import (
 type table string
 
 const (
-	RepositoriesTable        table = "repositories"
-	MediaTypesTable          table = "media_types"
-	ManifestsTable           table = "manifests"
-	ManifestReferencesTable  table = "manifest_references"
-	RepositoryManifestsTable table = "repository_manifests"
-	BlobsTable               table = "blobs"
-	RepositoryBlobsTable     table = "repository_blobs"
-	LayersTable              table = "layers"
-	TagsTable                table = "tags"
+	RepositoriesTable       table = "repositories"
+	MediaTypesTable         table = "media_types"
+	ManifestsTable          table = "manifests"
+	ManifestReferencesTable table = "manifest_references"
+	BlobsTable              table = "blobs"
+	RepositoryBlobsTable    table = "repository_blobs"
+	LayersTable             table = "layers"
+	TagsTable               table = "tags"
 )
 
 // AllTables represents all tables in the test database.
@@ -36,7 +35,6 @@ var AllTables = []table{
 	RepositoriesTable,
 	ManifestsTable,
 	ManifestReferencesTable,
-	RepositoryManifestsTable,
 	BlobsTable,
 	RepositoryBlobsTable,
 	LayersTable,
@@ -67,6 +65,7 @@ func (t table) DumpAsJSON(ctx context.Context, db datastore.Queryer) ([]byte, er
 			FROM (
 				SELECT
 					id,
+					repository_id,
 					created_at,
 					schema_version,
 					encode(digest, 'hex') as digest,

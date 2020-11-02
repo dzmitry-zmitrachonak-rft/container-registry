@@ -142,6 +142,7 @@ func (s *tagStore) Repository(ctx context.Context, t *models.Tag) (*models.Repos
 func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifest, error) {
 	q := `SELECT
 			m.id,
+			m.repository_id,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
@@ -155,8 +156,9 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.id = $1`
-	row := s.db.QueryRowContext(ctx, q, t.ManifestID)
+			m.repository_id = $1
+			AND m.id = $2`
+	row := s.db.QueryRowContext(ctx, q, t.RepositoryID, t.ManifestID)
 
 	return scanFullManifest(row)
 }

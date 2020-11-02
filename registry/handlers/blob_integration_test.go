@@ -78,7 +78,7 @@ func TestDeleteBlobDB(t *testing.T) {
 
 	// build test repository
 	rStore := datastore.NewRepositoryStore(env.db)
-	r, err := rStore.CreateByPath(env.ctx, "foo")
+	r, err := rStore.CreateByPath(env.ctx, "bar")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 

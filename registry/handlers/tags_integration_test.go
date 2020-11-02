@@ -28,16 +28,13 @@ func TestDeleteTagDB(t *testing.T) {
 	// add a manifest
 	mStore := datastore.NewManifestStore(env.db)
 	m := &models.Manifest{
+		RepositoryID:  r.ID,
 		SchemaVersion: 2,
 		MediaType:     schema2.MediaTypeManifest,
 		Digest:        "sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6",
 		Payload:       json.RawMessage{},
 	}
 	err = mStore.Create(env.ctx, m)
-	require.NoError(t, err)
-
-	// associate manifest with repository
-	err = rStore.AssociateManifest(env.ctx, r, m)
 	require.NoError(t, err)
 
 	// tag manifest
