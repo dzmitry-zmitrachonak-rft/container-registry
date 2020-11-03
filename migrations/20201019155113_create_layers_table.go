@@ -19,7 +19,8 @@ func init() {
 				CONSTRAINT fk_layers_media_type_id_media_types FOREIGN KEY (media_type_id) REFERENCES public.media_types (id),
 				CONSTRAINT fk_layers_digest_blobs FOREIGN KEY (digest) REFERENCES public.blobs (digest),
 				CONSTRAINT uq_layers_repository_id_manifest_id_digest UNIQUE (repository_id, manifest_id, digest)
-			)`,
+			)
+			PARTITION BY HASH (repository_id)`,
 			"CREATE INDEX IF NOT EXISTS ix_layers_manifest_id ON public.layers (manifest_id)",
 			"CREATE INDEX IF NOT EXISTS ix_layers_digest ON public.layers (digest)",
 		},

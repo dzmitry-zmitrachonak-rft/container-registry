@@ -17,7 +17,8 @@ func init() {
 				CONSTRAINT fk_tags_repository_id_manifest_id_manifests FOREIGN KEY (repository_id, manifest_id) REFERENCES public.manifests (repository_id, id) ON DELETE CASCADE,
 				CONSTRAINT uq_tags_repository_id_name UNIQUE (repository_id, name),
 				CONSTRAINT ck_tags_name_length CHECK ((char_length(name) <= 255))
-			)`,
+			)
+			PARTITION BY HASH (repository_id)`,
 			"CREATE INDEX IF NOT EXISTS ix_tags_repository_id ON public.tags (repository_id)",
 			"CREATE INDEX IF NOT EXISTS ix_tags_manifest_id ON public.tags (manifest_id)",
 		},

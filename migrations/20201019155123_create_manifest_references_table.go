@@ -17,7 +17,8 @@ func init() {
 				CONSTRAINT fk_manifest_references_repository_id_child_id_manifests FOREIGN KEY (repository_id, child_id) REFERENCES manifests (repository_id, id) ON DELETE CASCADE,
 				CONSTRAINT uq_manifest_references_repository_id_parent_id_child_id UNIQUE (repository_id, parent_id, child_id),
 				CONSTRAINT ck_manifest_references_parent_id_child_id_differ CHECK (parent_id <> child_id)
-			)`,
+			)
+			PARTITION BY HASH (repository_id)`,
 			"CREATE INDEX IF NOT EXISTS ix_manifest_references_parent_id ON public.manifest_references (parent_id)",
 			"CREATE INDEX IF NOT EXISTS ix_manifest_references_child_id ON public.manifest_references (child_id)",
 		},

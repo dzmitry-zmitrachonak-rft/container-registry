@@ -23,7 +23,8 @@ func init() {
 				CONSTRAINT fk_manifests_configuration_media_type_id_media_types FOREIGN KEY (configuration_media_type_id) REFERENCES public.media_types (id),
 				CONSTRAINT fk_manifests_configuration_blob_digest_blobs FOREIGN KEY (configuration_blob_digest) REFERENCES public.blobs (digest),
 				CONSTRAINT uq_manifests_repository_id_digest UNIQUE (repository_id, digest)
-			)`,
+			)
+			PARTITION BY HASH (repository_id)`,
 		},
 		Down: []string{
 			"DROP TABLE IF EXISTS public.manifests CASCADE",
