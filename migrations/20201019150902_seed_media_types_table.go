@@ -9,7 +9,7 @@ func init() {
 		// done with an `ON CONFLICT DO NOTHING` statement to avoid bumping the media_types.id sequence, which is just
 		// a smallint, so we would run out of integers if doing it repeatedly.
 		Up: []string{
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.distribution.manifest.v1+json'
 				WHERE
@@ -17,9 +17,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.distribution.manifest.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.distribution.manifest.v1+prettyjws'
 				WHERE
@@ -27,9 +27,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.distribution.manifest.v1+prettyjws'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.distribution.manifest.v2+json'
 				WHERE
@@ -37,9 +37,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.distribution.manifest.v2+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.distribution.manifest.list.v2+json'
 				WHERE
@@ -47,9 +47,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.distribution.manifest.list.v2+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.image.rootfs.diff.tar'
 				WHERE
@@ -57,9 +57,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.image.rootfs.diff.tar'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.image.rootfs.diff.tar.gzip'
 				WHERE
@@ -67,9 +67,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.image.rootfs.diff.tar.gzip'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip'
 				WHERE
@@ -77,9 +77,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.container.image.v1+json'
 				WHERE
@@ -87,9 +87,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.container.image.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.container.image.rootfs.diff+x-gtar'
 				WHERE
@@ -97,9 +97,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.container.image.rootfs.diff+x-gtar'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.docker.plugin.v1+json'
 				WHERE
@@ -107,9 +107,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.docker.plugin.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.layer.v1.tar'
 				WHERE
@@ -117,9 +117,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.layer.v1.tar'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.layer.v1.tar+gzip'
 				WHERE
@@ -127,9 +127,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.layer.v1.tar+gzip'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.layer.v1.tar+zstd'
 				WHERE
@@ -137,9 +137,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.layer.v1.tar+zstd'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.layer.nondistributable.v1.tar'
 				WHERE
@@ -147,9 +147,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.layer.nondistributable.v1.tar'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.layer.nondistributable.v1.tar+gzip'
 				WHERE
@@ -157,9 +157,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.layer.nondistributable.v1.tar+gzip'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.config.v1+json'
 				WHERE
@@ -167,9 +167,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.config.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.manifest.v1+json'
 				WHERE
@@ -177,9 +177,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.manifest.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.oci.image.index.v1+json'
 				WHERE
@@ -187,9 +187,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.oci.image.index.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/vnd.cncf.helm.config.v1+json'
 				WHERE
@@ -197,9 +197,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/vnd.cncf.helm.config.v1+json'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/tar+gzip'
 				WHERE
@@ -207,9 +207,9 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/tar+gzip'))`,
-			`INSERT INTO public.media_types (media_type)
+			`INSERT INTO media_types (media_type)
 				SELECT
 					'application/octet-stream'
 				WHERE
@@ -217,12 +217,12 @@ func init() {
 						SELECT
 							1
 						FROM
-							public.media_types
+							media_types
 						WHERE (media_type = 'application/octet-stream'))`,
 		},
 		Down: []string{
 			// We have to delete each record instead of truncating to guarantee idempotence.
-			`DELETE FROM public.media_types
+			`DELETE FROM media_types
 				WHERE media_type IN (
 					'application/vnd.docker.distribution.manifest.v1+json',
 					'application/vnd.docker.distribution.manifest.v1+prettyjws',
