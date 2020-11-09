@@ -3,7 +3,7 @@ package migrations
 import migrate "github.com/rubenv/sql-migrate"
 
 func init() {
-	m := &migrate.Migration{
+	m := &Migration{Migration: &migrate.Migration{
 		Id: "20201019150902_seed_media_types_table",
 		// We check if a given value already exists before attempting to insert to guarantee idempotence. This is not
 		// done with an `ON CONFLICT DO NOTHING` statement to avoid bumping the media_types.id sequence, which is just
@@ -247,7 +247,7 @@ func init() {
 					'application/octet-stream'
 				)`,
 		},
-	}
+	}}
 
 	allMigrations = append(allMigrations, m)
 }

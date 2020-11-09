@@ -3,7 +3,7 @@ package migrations
 import migrate "github.com/rubenv/sql-migrate"
 
 func init() {
-	m := &migrate.Migration{
+	m := &Migration{Migration: &migrate.Migration{
 		Id: "20201019155236_create_repository_blobs_table_partitions",
 		Up: []string{
 			`CREATE TABLE partitions.repository_blobs_default PARTITION OF public.repository_blobs
@@ -12,7 +12,7 @@ func init() {
 		Down: []string{
 			"DROP TABLE IF EXISTS partitions.repository_blobs_default CASCADE",
 		},
-	}
+	}}
 
 	allMigrations = append(allMigrations, m)
 }

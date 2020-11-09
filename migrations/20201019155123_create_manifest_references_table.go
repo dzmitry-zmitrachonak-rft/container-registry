@@ -3,7 +3,7 @@ package migrations
 import migrate "github.com/rubenv/sql-migrate"
 
 func init() {
-	m := &migrate.Migration{
+	m := &Migration{Migration: &migrate.Migration{
 		Id: "20201019155123_create_manifest_references_table",
 		Up: []string{
 			`CREATE TABLE IF NOT EXISTS manifest_references (
@@ -27,7 +27,7 @@ func init() {
 			"DROP INDEX IF EXISTS ix_manifest_references_repository_id_parent_id CASCADE",
 			"DROP TABLE IF EXISTS manifest_references CASCADE",
 		},
-	}
+	}}
 
 	allMigrations = append(allMigrations, m)
 }

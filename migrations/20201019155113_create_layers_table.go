@@ -3,7 +3,7 @@ package migrations
 import migrate "github.com/rubenv/sql-migrate"
 
 func init() {
-	m := &migrate.Migration{
+	m := &Migration{Migration: &migrate.Migration{
 		Id: "20201019155113_create_layers_table",
 		Up: []string{
 			`CREATE TABLE IF NOT EXISTS layers (
@@ -31,7 +31,7 @@ func init() {
 			"DROP INDEX IF EXISTS ix_layers_repository_id_manifest_id CASCADE",
 			"DROP TABLE IF EXISTS layers CASCADE",
 		},
-	}
+	}}
 
 	allMigrations = append(allMigrations, m)
 }
