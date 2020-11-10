@@ -732,8 +732,7 @@ func dbTagManifest(ctx context.Context, db datastore.Queryer, dgst digest.Digest
 
 	// TODO: If we return the manifest ID from the putDatabase methods, we can
 	// avoid looking up the manifest by digest.
-	manifestStore := datastore.NewManifestStore(db)
-	dbManifest, err := manifestStore.FindByDigest(ctx, dgst)
+	dbManifest, err := repositoryStore.FindManifestByDigest(ctx, dbRepo, dgst)
 	if err != nil {
 		return err
 	}
@@ -829,8 +828,7 @@ func dbPutManifestOCIOrSchema2(
 		return err
 	}
 
-	mStore := datastore.NewManifestStore(db)
-	dbManifest, err := mStore.FindByDigest(ctx, dgst)
+	dbManifest, err := repositoryStore.FindManifestByDigest(ctx, dbRepo, dgst)
 	if err != nil {
 		return err
 	}
@@ -850,6 +848,7 @@ func dbPutManifestOCIOrSchema2(
 			},
 		}
 
+		mStore := datastore.NewManifestStore(db)
 		if err := mStore.Create(ctx, m); err != nil {
 			return err
 		}
@@ -906,18 +905,16 @@ func dbFindRepositoryBlob(ctx context.Context, db datastore.Queryer, desc distri
 func dbFindManifestListManifest(
 	ctx context.Context,
 	db datastore.Queryer,
-	blobService distribution.BlobService,
-	manifestService distribution.ManifestService,
+	dbRepo *models.Repository,
 	dgst digest.Digest,
-	schema1SigningKey libtrust.PrivateKey,
 	repoPath string) (*models.Manifest, error) {
 	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": dgst})
 	log.Debug("finding manifest list manifest")
 
 	var dbManifest *models.Manifest
 
-	mStore := datastore.NewManifestStore(db)
-	dbManifest, err := mStore.FindByDigest(ctx, dgst)
+	rStore := datastore.NewRepositoryStore(db)
+	dbManifest, err := rStore.FindManifestByDigest(ctx, dbRepo, dgst)
 	if err != nil {
 		return nil, err
 	}
@@ -945,8 +942,7 @@ func dbPutManifestSchema1(
 		return err
 	}
 
-	mStore := datastore.NewManifestStore(db)
-	dbManifest, err := mStore.FindByDigest(ctx, dgst)
+	dbManifest, err := repositoryStore.FindManifestByDigest(ctx, dbRepo, dgst)
 	if err != nil {
 		return err
 	}
@@ -961,6 +957,7 @@ func dbPutManifestSchema1(
 			Payload:       manifest.Canonical,
 		}
 
+		mStore := datastore.NewManifestStore(db)
 		if err := mStore.Create(ctx, m); err != nil {
 			return err
 		}
@@ -1006,8 +1003,7 @@ func dbPutManifestList(
 		return err
 	}
 
-	mStore := datastore.NewManifestStore(db)
-	dbManifestList, err := mStore.FindByDigest(ctx, dgst)
+	dbManifestList, err := repositoryStore.FindManifestByDigest(ctx, dbRepo, dgst)
 	if err != nil {
 		return err
 	}
@@ -1029,13 +1025,14 @@ func dbPutManifestList(
 			Digest:        dgst,
 			Payload:       payload,
 		}
+		mStore := datastore.NewManifestStore(db)
 		if err := mStore.Create(ctx, dbManifestList); err != nil {
 			return err
 		}
 
 		// Associate manifests to the manifest list.
 		for _, m := range manifestList.Manifests {
-			dbManifest, err := dbFindManifestListManifest(ctx, db, blobService, manifestService, m.Digest, schema1SigningKey, dbRepo.Path)
+			dbManifest, err := dbFindManifestListManifest(ctx, db, dbRepo, m.Digest, dbRepo.Path)
 			if err != nil {
 				return err
 			}

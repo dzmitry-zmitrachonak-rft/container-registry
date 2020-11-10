@@ -97,8 +97,8 @@ func (imp *Importer) loadStores(db Queryer) {
 	imp.tagStore = NewTagStore(db)
 }
 
-func (imp *Importer) findOrCreateDBManifest(ctx context.Context, m *models.Manifest) (*models.Manifest, error) {
-	dbManifest, err := imp.manifestStore.FindByDigest(ctx, m.Digest)
+func (imp *Importer) findOrCreateDBManifest(ctx context.Context, dbRepo *models.Repository, m *models.Manifest) (*models.Manifest, error) {
+	dbManifest, err := imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, m.Digest)
 	if err != nil {
 		return nil, fmt.Errorf("searching for manifest: %w", err)
 	}
@@ -242,7 +242,7 @@ func (imp *Importer) importLayers(ctx context.Context, fsRepo distribution.Repos
 
 func (imp *Importer) importSchema1Manifest(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m *schema1.SignedManifest, dgst digest.Digest) (*models.Manifest, error) {
 	// find or create DB manifest
-	dbManifest, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+	dbManifest, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		RepositoryID:  dbRepo.ID,
 		SchemaVersion: m.SchemaVersion,
 		MediaType:     schema1.MediaTypeManifest,
@@ -285,7 +285,7 @@ func (imp *Importer) importSchema2Manifest(ctx context.Context, fsRepo distribut
 	}
 
 	// find or create DB manifest
-	dbManifest, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+	dbManifest, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		RepositoryID:  dbRepo.ID,
 		SchemaVersion: m.SchemaVersion,
 		MediaType:     m.MediaType,
@@ -333,7 +333,7 @@ func (imp *Importer) importOCIManifest(ctx context.Context, fsRepo distribution.
 	}
 
 	// find or create DB manifest
-	dbManifest, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+	dbManifest, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		RepositoryID:  dbRepo.ID,
 		SchemaVersion: m.SchemaVersion,
 		MediaType:     v1.MediaTypeImageManifest,
@@ -371,7 +371,7 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 	}
 
 	// create manifest list on DB
-	dbManifestList, err := imp.findOrCreateDBManifest(ctx, &models.Manifest{
+	dbManifestList, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		RepositoryID:  dbRepo.ID,
 		SchemaVersion: ml.SchemaVersion,
 		MediaType:     mediaType,
@@ -498,7 +498,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 
 		// Find corresponding manifest in DB or filesystem.
 		var dbManifest *models.Manifest
-		dbManifest, err = imp.manifestStore.FindByDigest(ctx, desc.Digest)
+		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
 		if err != nil {
 			log.WithError(err).Error("finding tag manifest")
 			continue
