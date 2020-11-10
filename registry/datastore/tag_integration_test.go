@@ -206,9 +206,9 @@ func TestTagStore_Manifest(t *testing.T) {
 }
 
 func TestTagStore_Create(t *testing.T) {
-	unloadTagFixtures(t)
 	reloadRepositoryFixtures(t)
 	reloadManifestFixtures(t)
+	require.NoError(t, testutil.TruncateTables(suite.db, testutil.TagsTable))
 
 	s := datastore.NewTagStore(suite.db)
 	tag := &models.Tag{

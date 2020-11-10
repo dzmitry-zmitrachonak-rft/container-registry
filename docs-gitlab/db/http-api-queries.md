@@ -238,11 +238,16 @@ A manifest can be pulled by digest or tag.
        m.created_at,
        m.schema_version,
        mt.media_type,
-       m.digest,
-       m.payload
+       encode(m.digest, 'hex') as digest,
+       m.payload,
+       mtc.media_type as configuration_media_type,
+       encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+       m.configuration_payload,
+       m.created_at
    FROM
        manifests AS m
        JOIN media_types AS mt ON mt.id = m.media_type_id
+       LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
        JOIN tags AS t ON t.repository_id = m.repository_id
             AND t.manifest_id = m.id
    WHERE
