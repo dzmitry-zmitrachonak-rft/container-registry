@@ -348,23 +348,14 @@ func dbGetManifestByTag(ctx context.Context, db datastore.Queryer, tagName strin
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
-	dbTag, err := repositoryStore.FindTagByName(ctx, r, tagName)
+	dbManifest, err := repositoryStore.FindManifestByTagName(ctx, r, tagName)
 	if err != nil {
 		return nil, "", err
 	}
-	if dbTag == nil {
+	// at the DB level a tag has a FK to manifests, so a tag cannot exist unless it points to an existing manifest
+	if dbManifest == nil {
 		log.Warn("tag not found in database")
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
-	}
-
-	// Find manifest by its digest
-	mStore := datastore.NewManifestStore(db)
-	dbManifest, err := mStore.FindByID(ctx, dbTag.ManifestID)
-	if err != nil {
-		return nil, "", err
-	}
-	if dbManifest == nil {
-		return nil, "", distribution.ErrManifestUnknown{Name: r.Name, Tag: dbTag.Name}
 	}
 
 	manifest, err := dbPayloadToManifest(dbManifest.Payload, dbManifest.MediaType, dbManifest.SchemaVersion, schema1SigningKey)

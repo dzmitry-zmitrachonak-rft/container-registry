@@ -20,7 +20,7 @@ func reloadManifestFixtures(tb testing.TB) {
 		tb, suite.db, suite.basePath,
 		// Manifest has a relationship with Repository and ManifestLayer (insert order matters)
 		testutil.RepositoriesTable, testutil.BlobsTable, testutil.ManifestsTable,
-		testutil.ManifestReferencesTable, testutil.LayersTable,
+		testutil.TagsTable, testutil.ManifestReferencesTable, testutil.LayersTable,
 	)
 }
 
@@ -29,7 +29,7 @@ func unloadManifestFixtures(tb testing.TB) {
 		suite.db,
 		// Manifest has a relationship with Repository and ManifestLayer (insert order matters)
 		testutil.RepositoriesTable, testutil.BlobsTable, testutil.ManifestsTable,
-		testutil.ManifestReferencesTable, testutil.LayersTable,
+		testutil.TagsTable, testutil.ManifestReferencesTable, testutil.LayersTable,
 	))
 }
 
