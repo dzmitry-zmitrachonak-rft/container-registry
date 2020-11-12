@@ -1,11 +1,11 @@
-workflow:
-  rules:
-    # For merge requests, create a pipeline.
-    - if: '$CI_MERGE_REQUEST_IID'
-    # For the default branch, create a pipeline (this includes on schedules, pushes, merges, etc.).
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    # For tags, create a pipeline.
-    - if: '$CI_COMMIT_TAG'
+#workflow:
+#  rules:
+#    # For merge requests, create a pipeline.
+#    - if: '$CI_MERGE_REQUEST_IID'
+#    # For the default branch, create a pipeline (this includes on schedules, pushes, merges, etc.).
+#    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#    # For tags, create a pipeline.
+#    - if: '$CI_COMMIT_TAG'
 
 default:
   image: golang:1.13-buster
@@ -21,274 +21,274 @@ variables:
   CGO_ENABLED: "1"
 
 stages:
-  - validate
-  - test
+#  - validate
+#  - test
   - integration
 
-static-analysis:
-  cache: {}
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:golangci-lint-alpine
-  stage: validate
-  needs: []
-  script:
-    # Use default .golangci.yml file from the image if one is not present in the project root.
-    - '[ -e .golangci.yml ] || cp /golangci/.golangci.yml .'
-    # Write the code coverage report to gl-code-quality-report.json
-    # and print linting issues to stdout in the format: path/to/file:line description
-    - golangci-lint run --issues-exit-code 0 --out-format code-climate | tee gl-code-quality-report.json | jq -r '.[] | "\(.location.path):\(.location.lines.begin) \(.description)"'
-  artifacts:
-    reports:
-      codequality: gl-code-quality-report.json
-    paths:
-      - gl-code-quality-report.json
-
-.verify:
-  stage: test
-  needs: []
-  script:
-    - go build -i .
-    - make build
-    - make binaries
-    - make coverage
+#static-analysis:
+#  cache: {}
+#  image: registry.gitlab.com/gitlab-org/gitlab-build-images:golangci-lint-alpine
+#  stage: validate
+#  needs: []
+#  script:
+#    # Use default .golangci.yml file from the image if one is not present in the project root.
+#    - '[ -e .golangci.yml ] || cp /golangci/.golangci.yml .'
+#    # Write the code coverage report to gl-code-quality-report.json
+#    # and print linting issues to stdout in the format: path/to/file:line description
+#    - golangci-lint run --issues-exit-code 0 --out-format code-climate | tee gl-code-quality-report.json | jq -r '.[] | "\(.location.path):\(.location.lines.begin) \(.description)"'
+#  artifacts:
+#    reports:
+#      codequality: gl-code-quality-report.json
+#    paths:
+#      - gl-code-quality-report.json
+#
+#.verify:
+#  stage: test
+#  needs: []
+#  script:
+#    - go build -i .
+#    - make build
+#    - make binaries
+#    - make coverage
 
 .storage-driver-test: &storage-driver-test
   stage: integration
   needs: []
   script: go test -v $PACKAGE -args -check.v -test.short
 
-.filesystem:
-  <<: *storage-driver-test
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/filesystem
+#.filesystem:
+#  <<: *storage-driver-test
+#  before_script:
+#    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/filesystem
 
 .inmemory:
   <<: *storage-driver-test
   before_script:
     - export PACKAGE=github.com/docker/distribution/registry/storage/driver/inmemory
 
-.swift:
-  <<: *storage-driver-test
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/swift
-
-.s3-aws:
-  <<: *storage-driver-test
-  variables:
-    AWS_ACCESS_KEY: "AKIAIOSFODNN7EXAMPLE"
-    AWS_SECRET_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    MINIO_ACCESS_KEY: $AWS_ACCESS_KEY
-    MINIO_SECRET_KEY: $AWS_SECRET_KEY
-    REGION_ENDPOINT: "http://minio:9000"
-    AWS_REGION: "us-east-2"
-    S3_BUCKET: "test-bucket"
-    S3_ENCRYPT: "false"
-  services:
-    - name: minio/minio:latest
-      alias: "minio"
-      command: ["server", "/data"]
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/s3-aws
-    # Download the minio client
-    - wget --no-verbose https://dl.min.io/client/mc/release/linux-amd64/mc
-    - chmod u+x ./mc
-    # Configure the minio client to use the local minio service rather than play.minio.io
-    - ./mc config host add s3v4 $REGION_ENDPOINT $AWS_ACCESS_KEY $AWS_SECRET_KEY --api S3v4
-    - ./mc mb s3v4/$S3_BUCKET
-
-.api:
-  stage: integration
-  needs: []
-  script: go test -timeout 20m -v -tags=integration github.com/docker/distribution/registry/handlers
-
-.database: &database
-  stage: integration
-  needs: []
-  variables:
-    POSTGRES_PASSWORD: "secret"
-    POSTGRES_DB: "registry_test"
-
-    REGISTRY_DATABASE_ENABLED: "true"
-    REGISTRY_DATABASE_HOST: "db"
-    REGISTRY_DATABASE_PORT: "5432"
-    REGISTRY_DATABASE_USER: "postgres"
-    REGISTRY_DATABASE_PASSWORD: "secret"
-    REGISTRY_DATABASE_DBNAME: "registry_test"
-    REGISTRY_DATABASE_SSLMODE: "disable"
-  services:
-    - name: postgres:11-alpine
-      alias: "db"
-  script: go test -timeout 20m -v -tags=integration $PACKAGE
-
-.database:migrations:
-  <<: *database
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/migrations
-
-.database:datastore:
-  <<: *database
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/registry/datastore
-
-.database:api:
-  <<: *database
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/registry/handlers
-
-database:migrations Go 1.13:
-  extends: .database:migrations
-  image: golang:1.13-buster
-
-database:migrations Go 1.14:
-  extends: .database:migrations
-  image: golang:1.14-buster
-
-database:migrations Go 1.15:
-  extends: .database:migrations
-  image: golang:1.15-buster
-
-database:datastore Go 1.13:
-  extends: .database:datastore
-  image: golang:1.13-buster
-
-database:datastore Go 1.14:
-  extends: .database:datastore
-  image: golang:1.14-buster
-
-database:datastore Go 1.15:
-  extends: .database:datastore
-  image: golang:1.15-buster
-
-database:api Go 1.13:
-  extends: .database:api
-  image: golang:1.13-buster
-
-database:api Go 1.14:
-  extends: .database:api
-  image: golang:1.14-buster
-
-database:api Go 1.15:
-  extends: .database:api
-  image: golang:1.15-buster
-
-api Go 1.13:
-  extends: .api
-  image: golang:1.13-buster
-
-api Go 1.14:
-  extends: .api
-  image: golang:1.14-buster
-
-api Go 1.15:
-  extends: .api
-  image: golang:1.15-buster
-
-filesystem storage driver Go 1.13:
-  extends: .filesystem
-  image: golang:1.13-buster
-
-filesystem storage driver Go 1.14:
-  extends: .filesystem
-  image: golang:1.14-buster
-
-filesystem storage driver Go 1.15:
-  extends: .filesystem
-  image: golang:1.15-buster
-
-inmemory storage driver Go 1.13:
-  extends: .inmemory
-  image: golang:1.13-buster
-
-inmemory storage driver Go 1.14:
-  extends: .inmemory
-  image: golang:1.14-buster
+#.swift:
+#  <<: *storage-driver-test
+#  before_script:
+#    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/swift
+#
+#.s3-aws:
+#  <<: *storage-driver-test
+#  variables:
+#    AWS_ACCESS_KEY: "AKIAIOSFODNN7EXAMPLE"
+#    AWS_SECRET_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+#    MINIO_ACCESS_KEY: $AWS_ACCESS_KEY
+#    MINIO_SECRET_KEY: $AWS_SECRET_KEY
+#    REGION_ENDPOINT: "http://minio:9000"
+#    AWS_REGION: "us-east-2"
+#    S3_BUCKET: "test-bucket"
+#    S3_ENCRYPT: "false"
+#  services:
+#    - name: minio/minio:latest
+#      alias: "minio"
+#      command: ["server", "/data"]
+#  before_script:
+#    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/s3-aws
+#    # Download the minio client
+#    - wget --no-verbose https://dl.min.io/client/mc/release/linux-amd64/mc
+#    - chmod u+x ./mc
+#    # Configure the minio client to use the local minio service rather than play.minio.io
+#    - ./mc config host add s3v4 $REGION_ENDPOINT $AWS_ACCESS_KEY $AWS_SECRET_KEY --api S3v4
+#    - ./mc mb s3v4/$S3_BUCKET
+#
+#.api:
+#  stage: integration
+#  needs: []
+#  script: go test -timeout 20m -v -tags=integration github.com/docker/distribution/registry/handlers
+#
+#.database: &database
+#  stage: integration
+#  needs: []
+#  variables:
+#    POSTGRES_PASSWORD: "secret"
+#    POSTGRES_DB: "registry_test"
+#
+#    REGISTRY_DATABASE_ENABLED: "true"
+#    REGISTRY_DATABASE_HOST: "db"
+#    REGISTRY_DATABASE_PORT: "5432"
+#    REGISTRY_DATABASE_USER: "postgres"
+#    REGISTRY_DATABASE_PASSWORD: "secret"
+#    REGISTRY_DATABASE_DBNAME: "registry_test"
+#    REGISTRY_DATABASE_SSLMODE: "disable"
+#  services:
+#    - name: postgres:11-alpine
+#      alias: "db"
+#  script: go test -timeout 20m -v -tags=integration $PACKAGE
+#
+#.database:migrations:
+#  <<: *database
+#  before_script:
+#    - export PACKAGE=github.com/docker/distribution/migrations
+#
+#.database:datastore:
+#  <<: *database
+#  before_script:
+#    - export PACKAGE=github.com/docker/distribution/registry/datastore
+#
+#.database:api:
+#  <<: *database
+#  before_script:
+#    - export PACKAGE=github.com/docker/distribution/registry/handlers
+#
+#database:migrations Go 1.13:
+#  extends: .database:migrations
+#  image: golang:1.13-buster
+#
+#database:migrations Go 1.14:
+#  extends: .database:migrations
+#  image: golang:1.14-buster
+#
+#database:migrations Go 1.15:
+#  extends: .database:migrations
+#  image: golang:1.15-buster
+#
+#database:datastore Go 1.13:
+#  extends: .database:datastore
+#  image: golang:1.13-buster
+#
+#database:datastore Go 1.14:
+#  extends: .database:datastore
+#  image: golang:1.14-buster
+#
+#database:datastore Go 1.15:
+#  extends: .database:datastore
+#  image: golang:1.15-buster
+#
+#database:api Go 1.13:
+#  extends: .database:api
+#  image: golang:1.13-buster
+#
+#database:api Go 1.14:
+#  extends: .database:api
+#  image: golang:1.14-buster
+#
+#database:api Go 1.15:
+#  extends: .database:api
+#  image: golang:1.15-buster
+#
+#api Go 1.13:
+#  extends: .api
+#  image: golang:1.13-buster
+#
+#api Go 1.14:
+#  extends: .api
+#  image: golang:1.14-buster
+#
+#api Go 1.15:
+#  extends: .api
+#  image: golang:1.15-buster
+#
+#filesystem storage driver Go 1.13:
+#  extends: .filesystem
+#  image: golang:1.13-buster
+#
+#filesystem storage driver Go 1.14:
+#  extends: .filesystem
+#  image: golang:1.14-buster
+#
+#filesystem storage driver Go 1.15:
+#  extends: .filesystem
+#  image: golang:1.15-buster
+#
+#inmemory storage driver Go 1.13:
+#  extends: .inmemory
+#  image: golang:1.13-buster
+#
+#inmemory storage driver Go 1.14:
+#  extends: .inmemory
+#  image: golang:1.14-buster
 
 inmemory storage driver Go 1.15:
   extends: .inmemory
   image: golang:1.15-buster
 
-swift storage driver Go 1.13:
-  extends: .swift
-  image: golang:1.13-buster
-
-swift storage driver Go 1.14:
-  extends: .swift
-  image: golang:1.14-buster
-
-swift storage driver Go 1.15:
-  extends: .swift
-  image: golang:1.15-buster
-
-s3 storage driver Go 1.13:
-  extends: .s3-aws
-  image: golang:1.13-buster
-
-s3 storage driver Go 1.14:
-  extends: .s3-aws
-  image: golang:1.14-buster
-
-s3 storage driver Go 1.15:
-  extends: .s3-aws
-  image: golang:1.15-buster
-
-verify Go 1.13:
-  extends: .verify
-  image: golang:1.13-buster
-
-verify Go 1.14:
-  extends: .verify
-  image: golang:1.14-buster
-
-verify Go 1.15:
-  extends: .verify
-  image: golang:1.15-buster
-
-.cache:redis: &cache-redis
-  stage: integration
-  needs: []
-  variables:
-    REDIS_ADDR: "redis:6379"
-  services:
-    - name: redis:alpine
-      alias: "redis"
-  script: go test -v -tags=integration github.com/docker/distribution/registry/storage/cache/redis
-
-cache:redis Go 1.13:
-  extends: .cache:redis
-  image: golang:1.13-buster
-
-cache:redis Go 1.14:
-  extends: .cache:redis
-  image: golang:1.14-buster
-
-cache:redis Go 1.15:
-  extends: .cache:redis
-  image: golang:1.15-buster
-
-.cache:redis-sentinel:
-  <<: *cache-redis
-  variables:
-    # create a Docker network per build so that services can talk with each other
-    FF_NETWORK_PER_BUILD: 1
-    # config for redis-sentinel
-    REDIS_MASTER_HOST: "redis"
-    REDIS_MASTER_SET: "main-redis"
-    # config for app
-    REDIS_ADDR: "redis-sentinel:26379"
-    REDIS_MAIN_NAME: "main-redis"
-  services:
-    - name: redis:alpine
-      alias: "redis"
-    - name: bitnami/redis-sentinel
-      alias: "redis-sentinel"
-
-cache:redis-sentinel Go 1.13:
-  extends: .cache:redis-sentinel
-  image: golang:1.13-buster
-
-cache:redis-sentinel Go 1.14:
-  extends: .cache:redis-sentinel
-  image: golang:1.14-buster
-
-cache:redis-sentinel Go 1.15:
-  extends: .cache:redis-sentinel
-  image: golang:1.15-buster
+#swift storage driver Go 1.13:
+#  extends: .swift
+#  image: golang:1.13-buster
+#
+#swift storage driver Go 1.14:
+#  extends: .swift
+#  image: golang:1.14-buster
+#
+#swift storage driver Go 1.15:
+#  extends: .swift
+#  image: golang:1.15-buster
+#
+#s3 storage driver Go 1.13:
+#  extends: .s3-aws
+#  image: golang:1.13-buster
+#
+#s3 storage driver Go 1.14:
+#  extends: .s3-aws
+#  image: golang:1.14-buster
+#
+#s3 storage driver Go 1.15:
+#  extends: .s3-aws
+#  image: golang:1.15-buster
+#
+#verify Go 1.13:
+#  extends: .verify
+#  image: golang:1.13-buster
+#
+#verify Go 1.14:
+#  extends: .verify
+#  image: golang:1.14-buster
+#
+#verify Go 1.15:
+#  extends: .verify
+#  image: golang:1.15-buster
+#
+#.cache:redis: &cache-redis
+#  stage: integration
+#  needs: []
+#  variables:
+#    REDIS_ADDR: "redis:6379"
+#  services:
+#    - name: redis:alpine
+#      alias: "redis"
+#  script: go test -v -tags=integration github.com/docker/distribution/registry/storage/cache/redis
+#
+#cache:redis Go 1.13:
+#  extends: .cache:redis
+#  image: golang:1.13-buster
+#
+#cache:redis Go 1.14:
+#  extends: .cache:redis
+#  image: golang:1.14-buster
+#
+#cache:redis Go 1.15:
+#  extends: .cache:redis
+#  image: golang:1.15-buster
+#
+#.cache:redis-sentinel:
+#  <<: *cache-redis
+#  variables:
+#    # create a Docker network per build so that services can talk with each other
+#    FF_NETWORK_PER_BUILD: 1
+#    # config for redis-sentinel
+#    REDIS_MASTER_HOST: "redis"
+#    REDIS_MASTER_SET: "main-redis"
+#    # config for app
+#    REDIS_ADDR: "redis-sentinel:26379"
+#    REDIS_MAIN_NAME: "main-redis"
+#  services:
+#    - name: redis:alpine
+#      alias: "redis"
+#    - name: bitnami/redis-sentinel
+#      alias: "redis-sentinel"
+#
+#cache:redis-sentinel Go 1.13:
+#  extends: .cache:redis-sentinel
+#  image: golang:1.13-buster
+#
+#cache:redis-sentinel Go 1.14:
+#  extends: .cache:redis-sentinel
+#  image: golang:1.14-buster
+#
+#cache:redis-sentinel Go 1.15:
+#  extends: .cache:redis-sentinel
+#  image: golang:1.15-buster

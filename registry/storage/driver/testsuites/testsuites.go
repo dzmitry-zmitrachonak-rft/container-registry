@@ -921,7 +921,7 @@ func (suite *DriverSuite) TestDeleteOnlyDeletesSubpaths(c *check.C) {
 	dirname := randomPath(32)
 	filename := randomPath(32)
 	contents := randomContents(32)
-
+	fmt.Println("==========================", dirname, "==========================", filename)
 	defer suite.deletePath(c, firstPart(dirname))
 
 	err := suite.StorageDriver.PutContent(suite.ctx, path.Join(dirname, filename), contents)
