@@ -893,7 +893,7 @@ func TestRepositoryStore_FindTagByName(t *testing.T) {
 	require.Equal(t, expected, tag)
 }
 
-func TestRepositoryStore_Layers(t *testing.T) {
+func TestRepositoryStore_Blobs(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
@@ -901,12 +901,12 @@ func TestRepositoryStore_Layers(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
-	ll, err := s.Blobs(suite.ctx, r)
+	bb, err := s.Blobs(suite.ctx, r)
 	require.NoError(t, err)
-	require.NotEmpty(t, ll)
+	require.NotEmpty(t, bb)
 
 	// see testdata/fixtures/repository_blobs.sql
-	local := ll[0].CreatedAt.Location()
+	local := bb[0].CreatedAt.Location()
 	expected := models.Blobs{
 		{
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
@@ -927,10 +927,10 @@ func TestRepositoryStore_Layers(t *testing.T) {
 			CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:06:32.856423", local),
 		},
 	}
-	require.Equal(t, expected, ll)
+	require.Equal(t, expected, bb)
 }
 
-func TestRepositoryStore_LayersNone(t *testing.T) {
+func TestRepositoryStore_BlobsNone(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
@@ -939,9 +939,74 @@ func TestRepositoryStore_LayersNone(t *testing.T) {
 	require.NotNil(t, r)
 
 	// see testdata/fixtures/repository_blobs.sql
-	ll, err := s.Blobs(suite.ctx, r)
+	bb, err := s.Blobs(suite.ctx, r)
 	require.NoError(t, err)
-	require.Empty(t, ll)
+	require.Empty(t, bb)
+}
+
+func TestRepositoryStore_FindBlobByDigest(t *testing.T) {
+	reloadBlobFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByID(suite.ctx, 3)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	b, err := s.FindBlob(suite.ctx, r, "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9")
+	require.NoError(t, err)
+	require.NotNil(t, b)
+
+	// see testdata/fixtures/repository_blobs.sql
+	local := b.CreatedAt.Location()
+	expected := &models.Blob{
+		MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+		Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
+		Size:      2802957,
+		CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
+	}
+	require.Equal(t, expected, b)
+}
+
+func TestRepositoryStore_FindBlobByDigest_NotFound(t *testing.T) {
+	reloadBlobFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByID(suite.ctx, 1)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// see testdata/fixtures/repository_blobs.sql
+	b, err := s.FindBlob(suite.ctx, r, "sha256:d9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9")
+	require.NoError(t, err)
+	require.Nil(t, b)
+}
+
+func TestRepositoryStore_ExistsBlobByDigest(t *testing.T) {
+	reloadBlobFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByID(suite.ctx, 3)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// see testdata/fixtures/repository_blobs.sql
+	exists, err := s.ExistsBlob(suite.ctx, r, "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9")
+	require.NoError(t, err)
+	require.True(t, exists)
+}
+
+func TestRepositoryStore_ExistsBlobByDigest_NotFound(t *testing.T) {
+	reloadBlobFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByID(suite.ctx, 1)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// see testdata/fixtures/repository_blobs.sql
+	exists, err := s.ExistsBlob(suite.ctx, r, "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9")
+	require.NoError(t, err)
+	require.False(t, exists)
 }
 
 func TestRepositoryStore_Create(t *testing.T) {
@@ -1357,20 +1422,14 @@ func TestRepositoryStore_UntagManifest(t *testing.T) {
 	require.Empty(t, tt)
 }
 
-func isLayerLinked(t *testing.T, r *models.Repository, l *models.Blob) bool {
+func isBlobLinked(t *testing.T, r *models.Repository, b *models.Blob) bool {
 	t.Helper()
 
 	s := datastore.NewRepositoryStore(suite.db)
-	ll, err := s.Blobs(suite.ctx, r)
+	linked, err := s.ExistsBlob(suite.ctx, r, b.Digest)
 	require.NoError(t, err)
 
-	for _, layer := range ll {
-		if layer.Digest == l.Digest {
-			return true
-		}
-	}
-
-	return false
+	return linked
 }
 
 func TestRepositoryStore_LinkLayer(t *testing.T) {
@@ -1380,56 +1439,55 @@ func TestRepositoryStore_LinkLayer(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
 
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
+	b := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
 
-	err := s.LinkBlob(suite.ctx, r, l)
+	err := s.LinkBlob(suite.ctx, r, b)
 	require.NoError(t, err)
 
-	require.True(t, isLayerLinked(t, r, l))
+	require.True(t, isBlobLinked(t, r, b))
 }
 
-func TestRepositoryStore_LinkLayer_AlreadyLinkedDoesNotFail(t *testing.T) {
+func TestRepositoryStore_LinkBlob_AlreadyLinkedDoesNotFail(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
-	require.True(t, isLayerLinked(t, r, l))
+	b := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
+	require.True(t, isBlobLinked(t, r, b))
 
-	err := s.LinkBlob(suite.ctx, r, l)
+	err := s.LinkBlob(suite.ctx, r, b)
 	require.NoError(t, err)
 }
 
-func TestRepositoryStore_UnlinkLayer(t *testing.T) {
+func TestRepositoryStore_UnlinkBlob(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
-	require.True(t, isLayerLinked(t, r, l))
+	b := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
+	require.True(t, isBlobLinked(t, r, b))
 
-	err := s.UnlinkBlob(suite.ctx, r, l)
+	err := s.UnlinkBlob(suite.ctx, r, b)
 	require.NoError(t, err)
-	require.False(t, isLayerLinked(t, r, l))
+	require.False(t, isBlobLinked(t, r, b))
 }
 
-func TestRepositoryStore_UnlinkLayer_NotLinkedDoesNotFail(t *testing.T) {
+func TestRepositoryStore_UnlinkBlob_NotLinkedDoesNotFail(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	l := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
-	require.False(t, isLayerLinked(t, r, l))
+	b := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
 
-	err := s.UnlinkBlob(suite.ctx, r, l)
+	err := s.UnlinkBlob(suite.ctx, r, b)
 	require.NoError(t, err)
-	require.False(t, isLayerLinked(t, r, l))
+	require.False(t, isBlobLinked(t, r, b))
 }
 
 func TestRepositoryStore_Delete(t *testing.T) {

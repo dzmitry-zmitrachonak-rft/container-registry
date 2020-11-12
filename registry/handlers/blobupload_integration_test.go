@@ -97,16 +97,10 @@ func isBlobLinked(t *testing.T, env *env, r *models.Repository, b *models.Blob) 
 	t.Helper()
 
 	rStore := datastore.NewRepositoryStore(env.db)
-	bb, err := rStore.Blobs(env.ctx, r)
+	linked, err := rStore.ExistsBlob(env.ctx, r, b.Digest)
 	require.NoError(t, err)
 
-	for _, blob := range bb {
-		if blob.Digest == b.Digest {
-			return true
-		}
-	}
-
-	return false
+	return linked
 }
 
 func findRepository(t *testing.T, env *env, path string) *models.Repository {

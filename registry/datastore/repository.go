@@ -33,6 +33,8 @@ type RepositoryReader interface {
 	FindManifestByTagName(ctx context.Context, r *models.Repository, tagName string) (*models.Manifest, error)
 	FindTagByName(ctx context.Context, r *models.Repository, name string) (*models.Tag, error)
 	Blobs(ctx context.Context, r *models.Repository) (models.Blobs, error)
+	FindBlob(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Blob, error)
+	ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -535,6 +537,56 @@ func (s *repositoryStore) Blobs(ctx context.Context, r *models.Repository) (mode
 	}
 
 	return scanFullBlobs(rows)
+}
+
+// FindBlobByDigest finds a blob by digest within a repository.
+func (s *repositoryStore) FindBlob(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Blob, error) {
+	q := `SELECT
+			mt.media_type,
+			encode(b.digest, 'hex') as digest,
+			b.size,
+			b.created_at
+		FROM
+			blobs AS b
+			JOIN media_types AS mt ON mt.id = b.media_type_id
+			JOIN repository_blobs AS rb ON rb.blob_digest = b.digest
+		WHERE
+			rb.repository_id = $1
+			AND b.digest = decode($2, 'hex')`
+
+	dgst, err := NewDigest(d)
+	if err != nil {
+		return nil, err
+	}
+	row := s.db.QueryRowContext(ctx, q, r.ID, dgst)
+
+	return scanFullBlob(row)
+}
+
+// ExistsBlobByDigest finds if a blob with a given digest exists within a repository.
+func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
+	q := `SELECT
+			EXISTS (
+				SELECT
+					1
+				FROM
+					repository_blobs
+				WHERE
+					repository_id = $1
+					AND blob_digest = decode($2, 'hex'))`
+
+	dgst, err := NewDigest(d)
+	if err != nil {
+		return false, err
+	}
+
+	var exists bool
+	row := s.db.QueryRowContext(ctx, q, r.ID, dgst)
+	if err := row.Scan(&exists); err != nil {
+		return false, fmt.Errorf("scanning blob: %w", err)
+	}
+
+	return exists, nil
 }
 
 // Create saves a new repository.
