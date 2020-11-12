@@ -886,19 +886,15 @@ func dbFindRepositoryBlob(ctx context.Context, db datastore.Queryer, desc distri
 		return nil, errors.New("source repository not found in database")
 	}
 
-	repoBlobs, err := rStore.Blobs(ctx, r)
+	b, err := rStore.FindBlob(ctx, r, desc.Digest)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, blob := range repoBlobs {
-		if blob.Digest == desc.Digest {
-			// Blob is both in the database and linked to the repository, exit now.
-			return blob, nil
-		}
+	if b == nil {
+		return nil, fmt.Errorf("blob not found in database")
 	}
 
-	return nil, fmt.Errorf("blob not found in database")
+	return b, nil
 }
 
 // dbFindManifestListManifest finds a manifest which is linked to the manifest list.

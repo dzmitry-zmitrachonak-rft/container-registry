@@ -52,8 +52,8 @@ SELECT
 
 ```sql
 SELECT
-    b.digest,
     mt.media_type,
+    encode(b.digest, 'hex') as digest,
     b.size,
     b.created_at
 FROM
