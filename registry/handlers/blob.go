@@ -126,15 +126,15 @@ func dbDeleteBlob(ctx context.Context, db datastore.Queryer, repoPath string, d 
 		return errors.New("repository not found in database")
 	}
 
-	b, err := rStore.FindBlob(ctx, r, d)
+	found, err := rStore.UnlinkBlob(ctx, r, d)
 	if err != nil {
 		return err
 	}
-	if b == nil {
+	if !found {
 		return errors.New("blob not found in database")
 	}
 
-	return rStore.UnlinkBlob(ctx, r, b)
+	return nil
 }
 
 // DeleteBlob deletes a layer blob

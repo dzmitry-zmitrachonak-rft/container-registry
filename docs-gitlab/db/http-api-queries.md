@@ -6,14 +6,14 @@ Here we list queries used across several operations and refer to them from each 
 
 #### Check if repository with a given path exists and grab its ID
 
-   ```sql
+```sql
 SELECT
     id
 FROM
     repositories
 WHERE
     path = $1;
-   ```
+```
 
 #### Find manifest by digest in repository
 
@@ -21,14 +21,18 @@ WHERE
 SELECT
     m.id,
     m.repository_id,
-    m.created_at,
     m.schema_version,
     mt.media_type,
-    m.digest,
-    m.payload
+    encode(m.digest, 'hex') as digest,
+    m.payload,
+    mtc.media_type as configuration_media_type,
+    encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+    m.configuration_payload,
+    m.created_at
 FROM
     manifests AS m
     JOIN media_types AS mt ON mt.id = m.media_type_id
+    LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 WHERE
     m.repository_id = $1
     AND m.digest = decode($2, 'hex');
@@ -146,7 +150,7 @@ GET /v2/<name>/blobs/<digest>
 HEAD /v2/<name>/blobs/<digest>
 ```
 
-Same as for pull operation. Although we're just checking for existance, the HTTP response includes headers with metadata, so we need to retrieve it from the database.
+Same as for pull operation. Although we're just checking for existence, the HTTP response includes headers with metadata, so we need to retrieve it from the database.
 
 #### Push
 
@@ -166,7 +170,6 @@ PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>
    ON CONFLICT (digest)
        DO NOTHING
    RETURNING
-       id,
        created_at;
    ```
 
@@ -202,12 +205,10 @@ DELETE /v2/<name>/blobs/<digest>
    ```sql
    DELETE FROM repository_blobs
    WHERE repository_id = $1
-   		AND blob_digest = decode($2, 'hex')
-   RETURNING
-       1;
+   		AND blob_digest = decode($2, 'hex');
    ```
 
-   If the resultset has no rows we know the blob link does not exist and raise the corresponding error. This avoids the need for a separate preceeding `SELECT` to find if the link exists.
+   If the query affected no rows we know the blob link does not exist and raise the corresponding error. This avoids the need for a separate preceding `SELECT` to find if the link exists.
 
 ### Manifests
 
