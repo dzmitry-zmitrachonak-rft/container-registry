@@ -188,7 +188,7 @@ func (imp *Importer) importLayer(ctx context.Context, fsRepo distribution.Reposi
 		return fmt.Errorf("associating layer blob with manifest: %w", err)
 	}
 
-	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbLayer); err != nil {
+	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbLayer.Digest); err != nil {
 		return fmt.Errorf("linking layer blob to repository: %w", err)
 	}
 
@@ -280,7 +280,7 @@ func (imp *Importer) importSchema2Manifest(ctx context.Context, fsRepo distribut
 	}
 
 	// link configuration to repository
-	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{Digest: dbConfigBlob.Digest}); err != nil {
+	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbConfigBlob.Digest); err != nil {
 		return nil, fmt.Errorf("error associating configuration blob with repository: %w", err)
 	}
 
@@ -328,7 +328,7 @@ func (imp *Importer) importOCIManifest(ctx context.Context, fsRepo distribution.
 	}
 
 	// link configuration blob to repository
-	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, &models.Blob{Digest: dbConfigBlob.Digest}); err != nil {
+	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbConfigBlob.Digest); err != nil {
 		return nil, fmt.Errorf("error associating configuration blob with repository: %w", err)
 	}
 

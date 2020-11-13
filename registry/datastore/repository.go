@@ -45,8 +45,8 @@ type RepositoryWriter interface {
 	CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error)
 	Update(ctx context.Context, r *models.Repository) error
 	UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error
-	LinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error
-	UnlinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error
+	LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error
+	UnlinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	Delete(ctx context.Context, id int64) error
 }
 
@@ -782,13 +782,13 @@ func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repositor
 }
 
 // LinkBlob links a blob to a repository. It does nothing if already linked.
-func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error {
+func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error {
 	q := `INSERT INTO repository_blobs (repository_id, blob_digest)
 			VALUES ($1, decode($2, 'hex'))
 		ON CONFLICT (repository_id, blob_digest)
 			DO NOTHING`
 
-	dgst, err := NewDigest(b.Digest)
+	dgst, err := NewDigest(d)
 	if err != nil {
 		return err
 	}
@@ -799,24 +799,26 @@ func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, b 
 	return nil
 }
 
-// UnlinkBlob unlinks a blob from a repository. It does nothing if not linked.
-func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, b *models.Blob) error {
+// UnlinkBlob unlinks a blob from a repository. It does nothing if not linked. A boolean is returned to denote whether
+// the link was deleted or not. This avoids the need for a separate preceding `SELECT` to find if it exists.
+func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
 	q := "DELETE FROM repository_blobs WHERE repository_id = $1 AND blob_digest = decode($2, 'hex')"
 
-	dgst, err := NewDigest(b.Digest)
+	dgst, err := NewDigest(d)
 	if err != nil {
-		return err
+		return false, err
 	}
 	res, err := s.db.ExecContext(ctx, q, r.ID, dgst)
 	if err != nil {
-		return fmt.Errorf("linking blob: %w", err)
+		return false, fmt.Errorf("linking blob: %w", err)
 	}
 
-	if _, err := res.RowsAffected(); err != nil {
-		return fmt.Errorf("linking blob: %w", err)
+	count, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("linking blob: %w", err)
 	}
 
-	return nil
+	return count == 1, nil
 }
 
 // Delete deletes a repository.

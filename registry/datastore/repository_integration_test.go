@@ -1422,11 +1422,11 @@ func TestRepositoryStore_UntagManifest(t *testing.T) {
 	require.Empty(t, tt)
 }
 
-func isBlobLinked(t *testing.T, r *models.Repository, b *models.Blob) bool {
+func isBlobLinked(t *testing.T, r *models.Repository, d digest.Digest) bool {
 	t.Helper()
 
 	s := datastore.NewRepositoryStore(suite.db)
-	linked, err := s.ExistsBlob(suite.ctx, r, b.Digest)
+	linked, err := s.ExistsBlob(suite.ctx, r, d)
 	require.NoError(t, err)
 
 	return linked
@@ -1439,12 +1439,12 @@ func TestRepositoryStore_LinkLayer(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
 
 	r := &models.Repository{ID: 3}
-	b := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
+	d := digest.Digest("sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b")
 
-	err := s.LinkBlob(suite.ctx, r, b)
+	err := s.LinkBlob(suite.ctx, r, d)
 	require.NoError(t, err)
 
-	require.True(t, isBlobLinked(t, r, b))
+	require.True(t, isBlobLinked(t, r, d))
 }
 
 func TestRepositoryStore_LinkBlob_AlreadyLinkedDoesNotFail(t *testing.T) {
@@ -1454,10 +1454,10 @@ func TestRepositoryStore_LinkBlob_AlreadyLinkedDoesNotFail(t *testing.T) {
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	b := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
-	require.True(t, isBlobLinked(t, r, b))
+	d := digest.Digest("sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1")
+	require.True(t, isBlobLinked(t, r, d))
 
-	err := s.LinkBlob(suite.ctx, r, b)
+	err := s.LinkBlob(suite.ctx, r, d)
 	require.NoError(t, err)
 }
 
@@ -1468,12 +1468,13 @@ func TestRepositoryStore_UnlinkBlob(t *testing.T) {
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	b := &models.Blob{Digest: "sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1"}
-	require.True(t, isBlobLinked(t, r, b))
+	d := digest.Digest("sha256:f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1")
+	require.True(t, isBlobLinked(t, r, d))
 
-	err := s.UnlinkBlob(suite.ctx, r, b)
+	found, err := s.UnlinkBlob(suite.ctx, r, d)
 	require.NoError(t, err)
-	require.False(t, isBlobLinked(t, r, b))
+	require.True(t, found)
+	require.False(t, isBlobLinked(t, r, d))
 }
 
 func TestRepositoryStore_UnlinkBlob_NotLinkedDoesNotFail(t *testing.T) {
@@ -1483,11 +1484,12 @@ func TestRepositoryStore_UnlinkBlob_NotLinkedDoesNotFail(t *testing.T) {
 
 	// see testdata/fixtures/repository_blobs.sql
 	r := &models.Repository{ID: 3}
-	b := &models.Blob{Digest: "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b"}
+	d := digest.Digest("sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b")
 
-	err := s.UnlinkBlob(suite.ctx, r, b)
+	found, err := s.UnlinkBlob(suite.ctx, r, d)
 	require.NoError(t, err)
-	require.False(t, isBlobLinked(t, r, b))
+	require.False(t, found)
+	require.False(t, isBlobLinked(t, r, d))
 }
 
 func TestRepositoryStore_Delete(t *testing.T) {

@@ -94,11 +94,11 @@ func TestDeleteBlobDB(t *testing.T) {
 	require.NotEmpty(t, r.ID)
 
 	// link blob to repository
-	err = rStore.LinkBlob(env.ctx, r, b)
+	err = rStore.LinkBlob(env.ctx, r, b.Digest)
 	require.NoError(t, err)
 
 	// make sure it's linked
-	require.True(t, isBlobLinked(t, env, r, b))
+	require.True(t, isBlobLinked(t, env, r, b.Digest))
 
 	// Test
 
@@ -111,7 +111,7 @@ func TestDeleteBlobDB(t *testing.T) {
 	require.NotNil(t, b2)
 
 	// but not the link for the repository
-	require.False(t, isBlobLinked(t, env, r, b))
+	require.False(t, isBlobLinked(t, env, r, b.Digest))
 }
 
 func TestDeleteBlobDB_RepositoryNotFound(t *testing.T) {
