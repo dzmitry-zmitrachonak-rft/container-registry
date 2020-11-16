@@ -919,7 +919,7 @@ func (suite *DriverSuite) TestDeleteFolder(c *check.C) {
 // do not implement directories.
 func (suite *DriverSuite) TestDeleteOnlyDeletesSubpaths(c *check.C) {
 	dirname := "/foobar"
-	filename := "foobar"
+	filename := "/foobar"
 	contents := randomContents(32)
 	fmt.Println("==========================", dirname, "==========================", filename)
 	defer suite.deletePath(c, firstPart(dirname))
