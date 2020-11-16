@@ -918,7 +918,7 @@ func (suite *DriverSuite) TestDeleteFolder(c *check.C) {
 // deleting "/a" does not delete "/ab").  This matters for services like S3 that
 // do not implement directories.
 func (suite *DriverSuite) TestDeleteOnlyDeletesSubpaths(c *check.C) {
-	dirname := "foobar"
+	dirname := "/foobar"
 	filename := "foobar"
 	contents := randomContents(32)
 	fmt.Println("==========================", dirname, "==========================", filename)
