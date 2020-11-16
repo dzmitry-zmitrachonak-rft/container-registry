@@ -1,7 +1,4 @@
 ## [Unreleased]
-## Deprecated
-- configuration: Deprecate TLS 1.0 and TLS 1.1 support, to be removed by January 22nd, 2021
-
 ## Added
 - registry: Experimental PostgreSQL metadata database (incomplete, in progress)
 - registry: Use GitLab LabKit for HTTP metrics collection
@@ -27,6 +24,7 @@
 - configuration: Deprecate NewRelic support, to be removed by January 22nd, 2021
 - configuration: Deprecate logstash and combined log formats, to be removed by January 22nd, 2021
 - registry/api: Deprecate Docker Schema v1 compatibility, to be removed by January 22nd, 2021
+- configuration: Deprecate TLS 1.0 and TLS 1.1 support, to be removed by January 22nd, 2021
 
 ## [v2.11.0-gitlab] - 2020-09-08
 ## Added
