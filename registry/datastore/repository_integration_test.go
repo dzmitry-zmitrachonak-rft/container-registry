@@ -981,7 +981,7 @@ func TestRepositoryStore_FindBlobByDigest_NotFound(t *testing.T) {
 	require.Nil(t, b)
 }
 
-func TestRepositoryStore_ExistsBlobByDigest(t *testing.T) {
+func TestRepositoryStore_ExistsBlob(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
@@ -995,7 +995,7 @@ func TestRepositoryStore_ExistsBlobByDigest(t *testing.T) {
 	require.True(t, exists)
 }
 
-func TestRepositoryStore_ExistsBlobByDigest_NotFound(t *testing.T) {
+func TestRepositoryStore_ExistsBlob_NotFound(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
@@ -1507,4 +1507,32 @@ func TestRepositoryStore_Delete_NotFound(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
 	err := s.Delete(suite.ctx, 100)
 	require.EqualError(t, err, "repository not found")
+}
+
+func TestRepositoryStore_ExistsManifest(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByID(suite.ctx, 3)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// see testdata/fixtures/manifests.sql
+	exists, err := s.ExistsManifest(suite.ctx, r, "sha256:bd165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155")
+	require.NoError(t, err)
+	require.True(t, exists)
+}
+
+func TestRepositoryStore_ExistsManifest_NotFound(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByID(suite.ctx, 3)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// see testdata/fixtures/manifests.sql
+	exists, err := s.ExistsBlob(suite.ctx, r, "sha256:cd165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155")
+	require.NoError(t, err)
+	require.False(t, exists)
 }

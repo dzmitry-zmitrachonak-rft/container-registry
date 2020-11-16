@@ -29,6 +29,7 @@ type RepositoryReader interface {
 	TagsPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) (models.Tags, error)
 	TagsCountAfterName(ctx context.Context, r *models.Repository, lastName string) (int, error)
 	ManifestTags(ctx context.Context, r *models.Repository, m *models.Manifest) (models.Tags, error)
+	ExistsManifest(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	FindManifestByDigest(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Manifest, error)
 	FindManifestByTagName(ctx context.Context, r *models.Repository, tagName string) (*models.Manifest, error)
 	FindTagByName(ctx context.Context, r *models.Repository, name string) (*models.Tag, error)
@@ -456,6 +457,31 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 	}
 
 	return scanFullManifests(rows)
+}
+
+func (s *repositoryStore) ExistsManifest(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
+	q := `SELECT
+			EXISTS (
+				SELECT
+					1
+				FROM
+					manifests
+				WHERE
+					repository_id = $1
+					AND digest = decode($2, 'hex'))`
+
+	dgst, err := NewDigest(d)
+	if err != nil {
+		return false, err
+	}
+
+	var exists bool
+	row := s.db.QueryRowContext(ctx, q, r.ID, dgst)
+	if err := row.Scan(&exists); err != nil {
+		return false, fmt.Errorf("scanning: %w", err)
+	}
+
+	return exists, nil
 }
 
 // FindManifestByDigest finds a manifest by digest within a repository.
