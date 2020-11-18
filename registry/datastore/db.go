@@ -10,9 +10,15 @@ import (
 	"strings"
 	"time"
 
+	prometheus "github.com/docker/distribution/metrics"
+	metrics "github.com/docker/go-metrics"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
+
+func init() {
+	metrics.Register(prometheus.DatabaseNamespace)
+}
 
 const driverName = "postgres"
 
