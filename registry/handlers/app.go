@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dlmiddlecote/sqlstats"
+
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
 	dcontext "github.com/docker/distribution/context"
@@ -37,6 +39,7 @@ import (
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	storagemiddleware "github.com/docker/distribution/registry/storage/driver/middleware"
 	"github.com/docker/distribution/version"
+	metrics "github.com/docker/go-metrics"
 	"github.com/docker/libtrust"
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
@@ -319,6 +322,12 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		}
 
 		app.db = db
+
+		// Expose database metrics to prometheus.
+		collector := sqlstats.NewStatsCollector(config.Database.DBName, db)
+		prometheus.DatabaseNamespace.Add(collector)
+		metrics.Register(prometheus.DatabaseNamespace)
+
 		options = append(options, storage.Database(app.db))
 
 		if config.Migration.DisableMirrorFS {

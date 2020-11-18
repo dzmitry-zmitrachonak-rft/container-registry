@@ -13,4 +13,7 @@ var (
 
 	// NotificationsNamespace is the prometheus namespace of notification related metrics
 	NotificationsNamespace = metrics.NewNamespace(NamespacePrefix, "notifications", nil)
+
+	// DatabaseNamespace is the prometheus namespace of notification related metrics
+	DatabaseNamespace = metrics.NewNamespace(NamespacePrefix, "database", nil)
 )

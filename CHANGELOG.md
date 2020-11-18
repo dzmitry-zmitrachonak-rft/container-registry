@@ -8,6 +8,7 @@
 - configuration: Deprecate TLS 1.0 and TLS 1.1 support, to be removed by January 22nd, 2021
 
 ## Added
+- registry: App Prometheus metrics for database
 - registry: Experimental PostgreSQL metadata database (incomplete, in progress)
 - registry: Use GitLab LabKit for HTTP metrics collection
 - registry/storage/cache/redis: Add Prometheus metrics for Redis cache store

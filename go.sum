@@ -109,6 +109,8 @@ github.com/dgraph-io/badger v1.6.0/go.mod h1:zwt7syl517jmP8s94KqSxTlM6IMsdhYy6ps
 github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
+github.com/dlmiddlecote/sqlstats v1.0.1 h1:IMOMNS5sZAi84198EAxxA27BVZ2i2h1ylvk+8p9nK7o=
+github.com/dlmiddlecote/sqlstats v1.0.1/go.mod h1:wnid52FfRm1P/Z/81xQ4pd8ayRzL9o7UWkyCNegbAQg=
 github.com/dnaeon/go-vcr v1.0.1 h1:r8L/HqC0Hje5AXMu1ooW8oyQyOFv4GxqpL0nRP7SLLY=
 github.com/dnaeon/go-vcr v1.0.1/go.mod h1:aBB1+wY4s93YsC3HHjMBMrwTj2R9FHDzUr9KyGc8n1E=
 github.com/docker/go-metrics v0.0.0-20180209012529-399ea8c73916 h1:yWHOI+vFjEsAakUTSrtqc/SAHrhSkmn48pqjidZX3QA=
