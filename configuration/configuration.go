@@ -53,6 +53,8 @@ type Configuration struct {
 
 		// Hooks allows users to configure the log hooks, to enabling the
 		// sequent handling behavior, when defined levels of log message emit.
+		// NOTE: This is deprecated (https://gitlab.com/gitlab-org/container-registry/-/issues/182) and will be
+		// removed by January 22nd, 2021.
 		Hooks []LogHook `yaml:"hooks,omitempty"`
 	}
 
@@ -211,6 +213,8 @@ type Configuration struct {
 	// Compatibility is used for configurations of working with older or deprecated features.
 	Compatibility struct {
 		// Schema1 configures how schema1 manifests will be handled
+		// NOTE: This is deprecated (https://gitlab.com/gitlab-org/container-registry/-/issues/213) and will be removed by
+		// January 22nd, 2021.
 		Schema1 struct {
 			// TrustKey is the signing key to use for adding the signature to
 			// schema1 manifests.
@@ -800,6 +804,8 @@ type Ignore struct {
 // Reporting defines error reporting methods.
 type Reporting struct {
 	// Bugsnag configures error reporting for Bugsnag (bugsnag.com).
+	// NOTE: This is deprecated (https://gitlab.com/gitlab-org/container-registry/-/issues/179) and will be removed by
+	// January 22nd, 2021.
 	Bugsnag BugsnagReporting `yaml:"bugsnag,omitempty"`
 	// NewRelic configures error reporting for NewRelic (newrelic.com)
 	NewRelic NewRelicReporting `yaml:"newrelic,omitempty"`
@@ -817,6 +823,8 @@ type BugsnagReporting struct {
 }
 
 // NewRelicReporting configures error reporting for NewRelic (newrelic.com)
+// NOTE: This is deprecated (https://gitlab.com/gitlab-org/container-registry/-/issues/180) and will be removed by
+// January 22nd, 2021.
 type NewRelicReporting struct {
 	// LicenseKey is the NewRelic user license key
 	LicenseKey string `yaml:"licensekey,omitempty"`

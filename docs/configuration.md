@@ -332,6 +332,9 @@ check before parsing the remainder of the configuration file.
 
 ## `log`
 
+**DEPRECATED:** The `logstash` log formatter is deprecated and will be removed by January 22nd, 2021. Please use `text`
+or `json` instead. See https://gitlab.com/gitlab-org/container-registry/-/issues/183 for more details.
+
 The `log` subsection configures the behavior of the logging system. The logging
 system outputs everything to stdout by default. You can adjust the granularity,
 output and format with this configuration section.
@@ -358,6 +361,9 @@ log:
 
 ### `accesslog`
 
+**DEPRECATED:** The `combined` log formatter is deprecated and will be removed by January 22nd, 2021. Please use `text`
+or `json` instead. See https://gitlab.com/gitlab-org/container-registry/-/issues/183 for more details.
+
 ```none
 accesslog:
   disabled: true
@@ -374,6 +380,9 @@ system. By default, the access logging system outputs to stdout in
 | `formatter` | no       | This selects the format of logging output. Options are `text`, `json`, and `combined`. The default is `combined`. |
 
 ## `hooks`
+
+**DEPRECATED:** Log hooks are deprecated and will be removed by January 22nd, 2021.
+See https://gitlab.com/gitlab-org/container-registry/-/issues/182 for more details.
 
 ```none
 hooks:
@@ -766,6 +775,9 @@ A valid configuration may contain both.
 
 ### `bugsnag`
 
+**DEPRECATED:** Bugsnag support is deprecated and will be removed by January 22nd, 2021. Please use [Sentry](#sentry)
+instead for error reporting. See https://gitlab.com/gitlab-org/container-registry/-/issues/179 for more details.
+
 | Parameter | Required | Description                                           |
 |-----------|----------|-------------------------------------------------------|
 | `apikey`  | yes      | The API Key provided by Bugsnag.                      |
@@ -773,6 +785,9 @@ A valid configuration may contain both.
 | `endpoint`| no       | The enterprise Bugsnag endpoint.                      |
 
 ### `newrelic`
+
+**DEPRECATED:** NewRelic support is deprecated and will be removed by January 22nd, 2021. Please use [Sentry](#sentry)
+instead for error reporting. See https://gitlab.com/gitlab-org/container-registry/-/issues/180 for more details.
 
 | Parameter | Required | Description                                           |
 |-----------|----------|-------------------------------------------------------|
@@ -857,6 +872,10 @@ registry.
 
 
 ### `tls`
+
+**DEPRECATED:** TLS 1.0 and 1.1 support is deprecated and will be removed by January 22nd, 2021, and TLS 1.2 will become
+the default. Please use TLS 1.2 or 1.3 instead. See https://gitlab.com/gitlab-org/container-registry/-/issues/244 for
+more details.
 
 The `tls` structure within `http` is **optional**. Use this to configure TLS
 for the server. If you already have a web server running on
@@ -1173,6 +1192,10 @@ Use the `compatibility` structure to configure handling of older and deprecated
 features. Each subsection defines such a feature with configurable behavior.
 
 ### `schema1`
+
+**DEPRECATED:** Docker Schema v1 compatibility is deprecated and will be removed by January 22nd, 2021. Please update
+Docker Engine to 17.12 or later and rebuild and push any v1 images you might still have. See 
+https://gitlab.com/gitlab-org/container-registry/-/issues/213 for more details.
 
 | Parameter | Required | Description                                           |
 |-----------|----------|-------------------------------------------------------|

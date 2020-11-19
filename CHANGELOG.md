@@ -1,6 +1,32 @@
 ## [Unreleased]
+## Added
+- registry: Experimental PostgreSQL metadata database (incomplete, in progress)
+- registry: Use GitLab LabKit for HTTP metrics collection
+- registry/storage/cache/redis: Add Prometheus metrics for Redis cache store
+- registry: Add support for a pprof monitoring server
+- registry: Add TLS support for Redis
+- registry: Add support for Redis Sentinel
+- registry: Add support for error reporting with Sentry
 
-## [v2.10.1-gitlab] - 2020-09-08
+### Changed
+- configuration: Cloudfront middleware `ipfilteredby` setting is now optional
+
+### Fixed
+- registry/api/v2: Text-charset selector removed from `application/json` content-type
+- registry/storage: Swift path generation now generates multiple directories as intended
+- registry/client/auth: OAuth token authentication now returns a `ErrNoToken` if a token is not found in the response
+- registry/storage: Fix custom User-Agent header on S3 requests
+
+## [Prerelease]
+## Deprecated
+- configuration: Deprecate log hooks, to be removed by January 22nd, 2021
+- configuration: Deprecate Bugsnag support, to be removed by January 22nd, 2021
+- configuration: Deprecate NewRelic support, to be removed by January 22nd, 2021
+- configuration: Deprecate logstash and combined log formats, to be removed by January 22nd, 2021
+- registry/api: Deprecate Docker Schema v1 compatibility, to be removed by January 22nd, 2021
+- configuration: Deprecate TLS 1.0 and TLS 1.1 support, to be removed by January 22nd, 2021
+
+## [v2.11.0-gitlab] - 2020-09-08
 ## Added
 - registry: Add new configuration for changing the output for logs and the access logs format
 

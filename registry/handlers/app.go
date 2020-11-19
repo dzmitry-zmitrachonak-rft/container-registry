@@ -149,7 +149,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		}
 	}
 
-	startUploadPurger(app, app.driver, dcontext.GetLogger(app), purgeConfig)
+	log := dcontext.GetLogger(app)
+
+	startUploadPurger(app, app.driver, log, purgeConfig)
 
 	app.driver, err = applyStorageMiddleware(app.driver, config.Middleware["storage"])
 	if err != nil {
@@ -163,6 +165,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 
 	options := registrymiddleware.GetRegistryOptions()
 	if config.Compatibility.Schema1.TrustKey != "" {
+		log.Warn("DEPRECATION WARNING: Docker Schema v1 compatibility is deprecated and will be removed by January " +
+			"22nd, 2021. Please update Docker Engine to 17.12 or later and rebuild and push any v1 images you might " +
+			"still have. See https://gitlab.com/gitlab-org/container-registry/-/issues/213 for more details.")
 		app.trustKey, err = libtrust.LoadKeyFile(config.Compatibility.Schema1.TrustKey)
 		if err != nil {
 			panic(fmt.Sprintf(`could not load schema1 "signingkey" parameter: %v`, err))
@@ -179,6 +184,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	options = append(options, storage.Schema1SigningKey(app.trustKey))
 
 	if config.Compatibility.Schema1.Enabled {
+		log.Warn("DEPRECATION WARNING: Docker Schema v1 compatibility is deprecated and will be removed by January " +
+			"22nd, 2021. Please update Docker Engine to 17.12 or later and rebuild and push any v1 images you might " +
+			"still have. See https://gitlab.com/gitlab-org/container-registry/-/issues/213 for more details.")
 		options = append(options, storage.EnableSchema1)
 	}
 
@@ -577,6 +585,11 @@ func (app *App) configureRedis(configuration *configuration.Configuration) {
 
 // configureLogHook prepares logging hook parameters.
 func (app *App) configureLogHook(configuration *configuration.Configuration) {
+	if len(configuration.Log.Hooks) > 0 {
+		dcontext.GetLogger(app).Warn("DEPRECATION WARNING: Log hooks are deprecated and will be removed by " +
+			"January 22nd, 2021. See https://gitlab.com/gitlab-org/container-registry/-/issues/182 for more details.")
+	}
+
 	entry, ok := dcontext.GetLogger(app).(*logrus.Entry)
 	if !ok {
 		// somehow, we are not using logrus

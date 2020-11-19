@@ -177,6 +177,12 @@ func (registry *Registry) ListenAndServe() error {
 			dcontext.GetLogger(registry.app).Infof("restricting TLS to %s or higher", config.HTTP.TLS.MinimumTLS)
 		}
 
+		if tlsMinVersion == tls.VersionTLS10 || tlsMinVersion == tls.VersionTLS11 {
+			log.Warn("DEPRECATION WARNING: TLS 1.0 and 1.1 support is deprecated and will be removed by January 22nd, " +
+				"2021, and TLS 1.2 will become the default. Please use TLS 1.2 or 1.3 instead. See " +
+				"https://gitlab.com/gitlab-org/container-registry/-/issues/244 for more details.")
+		}
+
 		tlsConf := &tls.Config{
 			ClientAuth:               tls.NoClientCert,
 			NextProtos:               nextProtos(config),
@@ -273,6 +279,10 @@ func configureReporting(app *handlers.App) http.Handler {
 	}
 
 	if app.Config.Reporting.NewRelic.LicenseKey != "" {
+		log.Warn("DEPRECATION WARNING: NewRelic support is deprecated and will be removed by January 22nd, 2021. " +
+			"Please use Sentry instead for error reporting. See " +
+			"https://gitlab.com/gitlab-org/container-registry/-/issues/180 for more details.")
+
 		agent := gorelic.NewAgent()
 		agent.NewrelicLicense = app.Config.Reporting.NewRelic.LicenseKey
 		if app.Config.Reporting.NewRelic.Name != "" {
@@ -292,6 +302,10 @@ func configureReporting(app *handlers.App) http.Handler {
 func configureLogging(ctx context.Context, config *configuration.Configuration) (context.Context, error) {
 	switch config.Log.Formatter {
 	case configuration.LogFormatLogstash:
+		log.Warn("DEPRECATION WARNING: The 'logstash' log formatter is deprecated and will be removed by " +
+			"January 22nd, 2021. Please use 'text' or 'json' instead. See " +
+			"https://gitlab.com/gitlab-org/container-registry/-/issues/183 for more details.")
+
 		// we don't use logstash at GitLab, so we don't initialize the global logger through LabKit
 		l, err := log.ParseLevel(config.Log.Level.String())
 		if err != nil {
@@ -331,6 +345,12 @@ func configureAccessLogging(config *configuration.Configuration, h http.Handler)
 		return h, nil
 	}
 
+	if config.Log.AccessLog.Formatter == configuration.AccessLogFormatCombined {
+		log.Warn("DEPRECATION WARNING: The 'combined' log formatter is deprecated and will be removed by " +
+			"January 22nd, 2021. Please use 'text' or 'json' instead. See " +
+			"https://gitlab.com/gitlab-org/container-registry/-/issues/183 for more details.")
+	}
+
 	logger := log.New()
 	// the registry doesn't log to a file, so we can ignore the io.Closer (noop) returned by LabKit (we could also
 	// ignore the error, but keeping it for future proofing)
@@ -350,6 +370,10 @@ func configureBugsnag(config *configuration.Configuration) {
 	if config.Reporting.Bugsnag.APIKey == "" {
 		return
 	}
+
+	log.Warn("DEPRECATION WARNING: Bugsnag support is deprecated and will be removed by January 22nd, 2021. " +
+		"Please use Sentry instead for error reporting. See " +
+		"https://gitlab.com/gitlab-org/container-registry/-/issues/179 for more details.")
 
 	bugsnagConfig := bugsnag.Configuration{
 		APIKey: config.Reporting.Bugsnag.APIKey,
