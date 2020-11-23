@@ -178,8 +178,12 @@ type Configuration struct {
 
 	// Redis configures the redis pool available to the registry webapp.
 	Redis struct {
-		// Addr specifies the the redis instance available to the application.
+		// Addr specifies the redis instance available to the application. For Sentinel it should be a list of
+		// addresses separated by commas.
 		Addr string `yaml:"addr,omitempty"`
+
+		// MainName specifies the main server name. Only for Sentinel connections.
+		MainName string `yaml:"mainname,omitempty"`
 
 		// Password string to use when making a connection.
 		Password string `yaml:"password,omitempty"`
@@ -190,6 +194,14 @@ type Configuration struct {
 		DialTimeout  time.Duration `yaml:"dialtimeout,omitempty"`  // timeout for connect
 		ReadTimeout  time.Duration `yaml:"readtimeout,omitempty"`  // timeout for reads of data
 		WriteTimeout time.Duration `yaml:"writetimeout,omitempty"` // timeout for writes of data
+
+		// TLS specifies settings for TLS connections.
+		TLS struct {
+			// Enabled enables TLS when connecting to the server.
+			Enabled bool `yaml:"enabled,omitempty"`
+			// Insecure disables server name verification when connecting over TLS.
+			Insecure bool `yaml:"insecure,omitempty"`
+		} `yaml:"tls,omitempty"`
 
 		// Pool configures the behavior of the redis connection pool.
 		Pool struct {
@@ -803,12 +815,24 @@ type Ignore struct {
 
 // Reporting defines error reporting methods.
 type Reporting struct {
+	// Sentry configures error reporting for Sentry (sentry.io).
+	Sentry SentryReporting `yaml:"sentry,omitempty"`
 	// Bugsnag configures error reporting for Bugsnag (bugsnag.com).
 	// NOTE: This is deprecated (https://gitlab.com/gitlab-org/container-registry/-/issues/179) and will be removed by
 	// January 22nd, 2021.
 	Bugsnag BugsnagReporting `yaml:"bugsnag,omitempty"`
 	// NewRelic configures error reporting for NewRelic (newrelic.com)
 	NewRelic NewRelicReporting `yaml:"newrelic,omitempty"`
+}
+
+// SentryReporting configures error reporting for Sentry (sentry.io).
+type SentryReporting struct {
+	// Enabled can be set to `true` to enable the Sentry error reporting.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// DSN is the Sentry DSN.
+	DSN string `yaml:"dsn,omitempty"`
+	// Environment is the Sentry environment.
+	Environment string `yaml:"environment,omitempty"`
 }
 
 // BugsnagReporting configures error reporting for Bugsnag (bugsnag.com).

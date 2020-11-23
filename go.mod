@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/storage v1.2.1
 	github.com/Azure/azure-sdk-for-go v16.2.1+incompatible
 	github.com/Azure/go-autorest v10.8.1+incompatible // indirect
+	github.com/FZambia/sentinel v1.1.0
 	github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/bitly/go-simplejson v0.5.0 // indirect
@@ -18,7 +19,7 @@ require (
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/go-metrics v0.0.0-20180209012529-399ea8c73916
 	github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1
-	github.com/garyburd/redigo v0.0.0-20150301180006-535138d7bcd7
+	github.com/gomodule/redigo v1.8.2
 	github.com/gorilla/handlers v0.0.0-20150720190736-60c7bfde3e33
 	github.com/gorilla/mux v1.7.3
 	github.com/marstr/guid v1.1.0 // indirect

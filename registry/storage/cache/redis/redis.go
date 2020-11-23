@@ -2,14 +2,116 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
 
+	"github.com/FZambia/sentinel"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/cache"
-	"github.com/garyburd/redigo/redis"
+	"github.com/docker/distribution/registry/storage/cache/metrics"
+	"github.com/gomodule/redigo/redis"
 	"github.com/opencontainers/go-digest"
+	"github.com/sirupsen/logrus"
 )
+
+type PoolOpts struct {
+	Addr            string
+	MainName        string
+	Password        string
+	DB              int
+	DialTimeout     time.Duration
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	TLSEnabled      bool
+	TLSSkipVerify   bool
+	PoolMaxIdle     int
+	PoolMaxActive   int
+	PoolIdleTimeout time.Duration
+}
+
+func NewPool(opts *PoolOpts) *redis.Pool {
+	dialOpts := []redis.DialOption{
+		redis.DialPassword(opts.Password),
+		redis.DialDatabase(opts.DB),
+		redis.DialConnectTimeout(opts.DialTimeout),
+		redis.DialReadTimeout(opts.ReadTimeout),
+		redis.DialWriteTimeout(opts.WriteTimeout),
+		redis.DialUseTLS(opts.TLSEnabled),
+		redis.DialTLSSkipVerify(opts.TLSSkipVerify),
+	}
+
+	var sntnl *sentinel.Sentinel
+	if opts.MainName != "" {
+		addrs := strings.Split(opts.Addr, ",")
+		log := logrus.WithField("addresses", addrs)
+
+		sntnl = &sentinel.Sentinel{
+			Addrs:      addrs,
+			MasterName: opts.MainName,
+			Dial: func(addr string) (redis.Conn, error) {
+				log.Info("connecting to redis sentinel")
+				conn, err := redis.Dial("tcp", addr, dialOpts...)
+				if err != nil {
+					log.WithError(err).Error("failed to connect to redis sentinel")
+					return nil, err
+				}
+				return conn, nil
+			},
+		}
+	}
+
+	pool := &redis.Pool{
+		Dial: func() (redis.Conn, error) {
+			var err error
+			addr := opts.Addr
+			log := logrus.WithField("address", addr)
+
+			if sntnl != nil {
+				addr, err = sntnl.MasterAddr()
+				if err != nil {
+					log.WithError(err).Error("failed to obtain redis main server address from sentinel")
+					return nil, err
+				}
+
+				log.WithField("address", addr).Debug("redis main server address obtained from sentinel")
+			}
+
+			log = logrus.WithField("address", addr)
+			log.Info("connecting to redis instance")
+			conn, err := redis.Dial("tcp", addr, dialOpts...)
+			if err != nil {
+				log.WithError(err).Error("failed to connect to redis instance")
+				return nil, err
+			}
+
+			return conn, nil
+		},
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			logrus.Info("checking health of redis connection")
+			if sntnl != nil {
+				if !sentinel.TestRole(c, "master") {
+					logrus.Error("redis sentinel connection health check failed")
+					return errors.New("sentinel role check failed")
+				}
+			} else {
+				if _, err := c.Do("PING"); err != nil {
+					logrus.Error("redis instance connection health check failed")
+					return err
+				}
+			}
+
+			return nil
+		},
+		MaxIdle:     opts.PoolMaxIdle,
+		MaxActive:   opts.PoolMaxActive,
+		IdleTimeout: opts.PoolIdleTimeout,
+	}
+
+	return pool
+}
 
 // redisBlobStatService provides an implementation of
 // BlobDescriptorCacheProvider based on redis. Blob descriptors are stored in
@@ -34,9 +136,13 @@ type redisBlobDescriptorService struct {
 // NewRedisBlobDescriptorCacheProvider returns a new redis-based
 // BlobDescriptorCacheProvider using the provided redis connection pool.
 func NewRedisBlobDescriptorCacheProvider(pool *redis.Pool) cache.BlobDescriptorCacheProvider {
-	return &redisBlobDescriptorService{
-		pool: pool,
-	}
+	return metrics.NewPrometheusCacheProvider(
+		&redisBlobDescriptorService{
+			pool: pool,
+		},
+		"cache_redis",
+		"Number of seconds taken by redis",
+	)
 }
 
 // RepositoryScoped returns the scoped cache.
@@ -181,6 +287,10 @@ func (rsrbds *repositoryScopedRedisBlobDescriptorService) Stat(ctx context.Conte
 	// We allow a per repository mediatype, let's look it up here.
 	mediatype, err := redis.String(conn.Do("HGET", rsrbds.blobDescriptorHashKey(dgst), "mediatype"))
 	if err != nil {
+		if err == redis.ErrNil {
+			return distribution.Descriptor{}, distribution.ErrBlobUnknown
+		}
+
 		return distribution.Descriptor{}, err
 	}
 
