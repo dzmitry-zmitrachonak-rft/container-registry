@@ -860,6 +860,97 @@ profiling:
 	testParameter(t, yml, "REGISTRY_PROFILING_STACKDRIVER_KEYFILE", tt, validator)
 }
 
+func TestParseRedisTLS_Enabled(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  tls:
+    enabled: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Redis.TLS.Enabled))
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_TLS_ENABLED", tt, validator)
+}
+
+func TestParseRedisTLS_Insecure(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  tls:
+    insecure: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Redis.TLS.Insecure))
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_TLS_INSECURE", tt, validator)
+}
+
+func TestParseRedis_Addr(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  addr: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "single",
+			value: "0.0.0.0:6379",
+			want:  "0.0.0.0:6379",
+		},
+		{
+			name:  "multiple",
+			value: "0.0.0.0:16379,0.0.0.0:26379",
+			want:  "0.0.0.0:16379,0.0.0.0:26379",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.Addr)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_ADDR", tt, validator)
+}
+
+func TestParseRedis_MainName(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  mainname: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "myredismainserver",
+			want:  "myredismainserver",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.MainName)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_MAINNAME", tt, validator)
+}
+
 func checkStructs(c *C, t reflect.Type, structsChecked map[string]struct{}) {
 	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Map || t.Kind() == reflect.Slice {
 		t = t.Elem()

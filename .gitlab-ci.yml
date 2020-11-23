@@ -83,3 +83,46 @@ s3-aws:
     # Configure the minio client to use the local minio service rather than play.minio.io
     - ./mc config host add s3v4 $REGION_ENDPOINT $AWS_ACCESS_KEY $AWS_SECRET_KEY --api S3v4
     - ./mc mb s3v4/$S3_BUCKET
+
+.cache:redis: &cache-redis
+  stage: integration
+  needs: []
+  variables:
+    REDIS_ADDR: "redis:6379"
+  services:
+    - name: redis:alpine
+      alias: "redis"
+  script: go test -v -tags=integration github.com/docker/distribution/registry/storage/cache/redis
+
+cache:redis Go 1.13:
+  extends: .cache:redis
+  image: golang:1.13-buster
+
+cache:redis Go 1.14:
+  extends: .cache:redis
+  image: golang:1.14-buster
+
+.cache:redis-sentinel:
+  <<: *cache-redis
+  variables:
+    # create a Docker network per build so that services can talk with each other
+    FF_NETWORK_PER_BUILD: 1
+    # config for redis-sentinel
+    REDIS_MASTER_HOST: "redis"
+    REDIS_MASTER_SET: "main-redis"
+    # config for app
+    REDIS_ADDR: "redis-sentinel:26379"
+    REDIS_MAIN_NAME: "main-redis"
+  services:
+    - name: redis:alpine
+      alias: "redis"
+    - name: bitnami/redis-sentinel
+      alias: "redis-sentinel"
+
+cache:redis-sentinel Go 1.13:
+  extends: .cache:redis-sentinel
+  image: golang:1.13-buster
+
+cache:redis-sentinel Go 1.14:
+  extends: .cache:redis-sentinel
+  image: golang:1.13-buster

@@ -2,11 +2,7 @@
 ## Added
 - registry: Experimental PostgreSQL metadata database (incomplete, in progress)
 - registry: Use GitLab LabKit for HTTP metrics collection
-- registry/storage/cache/redis: Add Prometheus metrics for Redis cache store
 - registry: Add support for a pprof monitoring server
-- registry: Add TLS support for Redis
-- registry: Add support for Redis Sentinel
-- registry: Add support for error reporting with Sentry
 
 ## [Prerelease]
 ## Deprecated
@@ -16,6 +12,12 @@
 - configuration: Deprecate logstash and combined log formats, to be removed by January 22nd, 2021
 - registry/api: Deprecate Docker Schema v1 compatibility, to be removed by January 22nd, 2021
 - configuration: Deprecate TLS 1.0 and TLS 1.1 support, to be removed by January 22nd, 2021
+
+### Added
+- registry: Add support for error reporting with Sentry
+- registry/storage/cache/redis: Add Prometheus metrics for Redis cache store
+- registry: Add TLS support for Redis
+- registry: Add support for Redis Sentinel
 
 ### Changed
 - configuration: Cloudfront middleware `ipfilteredby` setting is now optional

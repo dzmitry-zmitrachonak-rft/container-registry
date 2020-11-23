@@ -208,6 +208,10 @@ middleware:
       options:
         baseurl: https://example.com/
 reporting:
+  sentry:
+    enabled: true
+    dsn: https://examplePublicKey@o0.ingest.sentry.io/0
+    environment: production
   bugsnag:
     apikey: bugsnagapikey
     releasestage: bugsnagreleasestage
@@ -267,12 +271,16 @@ notifications:
         actions:
            - pull
 redis:
-  addr: localhost:6379
+  addr: localhost:16379,localhost:26379
+  mainName: mainserver
   password: asecret
   db: 0
   dialtimeout: 10ms
   readtimeout: 10ms
   writetimeout: 10ms
+  tls:
+    enabled: true
+    insecure: true
   pool:
     maxidle: 16
     maxactive: 64
@@ -755,6 +763,10 @@ location of a proxy for the layer stored by the S3 storage driver.
 
 ```
 reporting:
+  sentry:
+    enabled: true
+    dsn: https://examplePublicKey@o0.ingest.sentry.io/0
+    environment: production
   bugsnag:
     apikey: bugsnagapikey
     releasestage: bugsnagreleasestage
@@ -766,12 +778,21 @@ reporting:
 ```
 
 The `reporting` option is **optional** and configures error and metrics
-reporting tools. At the moment only two services are supported:
+reporting tools. At the moment only three services are supported:
 
+- [Sentry](#sentry)
 - [Bugsnag](#bugsnag)
 - [New Relic](#new-relic)
 
-A valid configuration may contain both.
+A valid configuration may contain multiple.
+
+### `sentry`
+
+| Parameter     | Required | Description                                                                           |
+|---------------|----------|---------------------------------------------------------------------------------------|
+| `enabled`     | no       | Set `true` to enable error reporting with Sentry. Defaults to `false`.                |
+| `dsn`         | yes      | The Sentry DSN.                                                                       |
+| `environment` | no       | The Sentry [environment](https://docs.sentry.io/product/sentry-basics/environments/). |
 
 ### `bugsnag`
 
@@ -1019,35 +1040,56 @@ The `events` structure configures the information provided in event notification
 
 ```none
 redis:
-  addr: localhost:6379
+  addr: localhost:16379,localhost:26379
+  mainName: mainserver
   password: asecret
   db: 0
   dialtimeout: 10ms
   readtimeout: 10ms
   writetimeout: 10ms
+  tls:
+    enabled: true
+    insecure: true
   pool:
     maxidle: 16
     maxactive: 64
     idletimeout: 300s
 ```
 
-Declare parameters for constructing the `redis` connections. Registry instances
-may use the Redis instance for several applications. Currently, it caches
-information about immutable blobs. Most of the `redis` options control
-how the registry connects to the `redis` instance. You can control the pool's
-behavior with the [pool](#pool) subsection.
+Declare parameters for constructing the `redis` connections. Single instances
+and Redis Sentinel are supported. Registry instances may use the Redis instance
+for several applications. Currently, it caches information about immutable
+blobs. Most of the `redis` options control how the registry connects to the
+`redis` instance. You can control the pool's behavior with the [pool](#pool)
+subsection.
 
 You should configure Redis with the **allkeys-lru** eviction policy, because the
 registry does not set an expiration value on keys.
 
-| Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `addr`    | yes      | The address (host and port) of the Redis instance.    |
-| `password`| no       | A password used to authenticate to the Redis instance.|
-| `db`      | no       | The name of the database to use for each connection.  |
-| `dialtimeout` | no   | The timeout for connecting to the Redis instance.     |
-| `readtimeout` | no   | The timeout for reading from the Redis instance.      |
-| `writetimeout` | no  | The timeout for writing to the Redis instance.        |
+| Parameter      | Required | Description                                                                                                           |
+|----------------|----------|-----------------------------------------------------------------------------------------------------------------------|
+| `addr`         | yes      | The address (host and port) of the Redis instance. For Sentinel it should be a list of addresses separated by commas. |
+| `mainname`     | no       | The main server name. Only applicable for Sentinel.                                                                   |
+| `password`     | no       | A password used to authenticate to the Redis instance.                                                                |
+| `db`           | no       | The name of the database to use for each connection.                                                                  |
+| `dialtimeout`  | no       | The timeout for connecting to the Redis instance. Defaults to no timeout.                                             |
+| `readtimeout`  | no       | The timeout for reading from the Redis instance. Defaults to no timeout.                                              |
+| `writetimeout` | no       | The timeout for writing to the Redis instance. Defaults to no timeout.                                                |
+
+### `tls`
+
+```none
+tls:
+  enabled: true
+  insecure: true
+```
+
+Use these settings to configure TLS connections.
+
+| Parameter  | Required | Description                                                                                      |
+|------------|----------|--------------------------------------------------------------------------------------------------|
+| `enabled`  | no       | Set to `true` to enable TLS. Defaults to `false`.                                                |
+| `insecure` | no       | Set to `true` to disable server name verification when connecting over TLS. Defaults to `false`. |
 
 ### `pool`
 

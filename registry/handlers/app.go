@@ -37,9 +37,10 @@ import (
 	"github.com/docker/distribution/version"
 	"github.com/docker/go-metrics"
 	"github.com/docker/libtrust"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
 // randomSecretSize is the number of random bytes to generate if no secret
@@ -504,67 +505,20 @@ func (app *App) configureRedis(configuration *configuration.Configuration) {
 		return
 	}
 
-	pool := &redis.Pool{
-		Dial: func() (redis.Conn, error) {
-			// TODO(stevvooe): Yet another use case for contextual timing.
-			ctx := context.WithValue(app, redisStartAtKey{}, time.Now())
-
-			done := func(err error) {
-				logger := dcontext.GetLoggerWithField(ctx, "redis.connect.duration",
-					dcontext.Since(ctx, redisStartAtKey{}))
-				if err != nil {
-					logger.Errorf("redis: error connecting: %v", err)
-				} else {
-					logger.Infof("redis: connect %v", configuration.Redis.Addr)
-				}
-			}
-
-			conn, err := redis.DialTimeout("tcp",
-				configuration.Redis.Addr,
-				configuration.Redis.DialTimeout,
-				configuration.Redis.ReadTimeout,
-				configuration.Redis.WriteTimeout)
-			if err != nil {
-				dcontext.GetLogger(app).Errorf("error connecting to redis instance %s: %v",
-					configuration.Redis.Addr, err)
-				done(err)
-				return nil, err
-			}
-
-			// authorize the connection
-			if configuration.Redis.Password != "" {
-				if _, err = conn.Do("AUTH", configuration.Redis.Password); err != nil {
-					defer conn.Close()
-					done(err)
-					return nil, err
-				}
-			}
-
-			// select the database to use
-			if configuration.Redis.DB != 0 {
-				if _, err = conn.Do("SELECT", configuration.Redis.DB); err != nil {
-					defer conn.Close()
-					done(err)
-					return nil, err
-				}
-			}
-
-			done(nil)
-			return conn, nil
-		},
-		MaxIdle:     configuration.Redis.Pool.MaxIdle,
-		MaxActive:   configuration.Redis.Pool.MaxActive,
-		IdleTimeout: configuration.Redis.Pool.IdleTimeout,
-		TestOnBorrow: func(c redis.Conn, t time.Time) error {
-			// TODO(stevvooe): We can probably do something more interesting
-			// here with the health package.
-			_, err := c.Do("PING")
-			return err
-		},
-		Wait: false, // if a connection is not available, proceed without cache.
-	}
-
-	app.redis = pool
+	app.redis = rediscache.NewPool(&rediscache.PoolOpts{
+		Addr:            configuration.Redis.Addr,
+		MainName:        configuration.Redis.MainName,
+		Password:        configuration.Redis.Password,
+		DB:              configuration.Redis.DB,
+		DialTimeout:     configuration.Redis.DialTimeout,
+		ReadTimeout:     configuration.Redis.ReadTimeout,
+		WriteTimeout:    configuration.Redis.WriteTimeout,
+		TLSEnabled:      configuration.Redis.TLS.Enabled,
+		TLSSkipVerify:   configuration.Redis.TLS.Insecure,
+		PoolMaxIdle:     configuration.Redis.Pool.MaxActive,
+		PoolMaxActive:   configuration.Redis.Pool.MaxActive,
+		PoolIdleTimeout: configuration.Redis.Pool.IdleTimeout,
+	})
 
 	// setup expvar
 	registry := expvar.Get("registry")
@@ -752,28 +706,42 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 
 func (app *App) logError(ctx context.Context, errors errcode.Errors) {
 	for _, e := range errors {
-		var code, message, detail string
+		var code errcode.ErrorCode
+		var message, detail string
 
 		switch ex := e.(type) {
 		case errcode.Error:
-			code = ex.Code.String()
+			code = ex.Code
 			message = ex.Message
 			detail = fmt.Sprintf("%+v", ex.Detail)
 		case errcode.ErrorCode:
-			code = ex.String()
+			code = ex
 			message = ex.Message()
 		default:
 			// just normal go 'error'
-			code = errcode.ErrorCodeUnknown.String()
+			code = errcode.ErrorCodeUnknown
 			message = ex.Error()
 		}
 
-		l := dcontext.GetLogger(ctx).WithField("code", code)
+		l := dcontext.GetLogger(ctx).WithField("code", code.String())
 		if detail != "" {
 			l = l.WithField("detail", detail)
 		}
 
 		l.WithError(e).Error(message)
+
+		// only report 500 errors to Sentry
+		if code == errcode.ErrorCodeUnknown {
+			// Encode detail in error message so that it shows up in Sentry. This is a hack until we refactor error
+			// handling across the whole application to enforce consistent behaviour and formatting.
+			// see https://gitlab.com/gitlab-org/container-registry/-/issues/198
+			detailSuffix := ""
+			if detail != "" {
+				detailSuffix = fmt.Sprintf(": %s", detail)
+			}
+			err := errcode.ErrorCodeUnknown.WithMessage(fmt.Sprintf("%s%s", message, detailSuffix))
+			errortracking.Capture(err, errortracking.WithContext(ctx))
+		}
 	}
 }
 
