@@ -224,7 +224,17 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if redirectDisabled {
 		dcontext.GetLogger(app).Infof("backend redirection disabled")
 	} else {
-		options = append(options, storage.EnableRedirect)
+		exceptions := config.Storage["redirect"]["exceptions"]
+		if exceptions, ok := exceptions.([]interface{}); ok && len(exceptions) > 0 {
+			s := make([]string, len(exceptions))
+			for i, v := range exceptions {
+				s[i] = fmt.Sprint(v)
+			}
+
+			options = append(options, storage.EnableRedirectWithExceptions(s))
+		} else {
+			options = append(options, storage.EnableRedirect)
+		}
 	}
 
 	if !config.Validation.Enabled {
