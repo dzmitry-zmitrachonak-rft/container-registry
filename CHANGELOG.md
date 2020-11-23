@@ -1,11 +1,11 @@
 ## [Unreleased]
-## Added
+### Added
 - registry: Experimental PostgreSQL metadata database (incomplete, in progress)
 - registry: Use GitLab LabKit for HTTP metrics collection
 - registry: Add support for a pprof monitoring server
 
-## [Prerelease]
-## Deprecated
+## [v2.12.0-gitlab] - 2020-11-23
+### Deprecated
 - configuration: Deprecate log hooks, to be removed by January 22nd, 2021
 - configuration: Deprecate Bugsnag support, to be removed by January 22nd, 2021
 - configuration: Deprecate NewRelic support, to be removed by January 22nd, 2021
@@ -30,22 +30,22 @@
 - registry/api/v2: Text-charset selector removed from `application/json` content-type
 
 ## [v2.11.0-gitlab] - 2020-09-08
-## Added
+### Added
 - registry: Add new configuration for changing the output for logs and the access logs format
 
-## Changed
+### Changed
 - registry: Use GitLab LabKit for correlation and logging
 - registry: Normalize log messages
 
 ## [v2.10.0-gitlab] - 2020-08-05
-## Added
+### Added
 - registry: Add support for continuous profiling with Google Stackdriver
 
 ## [v2.9.1-gitlab] - 2020-05-05
-## Added
+### Added
 - registry/api/v2: Show version and supported extra features in custom headers
 
-## Changed
+### Changed
 - registry/handlers: Encapsulate the value of err.detail in logs in a JSON object
 
 ### Fixed
