@@ -18,6 +18,7 @@
 - registry/storage/cache/redis: Add Prometheus metrics for Redis cache store
 - registry: Add TLS support for Redis
 - registry: Add support for Redis Sentinel
+- registry: Enable toggling redirects to storage backends on a per-repository basis
 
 ### Changed
 - configuration: Cloudfront middleware `ipfilteredby` setting is now optional
