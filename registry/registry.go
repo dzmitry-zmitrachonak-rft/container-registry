@@ -13,31 +13,26 @@ import (
 	"syscall"
 	"time"
 
-	"gitlab.com/gitlab-org/labkit/monitoring"
-
 	logrus_bugsnag "github.com/Shopify/logrus-bugsnag"
 	logstash "github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/bugsnag/bugsnag-go"
 	"github.com/docker/distribution/configuration"
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/health"
-	prometheus "github.com/docker/distribution/metrics"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/listener"
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/distribution/version"
-	"github.com/docker/go-metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/yvasiyarov/gorelic"
 	"gitlab.com/gitlab-org/labkit/correlation"
+	"gitlab.com/gitlab-org/labkit/errortracking"
 	logkit "gitlab.com/gitlab-org/labkit/log"
+	"gitlab.com/gitlab-org/labkit/monitoring"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 )
-
-// this channel gets notified when process receives signal. It is global to ease unit testing
-var quit = make(chan os.Signal, 1)
 
 var tlsLookup = map[string]uint16{
 	"":       tls.VersionTLS10,
@@ -64,27 +59,9 @@ var ServeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if config.HTTP.Debug.Addr != "" {
-			go func(addr string) {
-				log.Infof("debug server listening %v", addr)
-				if err := http.ListenAndServe(addr, nil); err != nil {
-					log.Fatalf("error listening on debug interface: %v", err)
-				}
-			}(config.HTTP.Debug.Addr)
-		}
-
 		registry, err := NewRegistry(ctx, config)
 		if err != nil {
 			log.Fatalln(err)
-		}
-
-		if config.HTTP.Debug.Prometheus.Enabled {
-			path := config.HTTP.Debug.Prometheus.Path
-			if path == "" {
-				path = "/metrics"
-			}
-			log.Info("providing prometheus metrics on ", path)
-			http.Handle(path, metrics.Handler())
 		}
 
 		go func() {
@@ -113,7 +90,7 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 	var err error
 	ctx, err = configureLogging(ctx, config)
 	if err != nil {
-		return nil, fmt.Errorf("error configuring logger: %v", err)
+		return nil, fmt.Errorf("configuring logger: %w", err)
 	}
 
 	configureBugsnag(config)
@@ -126,26 +103,16 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 	// TODO(aaronl): The global scope of the health checks means NewRegistry
 	// can only be called once per process.
 	app.RegisterHealthChecks()
-	handler := configureReporting(app)
+	handler := panicHandler(app)
+	if handler, err = configureReporting(config, handler); err != nil {
+		return nil, fmt.Errorf("configuring reporting services: %w", err)
+	}
 	handler = alive("/", handler)
 	handler = health.Handler(handler)
-	handler = panicHandler(handler)
 	if handler, err = configureAccessLogging(config, handler); err != nil {
-		return nil, fmt.Errorf("error configuring access logger: %v", err)
+		return nil, fmt.Errorf("configuring access logger: %w", err)
 	}
 	handler = correlation.InjectCorrelationID(handler)
-
-	// expose build info through Prometheus (`registry_build_info` gauge)
-	if app.Config.HTTP.Debug.Prometheus.Enabled {
-		ns := metrics.NewNamespace(prometheus.NamespacePrefix, "", nil)
-		registryInfo := ns.NewLabeledGauge(
-			"build",
-			"Information about the registry.", metrics.Unit("info"),
-			"version", "revision", "package",
-		)
-		metrics.Register(ns)
-		registryInfo.WithValues(version.Version, version.Revision, version.Package).Set(1)
-	}
 
 	server := &http.Server{
 		Handler: handler,
@@ -157,6 +124,10 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 		server: server,
 	}, nil
 }
+
+// Channel to capture singals used to gracefully shutdown the registry.
+// It is global to ease unit testing
+var quit = make(chan os.Signal, 1)
 
 // ListenAndServe runs the registry's HTTP server.
 func (registry *Registry) ListenAndServe() error {
@@ -246,12 +217,8 @@ func (registry *Registry) ListenAndServe() error {
 		dcontext.GetLogger(registry.app).Infof("listening on %v", ln.Addr())
 	}
 
-	if config.HTTP.DrainTimeout == 0 {
-		return registry.server.Serve(ln)
-	}
-
-	// setup channel to get notified on SIGTERM signal
-	signal.Notify(quit, syscall.SIGTERM)
+	// Setup channel to get notified on SIGTERM and interrupt signals.
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
 	serveErr := make(chan error)
 
 	// Start serving in goroutine and listen for stop signal in main thread
@@ -262,40 +229,62 @@ func (registry *Registry) ListenAndServe() error {
 	select {
 	case err := <-serveErr:
 		return err
-	case <-quit:
-		dcontext.GetLogger(registry.app).Info("stopping server gracefully. Draining connections for ", config.HTTP.DrainTimeout)
+	case s := <-quit:
+		log := log.WithFields(log.Fields{"quit_signal": s, "http_drain_timeout": registry.config.HTTP.DrainTimeout})
+		log.Info("attempting to stop server gracefully...")
+
 		// shutdown the server with a grace period of configured timeout
-		c, cancel := context.WithTimeout(context.Background(), config.HTTP.DrainTimeout)
-		defer cancel()
-		return registry.server.Shutdown(c)
+		if registry.config.HTTP.DrainTimeout != 0 {
+			log.Info("draining http connections")
+			ctx, cancel := context.WithTimeout(context.Background(), registry.config.HTTP.DrainTimeout)
+			defer cancel()
+			if err := registry.server.Shutdown(ctx); err != nil {
+				return err
+			}
+		}
+
+		log.Info("graceful shutdown successful")
+		return nil
 	}
 }
 
-func configureReporting(app *handlers.App) http.Handler {
-	var handler http.Handler = app
+func configureReporting(config *configuration.Configuration, h http.Handler) (http.Handler, error) {
+	handler := h
 
-	if app.Config.Reporting.Bugsnag.APIKey != "" {
+	if config.Reporting.Bugsnag.APIKey != "" {
 		handler = bugsnag.Handler(handler)
 	}
 
-	if app.Config.Reporting.NewRelic.LicenseKey != "" {
+	if config.Reporting.NewRelic.LicenseKey != "" {
 		log.Warn("DEPRECATION WARNING: NewRelic support is deprecated and will be removed by January 22nd, 2021. " +
 			"Please use Sentry instead for error reporting. See " +
 			"https://gitlab.com/gitlab-org/container-registry/-/issues/180 for more details.")
 
 		agent := gorelic.NewAgent()
-		agent.NewrelicLicense = app.Config.Reporting.NewRelic.LicenseKey
-		if app.Config.Reporting.NewRelic.Name != "" {
-			agent.NewrelicName = app.Config.Reporting.NewRelic.Name
+		agent.NewrelicLicense = config.Reporting.NewRelic.LicenseKey
+		if config.Reporting.NewRelic.Name != "" {
+			agent.NewrelicName = config.Reporting.NewRelic.Name
 		}
 		agent.CollectHTTPStat = true
-		agent.Verbose = app.Config.Reporting.NewRelic.Verbose
+		agent.Verbose = config.Reporting.NewRelic.Verbose
 		agent.Run()
 
 		handler = agent.WrapHTTPHandler(handler)
 	}
 
-	return handler
+	if config.Reporting.Sentry.Enabled {
+		if err := errortracking.Initialize(
+			errortracking.WithSentryDSN(config.Reporting.Sentry.DSN),
+			errortracking.WithSentryEnvironment(config.Reporting.Sentry.Environment),
+			errortracking.WithVersion(version.Version),
+		); err != nil {
+			return nil, fmt.Errorf("failed to configure Sentry: %w", err)
+		}
+
+		handler = errortracking.NewHandler(handler)
+	}
+
+	return handler, nil
 }
 
 // configureLogging prepares the context with a logger using the configuration.
@@ -396,20 +385,52 @@ func configureBugsnag(config *configuration.Configuration) {
 }
 
 func configureMonitoring(config *configuration.Configuration) []monitoring.Option {
-	opts := []monitoring.Option{
-		monitoring.WithoutMetrics(),
-		monitoring.WithoutPprof(),
-		monitoring.WithProfilerCredentialsFile(config.Profiling.Stackdriver.KeyFile),
+	var opts []monitoring.Option
+	addr := config.HTTP.Debug.Addr
+
+	if addr != "" {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/debug/health", health.StatusHandler)
+		log.WithFields(log.Fields{"address": addr, "path": "/debug/health"}).Info("starting health checker")
+
+		opts = []monitoring.Option{
+			monitoring.WithServeMux(mux),
+			monitoring.WithListenerAddress(addr),
+		}
+
+		if config.HTTP.Debug.Prometheus.Enabled {
+			opts = append(opts, monitoring.WithMetricsHandlerPattern(config.HTTP.Debug.Prometheus.Path))
+			opts = append(opts, monitoring.WithBuildInformation(version.Version, version.BuildTime))
+			opts = append(opts, monitoring.WithBuildExtraLabels(map[string]string{
+				"package":  version.Package,
+				"revision": version.Revision,
+			}))
+			log.WithFields(log.Fields{"address": addr, "path": config.HTTP.Debug.Prometheus.Path}).Info("starting Prometheus listener")
+		} else {
+			opts = append(opts, monitoring.WithoutMetrics())
+		}
+
+		if config.HTTP.Debug.Pprof.Enabled {
+			log.WithFields(log.Fields{"address": addr, "path": "/debug/pprof/"}).Info("starting pprof listener")
+		} else {
+			opts = append(opts, monitoring.WithoutPprof())
+		}
+	} else {
+		opts = []monitoring.Option{
+			monitoring.WithoutMetrics(),
+			monitoring.WithoutPprof(),
+		}
 	}
 
-	if !config.Profiling.Stackdriver.Enabled {
-		opts = append(opts, monitoring.WithoutContinuousProfiling())
-	} else {
+	if config.Profiling.Stackdriver.Enabled {
+		opts = append(opts, monitoring.WithProfilerCredentialsFile(config.Profiling.Stackdriver.KeyFile))
 		if err := configureStackdriver(config); err != nil {
 			log.WithError(err).Error("failed to configure Stackdriver profiler")
 			return opts
 		}
 		log.Info("starting Stackdriver profiler")
+	} else {
+		opts = append(opts, monitoring.WithoutContinuousProfiling())
 	}
 
 	return opts
@@ -512,10 +533,31 @@ func resolveConfiguration(args []string) (*configuration.Configuration, error) {
 
 	config, err := configuration.Parse(fp)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing %s: %v", configurationPath, err)
+		return nil, fmt.Errorf("parsing %s: %w", configurationPath, err)
+	}
+
+	if err := validate(config); err != nil {
+		return nil, fmt.Errorf("validation: %w", err)
 	}
 
 	return config, nil
+}
+
+func validate(config *configuration.Configuration) error {
+	// Validate redirect section.
+	if redirectConfig, ok := config.Storage["redirect"]; ok {
+		v, ok := redirectConfig["disable"]
+		if !ok {
+			return fmt.Errorf("'storage.redirect' section must include 'disable' parameter (boolean)")
+		}
+		switch v := v.(type) {
+		case bool:
+		default:
+			return fmt.Errorf("invalid type %[1]T for 'storage.redirect.disable' (boolean)", v)
+		}
+	}
+
+	return nil
 }
 
 func nextProtos(config *configuration.Configuration) []string {
