@@ -1,8 +1,19 @@
 ## [Unreleased]
 ### Added
 - registry: Experimental PostgreSQL metadata database (incomplete, in progress)
-- registry: Use GitLab LabKit for HTTP metrics collection
+
+## [v2.13.0-gitlab] - 2020-12-15
+### Added
 - registry: Add support for a pprof monitoring server
+- registry: Use GitLab LabKit for HTTP metrics collection
+- registry: Expose build info through the Prometheus metrics
+
+### Changed
+- configuration: Improve error reporting when `storage.redirect` section is misconfigured
+- registry/storage: Upgrade the GCS SDK to v1.12.0
+
+### Fixed
+- registry: Fix support for error reporting with Sentry
 
 ## [v2.12.0-gitlab] - 2020-11-23
 ### Deprecated

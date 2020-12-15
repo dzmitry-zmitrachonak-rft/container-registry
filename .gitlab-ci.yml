@@ -15,19 +15,21 @@ default:
     key: ${CI_COMMIT_REF_SLUG}
     paths:
       - $GOPATH/pkg/mod/
-    
+
 variables:
   BUILDTAGS: "include_gcs include_oss continuous_profiler_stackdriver"
   CGO_ENABLED: "1"
 
 stages:
+  - validate
   - test
   - integration
 
 static-analysis:
   cache: {}
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:golangci-lint-alpine
-  stage: test
+  stage: validate
+  needs: []
   script:
     # Use default .golangci.yml file from the image if one is not present in the project root.
     - '[ -e .golangci.yml ] || cp /golangci/.golangci.yml .'
@@ -40,8 +42,9 @@ static-analysis:
     paths:
       - gl-code-quality-report.json
 
-verify:
+.verify:
   stage: test
+  needs: []
   script:
     - go build -i .
     - make build
@@ -50,18 +53,25 @@ verify:
 
 .storage-driver-test: &storage-driver-test
   stage: integration
-  script: go test -v github.com/docker/distribution/registry/storage/driver/$CI_JOB_NAME -args -check.v -test.short
+  needs: []
+  script: go test -v -coverprofile=coverage.out $PACKAGE -args -check.v -test.short
 
-filesystem:
+.filesystem:
   <<: *storage-driver-test
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/filesystem
 
-inmemory:
+.inmemory:
   <<: *storage-driver-test
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/inmemory
 
-swift:
+.swift:
   <<: *storage-driver-test
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/swift
 
-s3-aws:
+.s3-aws:
   <<: *storage-driver-test
   variables:
     AWS_ACCESS_KEY: "AKIAIOSFODNN7EXAMPLE"
@@ -77,12 +87,90 @@ s3-aws:
       alias: "minio"
       command: ["server", "/data"]
   before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/s3-aws
     # Download the minio client
     - wget --no-verbose https://dl.min.io/client/mc/release/linux-amd64/mc
     - chmod u+x ./mc
     # Configure the minio client to use the local minio service rather than play.minio.io
     - ./mc config host add s3v4 $REGION_ENDPOINT $AWS_ACCESS_KEY $AWS_SECRET_KEY --api S3v4
     - ./mc mb s3v4/$S3_BUCKET
+
+.api:
+  stage: integration
+  needs: []
+  script: go test -timeout 20m -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/handlers
+
+api Go 1.13:
+  extends: .api
+  image: golang:1.13-buster
+
+api Go 1.14:
+  extends: .api
+  image: golang:1.14-buster
+
+api Go 1.15:
+  extends: .api
+  image: golang:1.15-buster
+
+filesystem storage driver Go 1.13:
+  extends: .filesystem
+  image: golang:1.13-buster
+
+filesystem storage driver Go 1.14:
+  extends: .filesystem
+  image: golang:1.14-buster
+
+filesystem storage driver Go 1.15:
+  extends: .filesystem
+  image: golang:1.15-buster
+
+inmemory storage driver Go 1.13:
+  extends: .inmemory
+  image: golang:1.13-buster
+
+inmemory storage driver Go 1.14:
+  extends: .inmemory
+  image: golang:1.14-buster
+
+inmemory storage driver Go 1.15:
+  extends: .inmemory
+  image: golang:1.15-buster
+
+swift storage driver Go 1.13:
+  extends: .swift
+  image: golang:1.13-buster
+
+swift storage driver Go 1.14:
+  extends: .swift
+  image: golang:1.14-buster
+
+swift storage driver Go 1.15:
+  extends: .swift
+  image: golang:1.15-buster
+
+s3 storage driver Go 1.13:
+  extends: .s3-aws
+  image: golang:1.13-buster
+
+s3 storage driver Go 1.14:
+  extends: .s3-aws
+  image: golang:1.14-buster
+
+s3 storage driver Go 1.15:
+  extends: .s3-aws
+  image: golang:1.15-buster
+
+verify Go 1.13:
+  extends: .verify
+  image: golang:1.13-buster
+
+verify Go 1.14:
+  extends: .verify
+  image: golang:1.14-buster
+
+verify Go 1.15:
+  extends: .verify
+  image: golang:1.15-buster
 
 .cache:redis: &cache-redis
   stage: integration
@@ -92,7 +180,7 @@ s3-aws:
   services:
     - name: redis:alpine
       alias: "redis"
-  script: go test -v -tags=integration github.com/docker/distribution/registry/storage/cache/redis
+  script: go test -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/storage/cache/redis
 
 cache:redis Go 1.13:
   extends: .cache:redis
@@ -101,6 +189,10 @@ cache:redis Go 1.13:
 cache:redis Go 1.14:
   extends: .cache:redis
   image: golang:1.14-buster
+
+cache:redis Go 1.15:
+  extends: .cache:redis
+  image: golang:1.15-buster
 
 .cache:redis-sentinel:
   <<: *cache-redis
@@ -125,4 +217,8 @@ cache:redis-sentinel Go 1.13:
 
 cache:redis-sentinel Go 1.14:
   extends: .cache:redis-sentinel
-  image: golang:1.13-buster
+  image: golang:1.14-buster
+
+cache:redis-sentinel Go 1.15:
+  extends: .cache:redis-sentinel
+  image: golang:1.15-buster

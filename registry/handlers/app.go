@@ -35,12 +35,12 @@ import (
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	storagemiddleware "github.com/docker/distribution/registry/storage/driver/middleware"
 	"github.com/docker/distribution/version"
-	"github.com/docker/go-metrics"
 	"github.com/docker/libtrust"
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/labkit/errortracking"
+	metricskit "gitlab.com/gitlab-org/labkit/metrics"
 )
 
 // randomSecretSize is the number of random bytes to generate if no secret
@@ -218,11 +218,11 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		case bool:
 			redirectDisabled = v
 		default:
-			panic(fmt.Sprintf("invalid type for redirect config: %#v", redirectConfig))
+			panic(fmt.Sprintf("invalid type %T for 'storage.redirect.disable' (boolean)", v))
 		}
 	}
 	if redirectDisabled {
-		dcontext.GetLogger(app).Infof("backend redirection disabled")
+		log.Info("backend redirection disabled")
 	} else {
 		exceptions := config.Storage["redirect"]["exceptions"]
 		if exceptions, ok := exceptions.([]interface{}); ok && len(exceptions) > 0 {
@@ -295,7 +295,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			if err != nil {
 				panic("could not create registry: " + err.Error())
 			}
-			dcontext.GetLogger(app).Infof("using redis blob descriptor cache")
+			log.Info("using redis blob descriptor cache")
 		case "inmemory":
 			cacheProvider := memorycache.NewInMemoryBlobDescriptorCacheProvider()
 			localOptions := append(options, storage.BlobDescriptorCacheProvider(cacheProvider))
@@ -303,10 +303,10 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			if err != nil {
 				panic("could not create registry: " + err.Error())
 			}
-			dcontext.GetLogger(app).Infof("using inmemory blob descriptor cache")
+			log.Info("using inmemory blob descriptor cache")
 		default:
 			if v != "" {
-				dcontext.GetLogger(app).Warnf("unknown cache type %q, caching disabled", config.Storage["cache"])
+				log.WithField("type", config.Storage["cache"]).Warn("unknown cache type, caching disabled")
 			}
 		}
 	}
@@ -332,7 +332,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			panic(fmt.Sprintf("unable to configure authorization (%s): %v", authType, err))
 		}
 		app.accessController = accessController
-		dcontext.GetLogger(app).Debugf("configured %q access controller", authType)
+		log.WithField("auth_type", authType).Debug("configured access controller")
 	}
 
 	// configure as a pull through cache
@@ -342,12 +342,12 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			panic(err.Error())
 		}
 		app.isCache = true
-		dcontext.GetLogger(app).Info("Registry configured as a proxy cache to ", config.Proxy.RemoteURL)
+		log.WithField("remote", config.Proxy.RemoteURL).Info("registry configured as a proxy cache")
 	}
 	var ok bool
 	app.repoRemover, ok = app.registry.(distribution.RepositoryRemover)
 	if !ok {
-		dcontext.GetLogger(app).Warnf("Registry does not implement RempositoryRemover. Will not be able to delete repos and tags")
+		log.Warn("registry does not implement RepositoryRemover. Will not be able to delete repos and tags")
 	}
 
 	return app
@@ -439,6 +439,11 @@ func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
 	}
 }
 
+var routeMetricsMiddleware = metricskit.NewHandlerFactory(
+	metricskit.WithNamespace(prometheus.NamespacePrefix),
+	metricskit.WithLabels("route"),
+)
+
 // register a handler with the application, by route name. The handler will be
 // passed through the application filters and context will be constructed at
 // request time.
@@ -447,10 +452,10 @@ func (app *App) register(routeName string, dispatch dispatchFunc) {
 
 	// Chain the handler with prometheus instrumented handler
 	if app.Config.HTTP.Debug.Prometheus.Enabled {
-		namespace := metrics.NewNamespace(prometheus.NamespacePrefix, "http", nil)
-		httpMetrics := namespace.NewDefaultHttpMetrics(strings.Replace(routeName, "-", "_", -1))
-		metrics.Register(namespace)
-		handler = metrics.InstrumentHandler(httpMetrics, handler)
+		handler = routeMetricsMiddleware(
+			handler,
+			metricskit.WithLabelValues(map[string]string{"route": v2.RoutePath(routeName)}),
+		)
 	}
 
 	// TODO(stevvooe): This odd dispatcher/route registration is by-product of

@@ -53,7 +53,7 @@ Please mention this issue in the description of the changelog merge request.
 See [release instructions](https://gitlab.com/gitlab-org/container-registry/tree/release/2.8-gitlab/docs-gitlab#releases) for additional information.
 </details>
 
-### 3. Deploy
+### 3. Update
 
 1. [ ] Version bump in [CNG](https://gitlab.com/gitlab-org/build/CNG):
     - [ ] Update `GITLAB_CONTAINER_REGISTRY_VERSION` in [`ci_files/variables.yml`](https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml)
@@ -72,10 +72,7 @@ See [release instructions](https://gitlab.com/gitlab-org/container-registry/tree
     - [ ] Replace all mentions to the previous `vX.Y.Z-gitlab` release in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/doc/charts/registry/index.md)
     - [ ] Label merge request with: `/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
 1. [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com):
-    - [ ] Update `CI_APPLICATION_TAG` in [`.gitlab-ci.yml`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/blob/master/.gitlab-ci.yml)
-    - [ ] Update `tag` in [`gprd.yaml`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/blob/master/gprd.yaml)
-    - [ ] Update `tag` in [`gstg.yaml`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/blob/master/gstg.yaml)
-    - [ ] Update `tag` in [`pre.yaml`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/blob/master/pre.yaml)
+    - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/b0f7405663f94ffe452dff8cd5d42894bdbf910b/releases/gitlab/values/init-values.yaml.gotmpl#L75)
     - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
 
 <details>
