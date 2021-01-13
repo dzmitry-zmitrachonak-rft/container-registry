@@ -1,6 +1,6 @@
-## [Unreleased]
-### Added
-- registry: Experimental PostgreSQL metadata database (incomplete, in progress)
+## [v2.13.1-gitlab] - 2021-01-13
+### Fixed
+- registry: Fix HTTP request duration and byte size Prometheus metrics buckets
 
 ## [v2.13.0-gitlab] - 2020-12-15
 ### Added

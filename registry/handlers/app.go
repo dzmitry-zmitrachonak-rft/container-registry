@@ -38,6 +38,7 @@ import (
 	"github.com/docker/libtrust"
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/labkit/errortracking"
 	metricskit "gitlab.com/gitlab-org/labkit/metrics"
@@ -442,6 +443,8 @@ func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
 var routeMetricsMiddleware = metricskit.NewHandlerFactory(
 	metricskit.WithNamespace(prometheus.NamespacePrefix),
 	metricskit.WithLabels("route"),
+	metricskit.WithRequestDurationBuckets([]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 60}),
+	metricskit.WithByteSizeBuckets(promclient.ExponentialBuckets(1024, 2, 22)), //1K to 4G
 )
 
 // register a handler with the application, by route name. The handler will be
