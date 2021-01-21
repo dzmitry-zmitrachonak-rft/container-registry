@@ -1796,6 +1796,142 @@ func manifest_Get_Schema2_MatchingEtag(t *testing.T, opts ...configOpt) {
 	}
 }
 
+func Benchmark_Get_Schema2_MatchingEtag(b *testing.B) {
+	env := newTestEnv(b)
+	defer env.Shutdown()
+
+	tagName := "schema2happypathtag"
+	repoPath := "schema2/happypath"
+
+	deserializedManifest := seedRandomSchema2Manifest(b, env, repoPath, putByTag(tagName))
+
+	// Build URLs.
+	tagURL := buildManifestTagURL(b, env, repoPath, tagName)
+	digestURL := buildManifestDigestURL(b, env, repoPath, deserializedManifest)
+
+	_, payload, err := deserializedManifest.Payload()
+	require.NoError(b, err)
+
+	dgst := digest.FromBytes(payload)
+
+	tt := []struct {
+		name        string
+		manifestURL string
+		etag        string
+	}{
+		{
+			name:        "by tag quoted etag",
+			manifestURL: tagURL,
+			etag:        fmt.Sprintf("%q", dgst),
+		},
+		{
+			name:        "by digest quoted etag",
+			manifestURL: digestURL,
+			etag:        fmt.Sprintf("%q", dgst),
+		},
+		{
+			name:        "by tag non quoted etag",
+			manifestURL: tagURL,
+			etag:        dgst.String(),
+		},
+		{
+			name:        "by digest non quoted etag",
+			manifestURL: digestURL,
+			etag:        dgst.String(),
+		},
+	}
+
+	for _, test := range tt {
+		b.Run(test.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				req, err := http.NewRequest("GET", test.manifestURL, nil)
+				require.NoError(b, err)
+
+				req.Header.Set("If-None-Match", test.etag)
+
+				b.StartTimer()
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(b, err)
+				defer resp.Body.Close()
+
+				require.Equal(b, http.StatusNotModified, resp.StatusCode)
+			}
+		})
+	}
+}
+
+func Benchmark_Get_Schema2_NonMatchingEtag(b *testing.B) {
+	env := newTestEnv(b)
+	defer env.Shutdown()
+
+	tagName := "schema2happypathtag"
+	repoPath := "schema2/happypath"
+
+	deserializedManifest := seedRandomSchema2Manifest(b, env, repoPath, putByTag(tagName))
+
+	// Build URLs.
+	tagURL := buildManifestTagURL(b, env, repoPath, tagName)
+	digestURL := buildManifestDigestURL(b, env, repoPath, deserializedManifest)
+
+	tt := []struct {
+		name        string
+		manifestURL string
+		etag        string
+	}{
+		{
+			name:        "by tag",
+			manifestURL: tagURL,
+		},
+		{
+			name:        "by digest",
+			manifestURL: digestURL,
+		},
+		{
+			name:        "by tag non matching etag",
+			manifestURL: tagURL,
+			etag:        digest.FromString("no match").String(),
+		},
+		{
+			name:        "by digest non matching etag",
+			manifestURL: digestURL,
+			etag:        digest.FromString("no match").String(),
+		},
+		{
+			name:        "by tag malformed etag",
+			manifestURL: tagURL,
+			etag:        "bad etag",
+		},
+		{
+			name:        "by digest malformed etag",
+			manifestURL: digestURL,
+			etag:        "bad etag",
+		},
+	}
+
+	for _, test := range tt {
+		b.Run(test.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				req, err := http.NewRequest("GET", test.manifestURL, nil)
+				require.NoError(b, err)
+
+				req.Header.Set("Accept", schema2.MediaTypeManifest)
+				if test.etag != "" {
+					req.Header.Set("If-None-Match", test.etag)
+				}
+
+				b.StartTimer()
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(b, err)
+				defer resp.Body.Close()
+
+				require.Equal(b, http.StatusOK, resp.StatusCode)
+			}
+		})
+	}
+}
+
 func TestManifestAPI_Get_Schema2LayersAndConfigNotInDatabase(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.Shutdown()
@@ -3268,6 +3404,143 @@ func manifest_Get_OCI_MatchingEtag(t *testing.T, opts ...configOpt) {
 	}
 }
 
+func Benchmark_Get_OCI_NonMatchingEtag(b *testing.B) {
+	env := newTestEnv(b)
+	defer env.Shutdown()
+
+	tagName := "ocihappypathtag"
+	repoPath := "oci/happypath"
+
+	deserializedManifest := seedRandomOCIManifest(b, env, repoPath, putByTag(tagName))
+
+	// Build URLs.
+	tagURL := buildManifestTagURL(b, env, repoPath, tagName)
+	digestURL := buildManifestDigestURL(b, env, repoPath, deserializedManifest)
+
+	tt := []struct {
+		name        string
+		manifestURL string
+		etag        string
+	}{
+		{
+			name:        "by tag",
+			manifestURL: tagURL,
+		},
+		{
+			name:        "by digest",
+			manifestURL: digestURL,
+		},
+		{
+			name:        "by tag non matching etag",
+			manifestURL: tagURL,
+			etag:        digest.FromString("no match").String(),
+		},
+		{
+			name:        "by digest non matching etag",
+			manifestURL: digestURL,
+			etag:        digest.FromString("no match").String(),
+		},
+		{
+			name:        "by tag malformed etag",
+			manifestURL: tagURL,
+			etag:        "bad etag",
+		},
+		{
+			name:        "by digest malformed etag",
+			manifestURL: digestURL,
+			etag:        "bad etag",
+		},
+	}
+
+	for _, test := range tt {
+		b.Run(test.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				req, err := http.NewRequest("GET", test.manifestURL, nil)
+				require.NoError(b, err)
+
+				req.Header.Set("Accept", v1.MediaTypeImageManifest)
+				if test.etag != "" {
+					req.Header.Set("If-None-Match", test.etag)
+				}
+
+				b.StartTimer()
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(b, err)
+				defer resp.Body.Close()
+
+				require.Equal(b, http.StatusOK, resp.StatusCode)
+			}
+		})
+	}
+}
+
+func Benchmark_Get_OCI_MatchingEtag(b *testing.B) {
+	env := newTestEnv(b)
+	defer env.Shutdown()
+
+	tagName := "ocihappypathtag"
+	repoPath := "oci/happypath"
+
+	deserializedManifest := seedRandomSchema2Manifest(b, env, repoPath, putByTag(tagName))
+
+	// Build URLs.
+	tagURL := buildManifestTagURL(b, env, repoPath, tagName)
+	digestURL := buildManifestDigestURL(b, env, repoPath, deserializedManifest)
+
+	_, payload, err := deserializedManifest.Payload()
+	require.NoError(b, err)
+
+	dgst := digest.FromBytes(payload)
+
+	tt := []struct {
+		name        string
+		manifestURL string
+		etag        string
+	}{
+		{
+			name:        "by tag quoted etag",
+			manifestURL: tagURL,
+			etag:        fmt.Sprintf("%q", dgst),
+		},
+		{
+			name:        "by digest quoted etag",
+			manifestURL: digestURL,
+			etag:        fmt.Sprintf("%q", dgst),
+		},
+		{
+			name:        "by tag non quoted etag",
+			manifestURL: tagURL,
+			etag:        dgst.String(),
+		},
+		{
+			name:        "by digest non quoted etag",
+			manifestURL: digestURL,
+			etag:        dgst.String(),
+		},
+	}
+
+	for _, test := range tt {
+		b.Run(test.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				req, err := http.NewRequest("GET", test.manifestURL, nil)
+				require.NoError(b, err)
+
+				req.Header.Set("Accept", v1.MediaTypeImageManifest)
+				req.Header.Set("If-None-Match", test.etag)
+
+				b.StartTimer()
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(b, err)
+				defer resp.Body.Close()
+
+				require.Equal(b, http.StatusNotModified, resp.StatusCode)
+			}
+		})
+	}
+}
+
 func manifest_Put_OCIImageIndex_ByTag(t *testing.T, opts ...configOpt) {
 	env := newTestEnv(t, opts...)
 	defer env.Shutdown()
@@ -3596,7 +3869,7 @@ func TestManifestAPI_Get_OCIIndexFromFilesystemAfterDatabaseWrites(t *testing.T)
 	}
 }
 
-func buildManifestTagURL(t *testing.T, env *testEnv, repoPath, tagName string) string {
+func buildManifestTagURL(t testing.TB, env *testEnv, repoPath, tagName string) string {
 	t.Helper()
 
 	repoRef, err := reference.WithName(repoPath)
@@ -3611,7 +3884,7 @@ func buildManifestTagURL(t *testing.T, env *testEnv, repoPath, tagName string) s
 	return tagURL
 }
 
-func buildManifestDigestURL(t *testing.T, env *testEnv, repoPath string, manifest distribution.Manifest) string {
+func buildManifestDigestURL(t testing.TB, env *testEnv, repoPath string, manifest distribution.Manifest) string {
 	t.Helper()
 
 	repoRef, err := reference.WithName(repoPath)
@@ -3655,20 +3928,20 @@ type manifestOpts struct {
 	repoPath string
 }
 
-type manifestOptsFunc func(*testing.T, *testEnv, *manifestOpts)
+type manifestOptsFunc func(testing.TB, *testEnv, *manifestOpts)
 
 func putByTag(tagName string) manifestOptsFunc {
-	return func(t *testing.T, env *testEnv, opts *manifestOpts) {
+	return func(t testing.TB, env *testEnv, opts *manifestOpts) {
 		opts.manifestURL = buildManifestTagURL(t, env, opts.repoPath, tagName)
 		opts.putManifest = true
 	}
 }
 
-func putByDigest(t *testing.T, env *testEnv, opts *manifestOpts) {
+func putByDigest(t testing.TB, env *testEnv, opts *manifestOpts) {
 	opts.putManifest = true
 }
 
-func writeToFilesystemOnly(t *testing.T, env *testEnv, opts *manifestOpts) {
+func writeToFilesystemOnly(t testing.TB, env *testEnv, opts *manifestOpts) {
 	require.True(t, env.config.Database.Enabled, "this option is only available when the database is enabled")
 
 	opts.writeToFilesystemOnly = true
@@ -3704,7 +3977,7 @@ func schema2Config() ([]byte, distribution.Descriptor) {
 }
 
 // seedRandomSchema2Manifest generates a random schema2 manifest and puts its config and layers.
-func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts ...manifestOptsFunc) *schema2.DeserializedManifest {
+func seedRandomSchema2Manifest(t testing.TB, env *testEnv, repoPath string, opts ...manifestOptsFunc) *schema2.DeserializedManifest {
 	t.Helper()
 
 	config := &manifestOpts{
@@ -3841,7 +4114,7 @@ func ociConfig() ([]byte, distribution.Descriptor) {
 }
 
 // seedRandomOCIManifest generates a random oci manifest and puts its config and layers.
-func seedRandomOCIManifest(t *testing.T, env *testEnv, repoPath string, opts ...manifestOptsFunc) *ocischema.DeserializedManifest {
+func seedRandomOCIManifest(t testing.TB, env *testEnv, repoPath string, opts ...manifestOptsFunc) *ocischema.DeserializedManifest {
 	t.Helper()
 
 	config := &manifestOpts{
@@ -4791,13 +5064,13 @@ func newTestEnvMirror(t *testing.T, opts ...configOpt) *testEnv {
 	return newTestEnvWithConfig(t, &config)
 }
 
-func newTestEnv(t *testing.T, opts ...configOpt) *testEnv {
+func newTestEnv(t testing.TB, opts ...configOpt) *testEnv {
 	config := newConfig(opts...)
 
 	return newTestEnvWithConfig(t, &config)
 }
 
-func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *testEnv {
+func newTestEnvWithConfig(t testing.TB, config *configuration.Configuration) *testEnv {
 	ctx := context.Background()
 
 	// The API test needs access to the database only to clean it up during
@@ -4868,7 +5141,7 @@ func (t *testEnv) Shutdown() {
 	}
 }
 
-func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *http.Response {
+func putManifest(t testing.TB, msg, url, contentType string, v interface{}) *http.Response {
 	var body []byte
 
 	switch m := v.(type) {
@@ -4909,7 +5182,7 @@ func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *htt
 	return resp
 }
 
-func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location string, uuid string) {
+func startPushLayer(t testing.TB, env *testEnv, name reference.Named) (location string, uuid string) {
 	layerUploadURL, err := env.builder.BuildBlobUploadURL(name)
 	if err != nil {
 		t.Fatalf("unexpected error building layer upload url: %v", err)
@@ -4952,7 +5225,7 @@ func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location 
 
 // doPushLayer pushes the layer content returning the url on success returning
 // the response. If you're only expecting a successful response, use pushLayer.
-func doPushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
+func doPushLayer(t testing.TB, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
 	u, err := url.Parse(uploadURLBase)
 	if err != nil {
 		t.Fatalf("unexpected error parsing pushLayer url: %v", err)
@@ -4975,7 +5248,7 @@ func doPushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst dig
 }
 
 // pushLayer pushes the layer content returning the url on success.
-func pushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
+func pushLayer(t testing.TB, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
 	digester := digest.Canonical.Digester()
 
 	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, io.TeeReader(body, digester.Hash()))
@@ -5077,7 +5350,7 @@ func pushChunk(t *testing.T, ub *v2.URLBuilder, name reference.Named, uploadURLB
 	return resp.Header.Get("Location"), dgst
 }
 
-func checkResponse(t *testing.T, msg string, resp *http.Response, expectedStatus int) {
+func checkResponse(t testing.TB, msg string, resp *http.Response, expectedStatus int) {
 	if resp.StatusCode != expectedStatus {
 		t.Logf("unexpected status %s: %v != %v", msg, resp.StatusCode, expectedStatus)
 		maybeDumpResponse(t, resp)
@@ -5145,7 +5418,7 @@ func checkBodyHasErrorCodes(t *testing.T, msg string, resp *http.Response, error
 	return errs, p, counts
 }
 
-func maybeDumpResponse(t *testing.T, resp *http.Response) {
+func maybeDumpResponse(t testing.TB, resp *http.Response) {
 	if d, err := httputil.DumpResponse(resp, true); err != nil {
 		t.Logf("error dumping response: %v", err)
 	} else {
@@ -5156,7 +5429,7 @@ func maybeDumpResponse(t *testing.T, resp *http.Response) {
 // matchHeaders checks that the response has at least the headers. If not, the
 // test will fail. If a passed in header value is "*", any non-zero value will
 // suffice as a match.
-func checkHeaders(t *testing.T, resp *http.Response, headers http.Header) {
+func checkHeaders(t testing.TB, resp *http.Response, headers http.Header) {
 	for k, vs := range headers {
 		if resp.Header.Get(k) == "" {
 			t.Fatalf("response missing header %q", k)
