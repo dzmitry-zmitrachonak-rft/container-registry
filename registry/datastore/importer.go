@@ -1,11 +1,14 @@
 package datastore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
@@ -18,6 +21,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/api/option"
 )
 
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
@@ -196,6 +200,64 @@ func (imp *Importer) importLayer(ctx context.Context, fsRepo distribution.Reposi
 	return nil
 }
 
+func (imp *Importer) migrateObject(ctx context.Context, src, dst *storage.ObjectHandle) error {
+	if _, err := dst.CopierFrom(src).Run(ctx); err != nil {
+		return fmt.Errorf("failed to copy %q to %q: %w", src.ObjectName(), dst.ObjectName(), err)
+	}
+
+	srcObj, err := src.Attrs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get src %q metadata: %w", src.ObjectName(), err)
+	}
+	dstObj, err := dst.Attrs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get dst %q metadata: %w", dst.ObjectName(), err)
+	}
+
+	if bytes.Compare(srcObj.MD5, dstObj.MD5) != 0 {
+		return fmt.Errorf("src %q and dst %q checksums dont match", src.ObjectName(), dst.ObjectName())
+	}
+
+	return nil
+}
+
+var srcBucket, dstBucket *storage.BucketHandle
+
+func (imp *Importer) migrateBlob(ctx context.Context, repo distribution.Repository, layer distribution.Descriptor) error {
+	log := logrus.WithField("digest", layer.Digest)
+
+	start := time.Now()
+
+	// copy blob data
+	blobPath := fmt.Sprintf(
+		"docker/registry/v2/blobs/%s/%s/%s/data",
+		layer.Digest.Algorithm().String(),
+		layer.Digest.Hex()[0:2],
+		layer.Digest.Hex(),
+	)
+	src := srcBucket.Object(blobPath)
+	dst := dstBucket.Object(blobPath)
+	if err := imp.migrateObject(ctx, src, dst); err != nil {
+		return err
+	}
+
+	// copy blob link
+	blobLinkPath := fmt.Sprintf(
+		"docker/registry/v2/repositories/%s/_layers/%s/%s/link",
+		repo.Named().String(),
+		layer.Digest.Algorithm().String(),
+		layer.Digest.Hex(),
+	)
+	src = srcBucket.Object(blobLinkPath)
+	dst = dstBucket.Object(blobLinkPath)
+	if err := imp.migrateObject(ctx, src, dst); err != nil {
+		return err
+	}
+
+	log.WithField("duration_s", time.Since(start).Seconds()).Info("blob migrated")
+	return nil
+}
+
 func (imp *Importer) importLayers(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
 	total := len(fsLayers)
 	for i, fsLayer := range fsLayers {
@@ -207,6 +269,11 @@ func (imp *Importer) importLayers(ctx context.Context, fsRepo distribution.Repos
 			"total":      total,
 		})
 		log.Info("importing layer")
+
+		if err := imp.migrateBlob(ctx, fsRepo, fsLayer); err != nil {
+			log.WithError(err).Error("migrating layer")
+			os.Exit(1)
+		}
 
 		err := imp.importLayer(ctx, fsRepo, dbRepo, dbManifest, &models.Blob{
 			MediaType: fsLayer.MediaType,
@@ -564,8 +631,17 @@ func (imp *Importer) isDatabaseEmpty(ctx context.Context) (bool, error) {
 
 // ImportAll populates the registry database with metadata from all repositories in the storage backend.
 func (imp *Importer) ImportAll(ctx context.Context) error {
-	var tx *Tx
 	var err error
+	srvAccountFilePath := os.Getenv("REGISTRY_GCS_SERVICE_ACCOUNT_FILE")
+	client, err := storage.NewClient(ctx, option.WithCredentialsFile(srvAccountFilePath))
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	srcBucket = client.Bucket(os.Getenv("REGISTRY_SRC_BUCKET"))
+	dstBucket = client.Bucket(os.Getenv("REGISTRY_DEST_BUCKET"))
+
+	var tx *Tx
 
 	// Create a single transaction and roll it back at the end for dry runs.
 	if imp.dryRun {
