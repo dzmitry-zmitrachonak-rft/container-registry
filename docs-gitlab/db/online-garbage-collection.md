@@ -461,7 +461,10 @@ The process of reviewing and possibly deleting a blob is the following:
 
 4. If the result from 2. is `false`, the blob is not referenced by any manifest or manifest list, and it is eligible for deletion. Therefore, the garbage collector should:
 
-   1. Delete the blob from the storage backend (wrapped in a timeout smaller than the outer processing timeout);
+   1. Create transaction savepoint (see why in step 2);
+      ```sql
+      SAVEPOINT preBlobDelete;
+      ```
 
    2. Delete the corresponding row in the `blobs` table:
 
@@ -470,9 +473,21 @@ The process of reviewing and possibly deleting a blob is the following:
       WHERE digest = decode($1, 'hex');
       ```
 
+      We start by deleting the blob on the database to ensure that we never delete a blob from the storage backend 
+      unless the delete on database succeeds. If, for some reason the tracking mechanisms described in this spec are not
+      working as expected, and a blob ends up being considered eligible for deletion when it's not, this step will fail
+      because the `blobs` row is still referenced in either `manifests` (configuration) or `layers`.
+      
+      If failed to delete from the storage backend, the transaction should be rolled back to undo the delete on the
+      database. Instead of a full rollback, which would release the locked GC queue row, we use the savepoint created in
+      step 1 and rollback there with `ROLLBACK TO SAVEPOINT preBlobDelete`. Once done, we process the failure as
+      described in [Handling failures](#handling-failures).
+      
       This will cascade to `repository_blobs`, deleting any remaining links between the deleted blob and any repositories.
 
-   3. Delete the corresponding row from `gc_blob_review_queue` and commit the transaction:
+   3. Delete the blob from the storage backend (wrapped in a timeout smaller than the outer processing timeout);
+
+   4. Delete the corresponding row from `gc_blob_review_queue` and commit the transaction:
 
       ```sql
       DELETE FROM gc_blob_review_queue
