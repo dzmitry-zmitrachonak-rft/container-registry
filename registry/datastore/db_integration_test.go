@@ -3,6 +3,7 @@
 package datastore_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -62,4 +63,58 @@ func TestOpen(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTx_Savepoint(t *testing.T) {
+	dsn, err := testutil.NewDSNFromEnv()
+	require.NoError(t, err)
+	db, err := datastore.Open(dsn)
+	require.NoError(t, err)
+
+	tx, err := db.BeginTx(suite.ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	svp := "mySavepoint"
+	err = tx.Savepoint(suite.ctx, svp)
+	require.NoError(t, err)
+
+	// this would fail if the savepoint wasn't created
+	_, err = tx.ExecContext(suite.ctx, fmt.Sprintf("RELEASE SAVEPOINT %s", svp))
+	require.NoError(t, err)
+}
+
+func TestTx_RollbackTo(t *testing.T) {
+	dsn, err := testutil.NewDSNFromEnv()
+	require.NoError(t, err)
+	db, err := datastore.Open(dsn)
+	require.NoError(t, err)
+
+	tx, err := db.BeginTx(suite.ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	// create temp table
+	tmpTable := "foo"
+	_, err = tx.ExecContext(suite.ctx, fmt.Sprintf("CREATE TABLE %s (id integer)", tmpTable))
+	require.NoError(t, err)
+
+	// create savepoint
+	svp := "mySavepoint"
+	err = tx.Savepoint(suite.ctx, svp)
+	require.NoError(t, err)
+
+	// insert row in temp table
+	_, err = tx.ExecContext(suite.ctx, fmt.Sprintf("INSERT INTO %s (id) VALUES (1)", tmpTable))
+	require.NoError(t, err)
+
+	// rollback to savepoint
+	err = tx.RollbackTo(suite.ctx, svp)
+	require.NoError(t, err)
+
+	// make sure the table is empty but does exist
+	var count int
+	err = tx.QueryRowContext(suite.ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", tmpTable)).Scan(&count)
+	require.NoError(t, err)
+	require.Zero(t, count)
 }

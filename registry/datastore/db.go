@@ -50,6 +50,18 @@ type Tx struct {
 	*sql.Tx
 }
 
+// Savepoint creates a transaction savepoint.
+func (tx *Tx) Savepoint(ctx context.Context, name string) error {
+	_, err := tx.ExecContext(ctx, fmt.Sprintf("SAVEPOINT %s", name))
+	return err
+}
+
+// RollbackTo rollbacks to a given transaction savepoint.
+func (tx *Tx) RollbackTo(ctx context.Context, name string) error {
+	_, err := tx.ExecContext(ctx, fmt.Sprintf("ROLLBACK TO SAVEPOINT %s", name))
+	return err
+}
+
 // DSN represents the Data Source Name parameters for a DB connection.
 type DSN struct {
 	Host           string
