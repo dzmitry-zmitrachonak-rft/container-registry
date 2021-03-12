@@ -40,11 +40,6 @@ func findAndLockGCManifestTask(t *testing.T, env *testEnv, repoName reference.Na
 	return mt, tx
 }
 
-func withoutOnlineGCWorkers(config *configuration.Configuration) {
-	config.GC.Blobs.Disabled = true
-	config.GC.Manifests.Disabled = true
-}
-
 func withoutOnlineGCReviewDelay(config *configuration.Configuration) {
 	config.GC.ReviewAfter = -1
 }
@@ -53,7 +48,7 @@ func withoutOnlineGCReviewDelay(config *configuration.Configuration) {
 // manifest that is being reviewed by the online GC, the API is not able to delete the tag until GC completes.
 // https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs-gitlab/db/online-garbage-collection.md#deleting-the-last-referencing-tag
 func TestTagsAPI_Delete_OnlineGC_BlocksAndResumesAfterGCReview(t *testing.T) {
-	env := newTestEnv(t, withDelete, withoutOnlineGCWorkers, withoutOnlineGCReviewDelay)
+	env := newTestEnv(t, withDelete, withoutOnlineGCReviewDelay)
 	defer env.Shutdown()
 
 	if !env.config.Database.Enabled {
@@ -101,7 +96,7 @@ func TestTagsAPI_Delete_OnlineGC_BlocksAndResumesAfterGCReview(t *testing.T) {
 // tagDeleteGCLockTimeout, the API request is aborted and a 503 Service Unavailable response is returned to clients.
 // https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs-gitlab/db/online-garbage-collection.md#deleting-the-last-referencing-tag
 func TestTagsAPI_Delete_OnlineGC_TimeoutOnProlongedReview(t *testing.T) {
-	env := newTestEnv(t, withDelete, withoutOnlineGCWorkers, withoutOnlineGCReviewDelay)
+	env := newTestEnv(t, withDelete, withoutOnlineGCReviewDelay)
 	defer env.Shutdown()
 
 	if !env.config.Database.Enabled {
@@ -140,7 +135,7 @@ func TestTagsAPI_Delete_OnlineGC_TimeoutOnProlongedReview(t *testing.T) {
 // that points to a manifest that is being reviewed by the online GC, the API is not able to delete until GC completes.
 // https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs-gitlab/db/online-garbage-collection.md#deleting-the-last-referencing-manifest-list
 func TestManifestsAPI_DeleteList_OnlineGC_BlocksAndResumesAfterGCReview(t *testing.T) {
-	env := newTestEnv(t, withDelete, withoutOnlineGCWorkers, withoutOnlineGCReviewDelay)
+	env := newTestEnv(t, withDelete, withoutOnlineGCReviewDelay)
 	defer env.Shutdown()
 
 	if !env.config.Database.Enabled {
@@ -185,7 +180,7 @@ func TestManifestsAPI_DeleteList_OnlineGC_BlocksAndResumesAfterGCReview(t *testi
 // manifestDeleteGCLockTimeout, the API request is aborted and a 503 Service Unavailable response is returned.
 // https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs-gitlab/db/online-garbage-collection.md#deleting-the-last-referencing-manifest-list
 func TestManifestsAPI_DeleteList_OnlineGC_TimeoutOnProlongedReview(t *testing.T) {
-	env := newTestEnv(t, withDelete, withoutOnlineGCWorkers, withoutOnlineGCReviewDelay)
+	env := newTestEnv(t, withDelete, withoutOnlineGCReviewDelay)
 	defer env.Shutdown()
 
 	if !env.config.Database.Enabled {

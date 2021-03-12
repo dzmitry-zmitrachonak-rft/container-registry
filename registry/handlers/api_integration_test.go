@@ -4820,7 +4820,10 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 			t.Fatal(err)
 		}
 
-		if !config.GC.Disabled && config.GC.ReviewAfter != 0 {
+		// online GC workers are noisy and not required for the API test, so we disable them globally here
+		config.GC.Disabled = true
+
+		if config.GC.ReviewAfter != 0 {
 			d := config.GC.ReviewAfter
 			// -1 means no review delay, so set it to 0 here
 			if d == -1 {
