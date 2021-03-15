@@ -1045,36 +1045,35 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string
 	}
 	defer tx.Rollback()
 
-	switch m.MediaType {
-	case manifestlist.MediaTypeManifestList, v1.MediaTypeImageIndex:
+	if m.MediaType == manifestlist.MediaTypeManifestList || m.MediaType == v1.MediaTypeImageIndex {
 		mStore := datastore.NewManifestStore(tx)
 		mm, err := mStore.References(ctx, m)
 		if err != nil {
 			return err
 		}
 
-		// This should never happen, as it's not possible to delete a child manifest if it's referenced by a list, which
-		// means that we'll always have at least one child manifest here. Nevertheless, log error if this ever happens.
 		if len(mm) == 0 {
+			// This should never happen, as it's not possible to delete a child manifest if it's referenced by a list, which
+			// means that we'll always have at least one child manifest here. Nevertheless, log error if this ever happens.
 			log.Error("stored manifest list has no references")
-			break
-		}
-		ids := make([]int64, 0, len(mm))
-		for _, m := range mm {
-			ids = append(ids, m.ID)
-		}
+		} else {
+			ids := make([]int64, 0, len(mm))
+			for _, m := range mm {
+				ids = append(ids, m.ID)
+			}
 
-		// Prevent long running transactions by setting an upper limit of manifestDeleteGCLockTimeout. If the GC is
-		// holding the lock of a related review record, the processing there should be fast enough to avoid this.
-		// Regardless, we should not let transactions open (and clients waiting) for too long. If this sensible timeout
-		// is exceeded, abort the manifest delete and let the client retry. This will bubble up and lead to a 503
-		// Service Unavailable response.
-		ctx, cancel := context.WithTimeout(ctx, manifestDeleteGCLockTimeout)
-		defer cancel()
+			// Prevent long running transactions by setting an upper limit of manifestDeleteGCLockTimeout. If the GC is
+			// holding the lock of a related review record, the processing there should be fast enough to avoid this.
+			// Regardless, we should not let transactions open (and clients waiting) for too long. If this sensible timeout
+			// is exceeded, abort the manifest delete and let the client retry. This will bubble up and lead to a 503
+			// Service Unavailable response.
+			ctx, cancel := context.WithTimeout(ctx, manifestDeleteGCLockTimeout)
+			defer cancel()
 
-		mts := datastore.NewGCManifestTaskStore(tx)
-		if _, err := mts.FindAndLockNBefore(ctx, r.ID, ids, time.Now().Add(manifestDeleteGCReviewWindow)); err != nil {
-			return err
+			mts := datastore.NewGCManifestTaskStore(tx)
+			if _, err := mts.FindAndLockNBefore(ctx, r.ID, ids, time.Now().Add(manifestDeleteGCReviewWindow)); err != nil {
+				return err
+			}
 		}
 	}
 
