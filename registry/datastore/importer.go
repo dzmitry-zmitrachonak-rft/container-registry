@@ -552,6 +552,102 @@ func (imp *Importer) importRepository(ctx context.Context, path string) error {
 	return nil
 }
 
+func (imp *Importer) preImportRepository(ctx context.Context, path string) error {
+	start := time.Now()
+	logrus.Info("starting repository pre-import")
+
+	named, err := reference.WithName(path)
+	if err != nil {
+		return fmt.Errorf("parsing repository name: %w", err)
+	}
+	fsRepo, err := imp.registry.Repository(ctx, named)
+	if err != nil {
+		return fmt.Errorf("constructing repository: %w", err)
+	}
+
+	// Find or create repository.
+	var dbRepo *models.Repository
+
+	dbRepo, err = imp.repositoryStore.FindByPath(ctx, path)
+	if err != nil {
+		return fmt.Errorf("checking for existence of repository: %w", err)
+	}
+
+	if dbRepo == nil {
+		if dbRepo, err = imp.repositoryStore.CreateByPath(ctx, path); err != nil {
+			return fmt.Errorf("importing repository: %w", err)
+		}
+	}
+
+	if err := imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
+		return fmt.Errorf("importing tags: %w", err)
+	}
+
+	t := time.Since(start).Seconds()
+	logrus.WithField("duration_s", t).Info("repository pre-import complete")
+
+	return nil
+}
+
+func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository) error {
+	manifestService, err := fsRepo.Manifests(ctx)
+	if err != nil {
+		return fmt.Errorf("constructing manifest service: %w", err)
+	}
+
+	tagService := fsRepo.Tags(ctx)
+	fsTags, err := tagService.All(ctx)
+	if err != nil {
+		return fmt.Errorf("reading tags: %w", err)
+	}
+
+	total := len(fsTags)
+
+	for i, fsTag := range fsTags {
+		log := logrus.WithFields(logrus.Fields{"name": fsTag, "count": i + 0, "total": total})
+
+		// read tag details from the filesystem
+		desc, err := tagService.Get(ctx, fsTag)
+		if err != nil {
+			log.WithError(err).Error("reading tag details")
+			continue
+		}
+
+		log = log.WithField("target", desc.Digest)
+		log.Info("pre-importing tagged manifest")
+
+		// Find corresponding manifest in DB or filesystem.
+		var dbManifest *models.Manifest
+		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
+		if err != nil {
+			log.WithError(err).Error("finding tag manifest")
+			continue
+		}
+		if dbManifest == nil {
+			m, err := manifestService.Get(ctx, desc.Digest)
+			if err != nil {
+				log.WithError(err).Errorf("retrieving manifest %q", desc.Digest)
+				continue
+			}
+
+			switch fsManifest := m.(type) {
+			case *manifestlist.DeserializedManifestList:
+				log.Info("pre-importing manifest list")
+				dbManifest, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
+			default:
+				log.Info("pre-importing manifest")
+				dbManifest, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
+			}
+			if err != nil {
+				log.WithError(err).Error("importing manifest")
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
 func (imp *Importer) countRows(ctx context.Context) (map[string]int, error) {
 	numRepositories, err := imp.repositoryStore.Count(ctx)
 	if err != nil {
@@ -674,6 +770,16 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 			defer tx.Rollback()
 		}
 
+		if err := imp.preImportRepository(ctx, path); err != nil {
+			logrus.WithError(err).Error("error pre-importing repository")
+			// if the storage driver failed to find a repository path (usually due to missing `_manifests/revisions`
+			// or `_manifests/tags` folders) continue to the next one, otherwise stop as the error is unknown.
+			if !(errors.As(err, &driver.PathNotFoundError{}) || errors.As(err, &distribution.ErrRepositoryUnknown{})) {
+				return err
+			}
+			return nil
+		}
+
 		index++
 		repoStart := time.Now()
 		log := logrus.WithFields(logrus.Fields{"path": path, "count": index})
@@ -733,6 +839,12 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 	}
 	defer tx.Rollback()
 
+	log := logrus.WithField("path", path)
+	if err := imp.preImportRepository(ctx, path); err != nil {
+		log.WithError(err).Error("error pre-importing repository")
+		return err
+	}
+
 	start := time.Now()
 	logrus.Info("starting metadata import")
 
@@ -746,9 +858,7 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 		}
 	}
 
-	log := logrus.WithField("path", path)
 	log.Info("importing repository")
-
 	if err := imp.importRepository(ctx, path); err != nil {
 		log.WithError(err).Error("error importing repository")
 		return err
