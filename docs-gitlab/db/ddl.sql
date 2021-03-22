@@ -362,33 +362,3 @@ CREATE TRIGGER gc_track_deleted_tags_trigger
     AFTER DELETE ON tags
     FOR EACH ROW
     EXECUTE PROCEDURE gc_track_deleted_tags ();
-
-CREATE SCHEMA partitions;
-
-SET search_path = partitions;
-
-CREATE TABLE blobs_default PARTITION OF public.blobs
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE repository_blobs_default PARTITION OF public.repository_blobs
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE manifests_default PARTITION OF public.manifests
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE layers_default PARTITION OF public.layers
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE manifest_references_default PARTITION OF public.manifest_references
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE tags_default PARTITION OF public.tags
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE gc_blobs_layers_default PARTITION OF public.gc_blobs_layers
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-CREATE TABLE gc_blobs_configurations_default PARTITION OF public.gc_blobs_configurations
-FOR VALUES WITH (MODULUS 1, REMAINDER 0);
-
-SET search_path = public;

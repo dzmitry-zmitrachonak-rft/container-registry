@@ -5,14 +5,9 @@ import migrate "github.com/rubenv/sql-migrate"
 func init() {
 	m := &Migration{
 		Migration: &migrate.Migration{
-			Id: "20201019155236_create_repository_blobs_table_partitions",
-			Up: []string{
-				`CREATE TABLE IF NOT EXISTS partitions.repository_blobs_default PARTITION OF public.repository_blobs
-				FOR VALUES WITH (MODULUS 1, REMAINDER 0)`,
-			},
-			Down: []string{
-				"DROP TABLE IF EXISTS partitions.repository_blobs_default CASCADE",
-			},
+			Id:   "20201019155236_create_repository_blobs_table_partitions",
+			Up:   partitionUpStatements("repository_blobs", 256),
+			Down: partitionDownStatements("repository_blobs", 256),
 		},
 	}
 
