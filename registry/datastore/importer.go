@@ -18,7 +18,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/labkit/log"
 )
 
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
