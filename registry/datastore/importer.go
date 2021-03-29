@@ -818,6 +818,8 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 			}
 		}
 
+		imp.loadStores(imp.db)
+
 		return nil
 	})
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,7 +57,7 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&importDanglingManifests, "dangling-manifests", "m", false, "import all manifests, regardless of whether they are tagged or not")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import, may only be used in conjunction with the `--repository` option")
-	ImportCmd.Flags().StringVarP(&debugAddr, "debug-server", "s", "", "run a pprof debug server at <address:port>")
+	ImportCmd.Flags().StringVarP(&cpuprofile, "cpuprofile", "c", "", "run a pprof debug profile and write to the file")
 }
 
 var (
@@ -74,6 +75,7 @@ var (
 	skipPostDeployment      bool
 	upToDateCheck           bool
 	preImport               bool
+	cpuprofile              string
 )
 
 // nullableInt implements spf13/pflag#Value as a custom nullable integer to capture spf13/cobra command flags.
@@ -514,13 +516,14 @@ var ImportCmd = &cobra.Command{
 			opts = append(opts, datastore.WithBlobTransferService(bts))
 		}
 
-		if debugAddr != "" {
-			go func() {
-				dcontext.GetLoggerWithField(ctx, "address", debugAddr).Info("debug server listening")
-				if err := http.ListenAndServe(debugAddr, nil); err != nil {
-					dcontext.GetLoggerWithField(ctx, "error", err).Fatal("error listening on debug interface")
-				}
-			}()
+		if cpuprofile != "" {
+			f, err := os.Create(cpuprofile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to create cpuprofile file: %v", err)
+				os.Exit(1)
+			}
+			pprof.StartCPUProfile(f)
+			defer pprof.StopCPUProfile()
 		}
 
 		p := datastore.NewImporter(db, registry, opts...)
