@@ -56,6 +56,7 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&importDanglingManifests, "dangling-manifests", "m", false, "import all manifests, regardless of whether they are tagged or not")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import, may only be used in conjunction with the `--repository` option")
+	ImportCmd.Flags().StringVarP(&debugAddr, "debug-server", "s", "", "run a pprof debug server at <address:port>")
 }
 
 var (
@@ -511,6 +512,15 @@ var ImportCmd = &cobra.Command{
 			}
 
 			opts = append(opts, datastore.WithBlobTransferService(bts))
+		}
+
+		if debugAddr != "" {
+			go func() {
+				dcontext.GetLoggerWithField(ctx, "address", debugAddr).Info("debug server listening")
+				if err := http.ListenAndServe(debugAddr, nil); err != nil {
+					dcontext.GetLoggerWithField(ctx, "error", err).Fatal("error listening on debug interface")
+				}
+			}()
 		}
 
 		p := datastore.NewImporter(db, registry, opts...)
