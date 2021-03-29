@@ -630,7 +630,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
-		log.WithError(err).Errorf("retrieving manifest %q", dgst)
+		logrus.WithError(err).Errorf("retrieving manifest %q", dgst)
 	}
 
 	if !imp.dryRun {
@@ -781,6 +781,12 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 	index := 0
 	err = repositoryEnumerator.Enumerate(ctx, func(path string) error {
+		log := logrus.WithFields(logrus.Fields{"path": path, "count": index})
+
+		if err := imp.PreImport(ctx, path); err != nil {
+			log.WithError(err).Error("pre-import error")
+		}
+
 		if !imp.dryRun {
 			tx, err = imp.beginTx(ctx)
 			if err != nil {
@@ -791,7 +797,6 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 		index++
 		repoStart := time.Now()
-		log := logrus.WithFields(logrus.Fields{"path": path, "count": index})
 		log.Info("importing repository")
 
 		if err := imp.importRepository(ctx, path); err != nil {
