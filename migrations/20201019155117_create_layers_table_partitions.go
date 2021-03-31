@@ -6,8 +6,8 @@ func init() {
 	m := &Migration{
 		Migration: &migrate.Migration{
 			Id:   "20201019155117_create_layers_table_partitions",
-			Up:   partitionUpStatements("layers", 256),
-			Down: partitionDownStatements("layers", 256),
+			Up:   partitionUpStatements("layers", 128),
+			Down: partitionDownStatements("layers", 128),
 		},
 	}
 

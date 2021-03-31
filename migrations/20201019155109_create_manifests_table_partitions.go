@@ -6,8 +6,8 @@ func init() {
 	m := &Migration{
 		Migration: &migrate.Migration{
 			Id:   "20201019155109_create_manifests_table_partitions",
-			Up:   partitionUpStatements("manifests", 256),
-			Down: partitionDownStatements("manifests", 256),
+			Up:   partitionUpStatements("manifests", 128),
+			Down: partitionDownStatements("manifests", 128),
 		},
 	}
 

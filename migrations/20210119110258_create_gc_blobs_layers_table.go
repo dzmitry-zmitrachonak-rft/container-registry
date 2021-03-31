@@ -14,6 +14,7 @@ func init() {
 					digest bytea NOT NULL,
 					CONSTRAINT pk_gc_blobs_layers PRIMARY KEY (digest, id),
 					CONSTRAINT fk_gc_blobs_layers_repository_id_and_layer_id_layers FOREIGN KEY (repository_id, layer_id) REFERENCES layers (repository_id, id) ON DELETE CASCADE,
+					CONSTRAINT fk_gc_blobs_layers_digest_repository_id_and_layer_id_layers FOREIGN KEY (digest, repository_id, layer_id) REFERENCES layers (digest, repository_id, id) ON DELETE CASCADE,
 					CONSTRAINT fk_gc_blobs_layers_digest_blobs FOREIGN KEY (digest) REFERENCES blobs (digest) ON DELETE CASCADE,
 					CONSTRAINT unique_gc_blobs_layers_digest_and_layer_id UNIQUE (digest, layer_id)
 				)
