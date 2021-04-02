@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/docker/distribution"
@@ -448,6 +449,11 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 	return err
 }
 
+type tagRes struct {
+	name string
+	desc distribution.Descriptor
+}
+
 func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository) error {
 	manifestService, err := fsRepo.Manifests(ctx)
 	if err != nil {
@@ -461,16 +467,42 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	}
 
 	total := len(fsTags)
+	tokens := make(chan struct{}, 10)
 
-	for i, fsTag := range fsTags {
-		log := logrus.WithFields(logrus.Fields{"name": fsTag, "count": i + 1, "total": total})
+	tagResChan := make(chan *tagRes, 10)
 
-		// read tag details from the filesystem
-		desc, err := tagService.Get(ctx, fsTag)
-		if err != nil {
-			log.WithError(err).Error("reading tag details")
-			continue
+	go func() {
+		var wg sync.WaitGroup
+		for _, tag := range fsTags {
+			wg.Add(1)
+			go func(t string) {
+				tokens <- struct{}{}
+				defer func() {
+					<-tokens
+					wg.Done()
+				}()
+
+				// read tag details from the filesystem
+				desc, err := tagService.Get(ctx, t)
+				if err != nil {
+					logrus.WithError(err).Error("reading tag details")
+					return
+				}
+
+				tagResChan <- &tagRes{t, desc}
+			}(tag)
 		}
+		wg.Wait()
+		close(tagResChan)
+	}()
+
+	var i int
+	for tRes := range tagResChan {
+		i++
+		log := logrus.WithFields(logrus.Fields{"name": tRes.name, "count": i + 0, "total": total})
+
+		fsTag := tRes.name
+		desc := tRes.desc
 
 		log = log.WithField("target", desc.Digest)
 		log.Info("importing tag")
