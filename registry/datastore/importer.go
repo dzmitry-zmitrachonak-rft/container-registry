@@ -139,7 +139,7 @@ func (imp *Importer) findOrCreateDBLayer(ctx context.Context, fsRepo distributio
 			l.MediaType = desc.MediaType
 		}
 
-		if err := imp.blobStore.Create(ctx, l); err != nil {
+		if err := imp.blobStore.CreateOrFind(ctx, l); err != nil {
 			return nil, fmt.Errorf("creating layer blob: %w", err)
 		}
 		dbLayer = l
@@ -159,7 +159,7 @@ func (imp *Importer) findOrCreateDBManifestConfigBlob(ctx context.Context, d dis
 			Digest:    d.Digest,
 			Size:      d.Size,
 		}
-		if err := imp.blobStore.Create(ctx, dbBlob); err != nil {
+		if err := imp.blobStore.CreateOrFind(ctx, dbBlob); err != nil {
 			return nil, err
 		}
 	}

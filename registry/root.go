@@ -544,8 +544,10 @@ var ImportCmd = &cobra.Command{
 				paths = append(paths, path)
 				return nil
 			})
-			fmt.Fprintf(os.Stderr, "error listing repositories: %v", err)
-			os.Exit(1)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error listing repositories: %v", err)
+				os.Exit(1)
+			}
 
 			tokens := make(chan struct{}, 10)
 
@@ -560,7 +562,13 @@ var ImportCmd = &cobra.Command{
 							wg.Done()
 						}()
 
-						err := datastore.NewImporter(db, registry, opts...).Import(ctx, p)
+						innerDB, err := dbFromConfig(config)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "failed to construct database connection: %v", err)
+							os.Exit(1)
+						}
+
+						err = datastore.NewImporter(innerDB, registry, opts...).Import(ctx, p)
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "failed to import metadata for %s: %v", p, err)
 						}
