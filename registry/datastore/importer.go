@@ -783,7 +783,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	err = repositoryEnumerator.Enumerate(ctx, func(path string) error {
 		log := logrus.WithFields(logrus.Fields{"path": path, "count": index})
 
-		if err := imp.PreImport(ctx, path); err != nil {
+		if err := imp.preImport(ctx, path); err != nil {
 			log.WithError(err).Error("pre-import error")
 		}
 
@@ -928,6 +928,32 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	log := logrus.WithField("path", path)
 	log.Info("starting repository pre-import")
 
+	if err := imp.preImport(ctx, path); err != nil {
+		return fmt.Errorf("pre-importing repository: %w", err)
+	}
+
+	if !imp.dryRun {
+		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
+		imp.loadStores(imp.db)
+	}
+
+	counters, err := imp.countRows(ctx)
+	if err != nil {
+		logrus.WithError(err).Error("error counting table rows")
+	}
+
+	logCounters := make(map[string]interface{}, len(counters))
+	for t, n := range counters {
+		logCounters[t] = n
+	}
+
+	t := time.Since(start).Seconds()
+	log.WithField("duration_s", t).WithFields(logCounters).Info("pre-import complete")
+
+	return nil
+}
+
+func (imp *Importer) preImport(ctx context.Context, path string) error {
 	named, err := reference.WithName(path)
 	if err != nil {
 		return fmt.Errorf("parsing repository name: %w", err)
@@ -954,24 +980,6 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
 		return fmt.Errorf("importing tags: %w", err)
 	}
-
-	if !imp.dryRun {
-		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
-		imp.loadStores(imp.db)
-	}
-
-	counters, err := imp.countRows(ctx)
-	if err != nil {
-		logrus.WithError(err).Error("error counting table rows")
-	}
-
-	logCounters := make(map[string]interface{}, len(counters))
-	for t, n := range counters {
-		logCounters[t] = n
-	}
-
-	t := time.Since(start).Seconds()
-	log.WithField("duration_s", t).WithFields(logCounters).Info("pre-import complete")
 
 	return nil
 }

@@ -11,7 +11,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/migrations"
@@ -529,6 +531,48 @@ var ImportCmd = &cobra.Command{
 		p := datastore.NewImporter(db, registry, opts...)
 
 		switch {
+		case true:
+			var paths []string
+
+			repositoryEnumerator, ok := registry.(distribution.RepositoryEnumerator)
+			if !ok {
+				fmt.Fprintf(os.Stderr, "error building repository enumerator")
+				os.Exit(1)
+			}
+
+			err := repositoryEnumerator.Enumerate(ctx, func(path string) error {
+				paths = append(paths, path)
+				return nil
+			})
+			fmt.Fprintf(os.Stderr, "error listing repositories: %v", err)
+			os.Exit(1)
+
+			tokens := make(chan struct{}, 10)
+
+			var wg sync.WaitGroup
+			go func() {
+				for _, path := range paths {
+					wg.Add(1)
+					go func(p string) {
+						tokens <- struct{}{}
+						defer func() {
+							<-tokens
+							wg.Done()
+						}()
+
+						err := datastore.NewImporter(db, registry, opts...).Import(ctx, p)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "failed to import metadata for %s: %v", p, err)
+						}
+					}(path)
+				}
+			}()
+
+			wg.Wait()
+			fmt.Fprintf(os.Stderr, "mutli import complete\n")
+
+			err = nil
+
 		case repoPath == "" && preImport:
 			err = errors.New("pre-import is only supported with the `--repository` flag")
 		case repoPath == "" && !preImport:
