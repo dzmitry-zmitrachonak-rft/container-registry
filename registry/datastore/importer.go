@@ -564,7 +564,7 @@ func (imp *Importer) importRepository(ctx context.Context, path string) error {
 	}
 
 	if dbRepo == nil {
-		if dbRepo, err = imp.repositoryStore.CreateByPath(ctx, path); err != nil {
+		if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
 			return fmt.Errorf("importing repository: %w", err)
 		}
 	}
@@ -631,6 +631,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
 		logrus.WithError(err).Errorf("retrieving manifest %q", dgst)
+		return nil
 	}
 
 	if !imp.dryRun {
@@ -656,6 +657,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	}
 	if err != nil {
 		log.WithError(err).Error("pre-importing manifest")
+		return nil
 	}
 
 	if !imp.dryRun {
@@ -875,18 +877,22 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 		return err
 	}
 
-	counters, err := imp.countRows(ctx)
-	if err != nil {
-		logrus.WithError(err).Error("error counting table rows")
-	}
-
-	logCounters := make(map[string]interface{}, len(counters))
-	for t, n := range counters {
-		logCounters[t] = n
-	}
-
 	t := time.Since(start).Seconds()
-	logrus.WithField("duration_s", t).WithFields(logCounters).Info("metadata import complete")
+	log.WithField("duration_s", t).Info("repository import complete")
+	/*
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			logrus.WithError(err).Error("error counting table rows")
+		}
+
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+
+		t := time.Since(start).Seconds()
+		logrus.WithField("duration_s", t).WithFields(logCounters).Info("metadata import complete")
+	*/
 
 	if !imp.dryRun {
 		if err := tx.Commit(); err != nil {
@@ -937,6 +943,27 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 		imp.loadStores(imp.db)
 	}
 
+	t := time.Since(start).Seconds()
+	log.WithField("duration_s", t).Info("pre-import complete")
+	/*
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			logrus.WithError(err).Error("error counting table rows")
+		}
+
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+
+		t := time.Since(start).Seconds()
+		log.WithField("duration_s", t).WithFields(logCounters).Info("pre-import complete")
+	*/
+
+	return nil
+}
+
+func (imp *Importer) CountRows(ctx context.Context, start time.Time) {
 	counters, err := imp.countRows(ctx)
 	if err != nil {
 		logrus.WithError(err).Error("error counting table rows")
@@ -948,9 +975,7 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	}
 
 	t := time.Since(start).Seconds()
-	log.WithField("duration_s", t).WithFields(logCounters).Info("pre-import complete")
-
-	return nil
+	logrus.WithField("duration_s", t).WithFields(logCounters).Info("import complete")
 }
 
 func (imp *Importer) preImport(ctx context.Context, path string) error {
@@ -972,7 +997,7 @@ func (imp *Importer) preImport(ctx context.Context, path string) error {
 	}
 
 	if dbRepo == nil {
-		if dbRepo, err = imp.repositoryStore.CreateByPath(ctx, path); err != nil {
+		if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
 			return fmt.Errorf("importing repository: %w", err)
 		}
 	}

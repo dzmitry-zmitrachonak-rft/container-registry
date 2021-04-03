@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
@@ -60,6 +61,7 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import, may only be used in conjunction with the `--repository` option")
 	ImportCmd.Flags().StringVarP(&cpuprofile, "cpuprofile", "c", "", "run a pprof debug profile and write to the file")
+	ImportCmd.Flags().IntVarP(&warpFactor, "warp-factor", "w", 0, "run in parallel by factor")
 }
 
 var (
@@ -78,6 +80,7 @@ var (
 	upToDateCheck           bool
 	preImport               bool
 	cpuprofile              string
+	warpFactor              int
 )
 
 // nullableInt implements spf13/pflag#Value as a custom nullable integer to capture spf13/cobra command flags.
@@ -531,53 +534,65 @@ var ImportCmd = &cobra.Command{
 		p := datastore.NewImporter(db, registry, opts...)
 
 		switch {
-		case true:
+		case warpFactor > 0:
 			var paths []string
 
 			repositoryEnumerator, ok := registry.(distribution.RepositoryEnumerator)
 			if !ok {
-				fmt.Fprintf(os.Stderr, "error building repository enumerator")
+				fmt.Fprintf(os.Stderr, "error building repository enumerator\n")
 				os.Exit(1)
 			}
 
+			fmt.Fprintf(os.Stderr, "inventorying repositories to import...\n")
 			err := repositoryEnumerator.Enumerate(ctx, func(path string) error {
 				paths = append(paths, path)
 				return nil
 			})
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error listing repositories: %v", err)
+				fmt.Fprintf(os.Stderr, "error listing repositories: %v\n", err)
 				os.Exit(1)
 			}
+			fmt.Fprintf(os.Stderr, "completed repository inventory, will import %d repositories\n", len(paths))
 
-			tokens := make(chan struct{}, 10)
+			tokens := make(chan struct{}, warpFactor)
+
+			start := time.Now()
 
 			var wg sync.WaitGroup
-			go func() {
-				for _, path := range paths {
-					wg.Add(1)
-					go func(p string) {
-						tokens <- struct{}{}
-						defer func() {
-							<-tokens
-							wg.Done()
-						}()
+			for _, path := range paths {
+				wg.Add(1)
+				tokens <- struct{}{}
+				go func(p string) {
+					defer func() {
+						<-tokens
+						wg.Done()
+					}()
 
-						innerDB, err := dbFromConfig(config)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "failed to construct database connection: %v", err)
-							os.Exit(1)
-						}
+					innerDB, err := dbFromConfig(config)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "failed to construct database connection: %v\n", err)
+						return
+					}
 
-						err = datastore.NewImporter(innerDB, registry, opts...).Import(ctx, p)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "failed to import metadata for %s: %v", p, err)
-						}
-					}(path)
-				}
-			}()
+					imp := datastore.NewImporter(innerDB, registry, opts...)
+
+					err = imp.PreImport(ctx, p)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "failed to pre-import metadata for %s: %v\n", p, err)
+						return
+					}
+
+					err = imp.Import(ctx, p)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "failed to import metadata for %s: %v\n", p, err)
+						return
+					}
+				}(path)
+			}
 
 			wg.Wait()
-			fmt.Fprintf(os.Stderr, "mutli import complete\n")
+
+			p.CountRows(ctx, start)
 
 			err = nil
 
