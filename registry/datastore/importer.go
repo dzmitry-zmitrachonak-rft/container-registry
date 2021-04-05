@@ -122,46 +122,21 @@ func (imp *Importer) findOrCreateDBManifest(ctx context.Context, dbRepo *models.
 }
 
 func (imp *Importer) findOrCreateDBLayer(ctx context.Context, fsRepo distribution.Repository, l *models.Blob) (*models.Blob, error) {
-	dbLayer, err := imp.blobStore.FindByDigest(ctx, l.Digest)
-	if err != nil {
-		return nil, fmt.Errorf("searching for layer blob: %w", err)
+	if err := imp.blobStore.CreateOrFind(ctx, l); err != nil {
+		return nil, fmt.Errorf("creating layer blob: %w", err)
 	}
 
-	if dbLayer == nil {
-		// v1 manifests don't include the layers blob size and media type, so we must Stat the blob to know
-		if l.Size == 0 {
-			blobStore := fsRepo.Blobs(ctx)
-			desc, err := blobStore.Stat(ctx, digest.Digest(l.Digest))
-			if err != nil {
-				return nil, fmt.Errorf("obtaining blob layer size: %w", err)
-			}
-			l.Size = desc.Size
-			l.MediaType = desc.MediaType
-		}
-
-		if err := imp.blobStore.CreateOrFind(ctx, l); err != nil {
-			return nil, fmt.Errorf("creating layer blob: %w", err)
-		}
-		dbLayer = l
-	}
-
-	return dbLayer, nil
+	return l, nil
 }
 
 func (imp *Importer) findOrCreateDBManifestConfigBlob(ctx context.Context, d distribution.Descriptor, payload []byte) (*models.Blob, error) {
-	dbBlob, err := imp.blobStore.FindByDigest(ctx, d.Digest)
-	if err != nil {
-		return nil, fmt.Errorf("searching for configuration blob: %w", err)
+	dbBlob := &models.Blob{
+		MediaType: d.MediaType,
+		Digest:    d.Digest,
+		Size:      d.Size,
 	}
-	if dbBlob == nil {
-		dbBlob = &models.Blob{
-			MediaType: d.MediaType,
-			Digest:    d.Digest,
-			Size:      d.Size,
-		}
-		if err := imp.blobStore.CreateOrFind(ctx, dbBlob); err != nil {
-			return nil, err
-		}
+	if err := imp.blobStore.CreateOrFind(ctx, dbBlob); err != nil {
+		return nil, err
 	}
 
 	return dbBlob, nil
@@ -558,15 +533,8 @@ func (imp *Importer) importRepository(ctx context.Context, path string) error {
 	// Find or create repository.
 	var dbRepo *models.Repository
 
-	dbRepo, err = imp.repositoryStore.FindByPath(ctx, path)
-	if err != nil {
-		return fmt.Errorf("checking for existence of repository: %w", err)
-	}
-
-	if dbRepo == nil {
-		if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
-			return fmt.Errorf("importing repository: %w", err)
-		}
+	if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
+		return fmt.Errorf("importing repository: %w", err)
 	}
 
 	if imp.importDanglingManifests {
@@ -991,15 +959,8 @@ func (imp *Importer) preImport(ctx context.Context, path string) error {
 	// Find or create repository.
 	var dbRepo *models.Repository
 
-	dbRepo, err = imp.repositoryStore.FindByPath(ctx, path)
-	if err != nil {
-		return fmt.Errorf("checking for existence of repository: %w", err)
-	}
-
-	if dbRepo == nil {
-		if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
-			return fmt.Errorf("importing repository: %w", err)
-		}
+	if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
+		return fmt.Errorf("importing repository: %w", err)
 	}
 
 	if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
