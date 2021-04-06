@@ -1,0 +1,173 @@
+#!/usr/bin/env ruby
+
+require 'logger'
+require 'faker'
+require 'pg'
+
+log = Logger.new(STDOUT)
+log.level = Logger::DEBUG
+
+db = PG.connect(host: ENV['DB_HOST'], user: ENV['DB_USER'], password: ENV['DB_PASSWORD'], dbname: ENV['DB_NAME'])
+
+NUM_NAMESPACES = (ENV['NUM_NAMESPACES'] || 100).to_i
+
+MIN_NUM_REPOS_PER_NAMESPACE = (ENV['MIN_NUM_REPOS_PER_NAMESPACE'] || 5).to_i
+MAX_NUM_REPOS_PER_NAMESPACE = (ENV['MAX_NUM_REPOS_PER_NAMESPACE'] || 50).to_i
+
+MIN_NUM_MANIFESTS_PER_REPO = (ENV['MIN_NUM_MANIFESTS_PER_REPO'] || 2).to_i
+MAX_NUM_MANIFESTS_PER_REPO = (ENV['MAX_NUM_MANIFESTS_PER_REPO'] || 100).to_i
+
+MIN_NUM_TAGS_PER_MANIFEST = (ENV['MIN_NUM_TAGS_PER_MANIFEST'] || 1).to_i
+MAX_NUM_TAGS_PER_MANIFEST = (ENV['MAX_NUM_TAGS_PER_MANIFEST'] || 2).to_i
+
+MIN_NUM_LAYERS_PER_MANIFEST = (ENV['MIN_NUM_LAYERS_PER_MANIFEST'] || 3).to_i
+MAX_NUM_LAYERS_PER_MANIFEST = (ENV['MAX_NUM_LAYERS_PER_MANIFEST'] || 50).to_i
+
+MIN_LAYER_SHARE_RATIO = (ENV['MIN_LAYER_SHARE_RATIO'] || 0.1).to_f
+MAX_LAYER_SHARE_RATIO = (ENV['MAX_LAYER_SHARE_RATIO'] || 0.7).to_f
+
+unique_namespaces = []
+NUM_NAMESPACES.times do
+  unique_namespaces << "#{Faker::Company.name.gsub(/\W+/, '-').downcase}-#{Faker::Number.number(digits: 10)}"
+end
+
+unique_repos = []
+MAX_NUM_REPOS_PER_NAMESPACE.times do
+  unique_repos << "#{Faker::App.name.gsub(/\W+/, '-').downcase}-#{Faker::Number.number(digits: 10)}"
+end
+
+manifest_payloads = []
+10.times do
+  manifest_payloads << Faker::Json.shallow_json(width: rand(100..200))
+end
+
+config_payloads = []
+10.times do
+  config_payloads << Faker::Json.shallow_json(width: rand(200..400))
+end
+
+unique_namespaces.each_with_index do |namespace, index|
+  log.debug "populating namespace '#{namespace}' - #{index + 1}/#{NUM_NAMESPACES}"
+  query = "INSERT INTO repositories (name, path)
+              VALUES ('#{namespace}', '#{namespace}')
+          RETURNING id"
+
+  res = db.exec(query).first
+  parent_repo_id = res.values_at('id').first
+
+  num_repos = rand(MIN_NUM_REPOS_PER_NAMESPACE..MAX_NUM_REPOS_PER_NAMESPACE)
+  repos = unique_repos.sample(num_repos)
+
+  unique_digest = Faker::Crypto.unique
+
+  log.debug "creating #{num_repos} repositories"
+  repos.each_with_index do |repo, index|
+    db.transaction do |conn|
+      path = File.join(namespace, repo)
+      log.debug "populating repository '#{path}' - #{index + 1}/#{num_repos}"
+
+      query = "INSERT INTO repositories (name, path, parent_id)
+                  VALUES ('#{repo}', '#{path}', #{parent_repo_id})
+              RETURNING id"
+      res = conn.exec(query).first
+      repo_id = res.values_at('id').first
+
+      shared_layers_pool = []
+      max_shared_layers = (MAX_NUM_LAYERS_PER_MANIFEST * MAX_LAYER_SHARE_RATIO).to_i
+      max_shared_layers.times do
+        shared_layers_pool << {
+          digest: "01#{unique_digest.sha256}",
+          size: rand(1_000_000..10_000_000)
+        }
+      end
+
+      num_manifests = rand(MIN_NUM_MANIFESTS_PER_REPO..MAX_NUM_MANIFESTS_PER_REPO)
+      log.debug "creating #{num_manifests} manifests"
+
+      index = 0
+      num_manifests.times do
+        index += 1
+        manifest = {
+          digest: "01#{unique_digest.sha256}",
+          payload: manifest_payloads.sample,
+          config: {
+            digest: "01#{unique_digest.sha256}",
+            payload: config_payloads.sample
+          }
+        }
+
+        config = manifest[:config]
+        log.debug "creating manifest '#{config[:digest]}' - #{index}/#{num_manifests}"
+
+        # create and associate config blob
+        query = "INSERT INTO blobs (media_type_id, digest, size)
+                    VALUES (8, decode('#{config[:digest]}', 'hex'), #{config[:payload].length})"
+        conn.exec(query)
+
+        query = "INSERT INTO repository_blobs (repository_id, blob_digest)
+                    VALUES (#{repo_id}, decode('#{config[:digest]}', 'hex'))"
+        conn.exec(query)
+
+        # create manifest
+        query = "INSERT INTO manifests (repository_id, schema_version, media_type_id, digest, payload,
+                                        configuration_media_type_id, configuration_blob_digest, configuration_payload)
+                VALUES (#{repo_id}, 2, 3, decode('#{manifest[:digest]}', 'hex'),
+                        convert_to('#{manifest[:payload]}', 'UTF8'), 8, decode('#{config[:digest]}', 'hex'),
+                        convert_to('#{config[:payload]}', 'UTF8'))
+                RETURNING id"
+        res = conn.exec(query).first
+        manifest_id = res.values_at('id').first
+
+        # create and associate layer blobs
+        num_layers = rand(MIN_NUM_LAYERS_PER_MANIFEST..MAX_NUM_LAYERS_PER_MANIFEST)
+        share_ratio = rand(MIN_LAYER_SHARE_RATIO..MAX_LAYER_SHARE_RATIO)
+
+        num_shared_layers = (num_layers * share_ratio).to_i
+        layers = shared_layers_pool.sample(num_shared_layers)
+
+        num_unique_layers = num_layers - num_shared_layers
+        num_unique_layers.times do
+          layers << {
+            digest: "01#{unique_digest.sha256}",
+            size: rand(1_000_000..10_000_000)
+          }
+        end
+
+        log.debug "manifest with #{layers.count} layers, #{num_unique_layers} unique and #{num_shared_layers} shared"
+
+        layers.each do |layer|
+          log.debug "creating layer '#{layer[:digest]}"
+
+          query = "INSERT INTO blobs (media_type_id, digest, size)
+                      VALUES (6, decode('#{layer[:digest]}', 'hex'), #{layer[:size]})
+                  ON CONFLICT (digest)
+                      DO NOTHING"
+          conn.exec(query)
+
+          query = "INSERT INTO repository_blobs (repository_id, blob_digest)
+                      VALUES (#{repo_id}, decode('#{layer[:digest]}', 'hex'))
+                  ON CONFLICT (repository_id, blob_digest)
+                      DO NOTHING"
+          conn.exec(query)
+
+          query = "INSERT INTO layers (repository_id, manifest_id, digest, media_type_id, size)
+                      VALUES (#{repo_id}, #{manifest_id}, decode('#{layer[:digest]}', 'hex'), 6, #{layer[:size]})
+                  ON CONFLICT (repository_id, manifest_id, digest)
+                      DO NOTHING"
+          conn.exec(query)
+        end
+
+        num_tags = rand(MIN_NUM_TAGS_PER_MANIFEST..MAX_NUM_TAGS_PER_MANIFEST)
+        log.debug("creating #{num_tags} tags")
+        num_tags.times do
+          tag = "#{Faker::App.semantic_version}-#{Faker::Number.number(digits: 10)}"
+          log.debug("creating tag '#{tag}'")
+
+          query = "INSERT INTO tags(name, repository_id, manifest_id)
+                      VALUES ('#{tag}', #{repo_id}, #{manifest_id})"
+          conn.exec(query)
+        end
+      end
+    end
+  end
+end
