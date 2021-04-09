@@ -44,7 +44,11 @@ func (ts *tagStore) All(ctx context.Context) ([]string, error) {
 
 	for _, entry := range entries {
 		_, filename := path.Split(entry)
-		tags = append(tags, filename)
+		// Prevent listing empty tags.
+		// This can occur with s3: https://gitlab.com/gitlab-org/container-registry/-/issues/341
+		if filename != "" {
+			tags = append(tags, filename)
+		}
 	}
 
 	return tags, nil
