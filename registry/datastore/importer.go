@@ -221,7 +221,7 @@ func (imp *Importer) migrateObject(ctx context.Context, src, dst *storage.Object
 	return nil
 }
 
-var srcBucket, dstBucket *storage.BucketHandle
+var bucket *storage.BucketHandle
 
 func (imp *Importer) migrateBlob(ctx context.Context, repo distribution.Repository, layer distribution.Descriptor) error {
 	log := logrus.WithField("digest", layer.Digest)
@@ -229,27 +229,15 @@ func (imp *Importer) migrateBlob(ctx context.Context, repo distribution.Reposito
 	start := time.Now()
 
 	// copy blob data
-	blobPath := fmt.Sprintf(
+	srcBlobPath := fmt.Sprintf(
 		"docker/registry/v2/blobs/%s/%s/%s/data",
 		layer.Digest.Algorithm().String(),
 		layer.Digest.Hex()[0:2],
 		layer.Digest.Hex(),
 	)
-	src := srcBucket.Object(blobPath)
-	dst := dstBucket.Object(blobPath)
-	if err := imp.migrateObject(ctx, src, dst); err != nil {
-		return err
-	}
-
-	// copy blob link
-	blobLinkPath := fmt.Sprintf(
-		"docker/registry/v2/repositories/%s/_layers/%s/%s/link",
-		repo.Named().String(),
-		layer.Digest.Algorithm().String(),
-		layer.Digest.Hex(),
-	)
-	src = srcBucket.Object(blobLinkPath)
-	dst = dstBucket.Object(blobLinkPath)
+	destBlobPath := "gitlab/" + srcBlobPath
+	src := bucket.Object(srcBlobPath)
+	dst := bucket.Object(destBlobPath)
 	if err := imp.migrateObject(ctx, src, dst); err != nil {
 		return err
 	}
@@ -638,8 +626,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 		return err
 	}
 	defer client.Close()
-	srcBucket = client.Bucket(os.Getenv("REGISTRY_SRC_BUCKET"))
-	dstBucket = client.Bucket(os.Getenv("REGISTRY_DEST_BUCKET"))
+	bucket = client.Bucket(os.Getenv("REGISTRY_BUCKET"))
 
 	var tx *Tx
 
