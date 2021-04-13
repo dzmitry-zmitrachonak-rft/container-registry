@@ -182,18 +182,18 @@ func (base *Base) List(ctx context.Context, path string) ([]string, error) {
 
 // Move wraps Move of underlying storage driver.
 func (base *Base) Move(ctx context.Context, sourcePath string, destPath string) error {
-	ctx, done := dcontext.WithTrace(ctx)
-	defer done("%s.Move(%q, %q", base.Name(), sourcePath, destPath)
-
-	if !storagedriver.PathRegexp.MatchString(sourcePath) {
-		return storagedriver.InvalidPathError{Path: sourcePath, DriverName: base.StorageDriver.Name()}
-	} else if !storagedriver.PathRegexp.MatchString(destPath) {
-		return storagedriver.InvalidPathError{Path: destPath, DriverName: base.StorageDriver.Name()}
-	}
-
-	start := time.Now()
+	//ctx, done := dcontext.WithTrace(ctx)
+	//defer done("%s.Move(%q, %q", base.Name(), sourcePath, destPath)
+	//
+	//if !storagedriver.PathRegexp.MatchString(sourcePath) {
+	//	return storagedriver.InvalidPathError{Path: sourcePath, DriverName: base.StorageDriver.Name()}
+	//} else if !storagedriver.PathRegexp.MatchString(destPath) {
+	//	return storagedriver.InvalidPathError{Path: destPath, DriverName: base.StorageDriver.Name()}
+	//}
+	//
+	//start := time.Now()
 	err := base.setDriverName(base.StorageDriver.Move(ctx, sourcePath, destPath))
-	storageAction.WithValues(base.Name(), "Move").UpdateSince(start)
+	//storageAction.WithValues(base.Name(), "Move").UpdateSince(start)
 	return err
 }
 
