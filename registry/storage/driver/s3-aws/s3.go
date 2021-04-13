@@ -853,7 +853,7 @@ func (d *driver) copy(ctx context.Context, sourcePath string, destPath string) e
 		return parseError(sourcePath, err)
 	}
 
-	if fileInfo.Size() <= d.MultipartCopyThresholdSize && os.Getenv("SKIP_ATOMIC_PUT") != "true" {
+	if os.Getenv("ATOMIC_PUT") != "true" {
 		if err := d.Wait(ctx); err != nil {
 			return err
 		}
