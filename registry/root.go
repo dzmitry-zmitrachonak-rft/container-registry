@@ -428,11 +428,11 @@ var ImportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		db, err := dbFromConfig(config)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to construct database connection: %v", err)
-			os.Exit(1)
-		}
+		//db, err := dbFromConfig(config)
+		//if err != nil {
+		//	fmt.Fprintf(os.Stderr, "failed to construct database connection: %v", err)
+		//	os.Exit(1)
+		//}
 
 		var opts []datastore.ImporterOption
 		if importDanglingBlobs {
@@ -448,13 +448,13 @@ var ImportCmd = &cobra.Command{
 			opts = append(opts, datastore.WithRequireEmptyDatabase)
 		}
 
-		p := datastore.NewImporter(db, driver, registry, opts...)
+		p := datastore.NewImporter(nil, driver, registry, opts...)
 
-		if repoPath == "" {
-			err = p.ImportAll(ctx)
-		} else {
-			err = p.Import(ctx, repoPath)
-		}
+		//if repoPath == "" {
+		//	err = p.ImportAll(ctx)
+		//} else {
+		err = p.Import(ctx, repoPath)
+		//}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to import metadata: %v", err)
 			os.Exit(1)

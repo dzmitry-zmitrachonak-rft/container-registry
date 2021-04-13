@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
+	"os"
 	"reflect"
 	"runtime"
 	"sort"
@@ -836,11 +837,7 @@ func (d *driver) List(ctx context.Context, opath string) ([]string, error) {
 // Move moves an object stored at sourcePath to destPath, removing the original
 // object.
 func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
-	/* This is terrible, but aws doesn't have an actual move. */
-	if err := d.copy(ctx, sourcePath, destPath); err != nil {
-		return err
-	}
-	return d.Delete(ctx, sourcePath)
+	return d.copy(ctx, sourcePath, destPath)
 }
 
 // copy copies an object stored at sourcePath to destPath.
@@ -856,7 +853,7 @@ func (d *driver) copy(ctx context.Context, sourcePath string, destPath string) e
 		return parseError(sourcePath, err)
 	}
 
-	if fileInfo.Size() <= d.MultipartCopyThresholdSize {
+	if fileInfo.Size() <= d.MultipartCopyThresholdSize && os.Getenv("SKIP_ATOMIC_PUT") != "true" {
 		if err := d.Wait(ctx); err != nil {
 			return err
 		}
@@ -874,12 +871,15 @@ func (d *driver) copy(ctx context.Context, sourcePath string, destPath string) e
 		if err != nil {
 			return parseError(sourcePath, err)
 		}
+		fmt.Println("ATOMIC PUT")
 		return nil
 	}
 
 	if err := d.Wait(ctx); err != nil {
 		return err
 	}
+
+	fmt.Println("MULTIPART PUT")
 
 	createResp, err := d.S3.CreateMultipartUpload(&s3.CreateMultipartUploadInput{
 		Bucket:               aws.String(d.Bucket),

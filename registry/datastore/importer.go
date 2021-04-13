@@ -1,14 +1,12 @@
 package datastore
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
-	"cloud.google.com/go/storage"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
@@ -21,7 +19,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/api/option"
 )
 
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
@@ -80,7 +77,7 @@ func NewImporter(db *DB, storageDriver driver.StorageDriver, registry distributi
 		o(imp)
 	}
 
-	imp.loadStores(imp.db)
+	//imp.loadStores(imp.db)
 
 	return imp
 }
@@ -200,28 +197,9 @@ func (imp *Importer) importLayer(ctx context.Context, fsRepo distribution.Reposi
 	return nil
 }
 
-func (imp *Importer) migrateObject(ctx context.Context, src, dst *storage.ObjectHandle) error {
-	if _, err := dst.CopierFrom(src).Run(ctx); err != nil {
-		return fmt.Errorf("failed to copy %q to %q: %w", src.ObjectName(), dst.ObjectName(), err)
-	}
-
-	srcObj, err := src.Attrs(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get src %q metadata: %w", src.ObjectName(), err)
-	}
-	dstObj, err := dst.Attrs(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get dst %q metadata: %w", dst.ObjectName(), err)
-	}
-
-	if bytes.Compare(srcObj.MD5, dstObj.MD5) != 0 {
-		return fmt.Errorf("src %q and dst %q checksums dont match", src.ObjectName(), dst.ObjectName())
-	}
-
-	return nil
+func (imp *Importer) migrateObject(ctx context.Context, src, dst string) error {
+	return imp.storageDriver.Move(ctx, src, dst)
 }
-
-var srcBucket, dstBucket *storage.BucketHandle
 
 func (imp *Importer) migrateBlob(ctx context.Context, repo distribution.Repository, layer distribution.Descriptor) error {
 	log := logrus.WithField("digest", layer.Digest)
@@ -229,27 +207,13 @@ func (imp *Importer) migrateBlob(ctx context.Context, repo distribution.Reposito
 	start := time.Now()
 
 	// copy blob data
-	blobPath := fmt.Sprintf(
+	src := fmt.Sprintf(
 		"docker/registry/v2/blobs/%s/%s/%s/data",
 		layer.Digest.Algorithm().String(),
 		layer.Digest.Hex()[0:2],
 		layer.Digest.Hex(),
 	)
-	src := srcBucket.Object(blobPath)
-	dst := dstBucket.Object(blobPath)
-	if err := imp.migrateObject(ctx, src, dst); err != nil {
-		return err
-	}
-
-	// copy blob link
-	blobLinkPath := fmt.Sprintf(
-		"docker/registry/v2/repositories/%s/_layers/%s/%s/link",
-		repo.Named().String(),
-		layer.Digest.Algorithm().String(),
-		layer.Digest.Hex(),
-	)
-	src = srcBucket.Object(blobLinkPath)
-	dst = dstBucket.Object(blobLinkPath)
+	dst := "gitlab/" + src
 	if err := imp.migrateObject(ctx, src, dst); err != nil {
 		return err
 	}
@@ -632,15 +596,6 @@ func (imp *Importer) isDatabaseEmpty(ctx context.Context) (bool, error) {
 // ImportAll populates the registry database with metadata from all repositories in the storage backend.
 func (imp *Importer) ImportAll(ctx context.Context) error {
 	var err error
-	srvAccountFilePath := os.Getenv("REGISTRY_GCS_SERVICE_ACCOUNT_FILE")
-	client, err := storage.NewClient(ctx, option.WithCredentialsFile(srvAccountFilePath))
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	srcBucket = client.Bucket(os.Getenv("REGISTRY_SRC_BUCKET"))
-	dstBucket = client.Bucket(os.Getenv("REGISTRY_DEST_BUCKET"))
-
 	var tx *Tx
 
 	// Create a single transaction and roll it back at the end for dry runs.
@@ -763,51 +718,64 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 // Import populates the registry database with metadata from a specific repository in the storage backend.
 func (imp *Importer) Import(ctx context.Context, path string) error {
-	tx, err := imp.beginTx(ctx)
-	if err != nil {
-		return fmt.Errorf("begin repository transaction: %w", err)
-	}
-	defer tx.Rollback()
+	//tx, err := imp.beginTx(ctx)
+	//if err != nil {
+	//	return fmt.Errorf("begin repository transaction: %w", err)
+	//}
+	//defer tx.Rollback()
 
-	start := time.Now()
+	//start := time.Now()
 	logrus.Info("starting metadata import")
 
-	if imp.requireEmptyDatabase {
-		empty, err := imp.isDatabaseEmpty(ctx)
-		if err != nil {
-			return fmt.Errorf("checking if database is empty: %w", err)
-		}
-		if !empty {
-			return errors.New("non-empty database")
-		}
+	layers := []distribution.Descriptor{
+		{Digest: "sha256:7a1d2072582baedec1ea52969daabfe9b33342085dd155220c32d89c1f736110"},
+		{Digest: "sha256:49c046dddc448c5ec1737ff00a0bdd79deeec8e80995e02afab6623c703e929c"},
+		{Digest: "sha256:03adee120fba60dba35efb6a95a4d450b71f2ba1c0f86e359b86630a7fdeaf44"},
+		{Digest: "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"},
 	}
 
-	log := logrus.WithField("path", path)
-	log.Info("importing repository")
-
-	if err := imp.importRepository(ctx, path); err != nil {
-		log.WithError(err).Error("error importing repository")
-		return err
-	}
-
-	counters, err := imp.countRows(ctx)
-	if err != nil {
-		logrus.WithError(err).Error("error counting table rows")
-	}
-
-	logCounters := make(map[string]interface{}, len(counters))
-	for t, n := range counters {
-		logCounters[t] = n
-	}
-
-	t := time.Since(start).Seconds()
-	logrus.WithField("duration_s", t).WithFields(logCounters).Info("metadata import complete")
-
-	if !imp.dryRun {
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit repository transaction: %w", err)
+	for _, l := range layers {
+		if err := imp.migrateBlob(ctx, nil, l); err != nil {
+			return err
 		}
 	}
 
-	return err
+	//if imp.requireEmptyDatabase {
+	//	empty, err := imp.isDatabaseEmpty(ctx)
+	//	if err != nil {
+	//		return fmt.Errorf("checking if database is empty: %w", err)
+	//	}
+	//	if !empty {
+	//		return errors.New("non-empty database")
+	//	}
+	//}
+	//
+	//log := logrus.WithField("path", path)
+	//log.Info("importing repository")
+	//
+	//if err := imp.importRepository(ctx, path); err != nil {
+	//	log.WithError(err).Error("error importing repository")
+	//	return err
+	//}
+	//
+	//counters, err := imp.countRows(ctx)
+	//if err != nil {
+	//	logrus.WithError(err).Error("error counting table rows")
+	//}
+	//
+	//logCounters := make(map[string]interface{}, len(counters))
+	//for t, n := range counters {
+	//	logCounters[t] = n
+	//}
+	//
+	//t := time.Since(start).Seconds()
+	//logrus.WithField("duration_s", t).WithFields(logCounters).Info("metadata import complete")
+	//
+	//if !imp.dryRun {
+	//	if err := tx.Commit(); err != nil {
+	//		return fmt.Errorf("commit repository transaction: %w", err)
+	//	}
+	//}
+
+	return nil
 }
