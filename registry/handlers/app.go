@@ -378,12 +378,12 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		}
 	}
 
-	app.migrationRegistry = newNamespace(app.Context, config, options...)
-
 	app.registry, err = applyRegistryMiddleware(app, app.registry, config.Middleware["registry"])
 	if err != nil {
 		panic(err)
 	}
+
+	app.migrationRegistry = migrationRegistry(app.Context, config, options...)
 
 	app.migrationRegistry, err = applyRegistryMiddleware(app, app.migrationRegistry, config.Middleware["registry"])
 	if err != nil {
@@ -431,13 +431,13 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	return app
 }
 
-func newNamespace(ctx context.Context, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
+func migrationRegistry(ctx context.Context, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {
 		storageParams = make(configuration.Parameters)
 	}
 
-	rootDir := path.Join(fmt.Sprintf("%s", storageParams["rootdirectory"]), "gitlab")
+	rootDir := path.Join(fmt.Sprintf("%s", storageParams["rootdirectory"]), config.Migration.Prefix)
 	storageParams["rootdirectory"] = rootDir
 
 	driver, err := factory.Create(config.Storage.Type(), storageParams)
@@ -457,8 +457,8 @@ func newNamespace(ctx context.Context, config *configuration.Configuration, opti
 	return registry
 }
 
-func (app *App) needsDatabase(repo distribution.Repository) (bool, error) {
-	if !app.Config.Database.Enabled {
+func (app *App) shouldMigrate(repo distribution.Repository) (bool, error) {
+	if !(app.Config.Database.Enabled && app.Config.Migration.Enabled) {
 		return false, nil
 	}
 
@@ -953,12 +953,12 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
-			serveDB, err := app.needsDatabase(repository)
+			migrateRepo, err := app.shouldMigrate(repository)
 			if err != nil {
 				panic(err)
 			}
 
-			if serveDB {
+			if migrateRepo {
 				repository, err = app.migrationRegistry.Repository(context, nameRef)
 				if err != nil {
 					dcontext.GetLogger(context).Errorf("error resolving repository: %v", err)
