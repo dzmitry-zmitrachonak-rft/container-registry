@@ -382,11 +382,13 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		panic(err)
 	}
 
-	app.migrationRegistry = migrationRegistry(app.Context, config, options...)
+	if config.Migration.Enabled {
+		app.migrationRegistry = migrationRegistry(app.Context, config, options...)
 
-	app.migrationRegistry, err = applyRegistryMiddleware(app, app.migrationRegistry, config.Middleware["registry"])
-	if err != nil {
-		panic(err)
+		app.migrationRegistry, err = applyRegistryMiddleware(app, app.migrationRegistry, config.Middleware["registry"])
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	authType := config.Auth.Type()
@@ -951,33 +953,57 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
-			migrateRepo, err := app.shouldMigrate(repository)
-			if err != nil {
-				panic(err)
-			}
-
-			if migrateRepo {
-				repository, err = app.migrationRegistry.Repository(context, nameRef)
+			if app.Config.Migration.Enabled {
+				migrateRepo, err := app.shouldMigrate(repository)
 				if err != nil {
-					dcontext.GetLogger(context).Errorf("error resolving repository: %v", err)
-
-					switch err := err.(type) {
-					case distribution.ErrRepositoryUnknown:
-						context.Errors = append(context.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
-					case distribution.ErrRepositoryNameInvalid:
-						context.Errors = append(context.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
-					case errcode.Error:
-						context.Errors = append(context.Errors, err)
-					}
-
-					if err := errcode.ServeJSON(w, context.Errors); err != nil {
-						dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
-					}
-					return
+					panic(err)
 				}
 
-				context.useDatabase = true
-				context.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
+				if migrateRepo {
+					bp, ok := app.migrationRegistry.Blobs().(distribution.BlobProvider)
+					if !ok {
+						panic(fmt.Errorf("unable to convert BlobEnumerator into BlobProvider"))
+					}
+
+					context.blobProvider = bp
+
+					repository, err = app.migrationRegistry.Repository(context, nameRef)
+					if err != nil {
+						dcontext.GetLogger(context).Errorf("error resolving repository: %v", err)
+
+						switch err := err.(type) {
+						case distribution.ErrRepositoryUnknown:
+							context.Errors = append(context.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
+						case distribution.ErrRepositoryNameInvalid:
+							context.Errors = append(context.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
+						case errcode.Error:
+							context.Errors = append(context.Errors, err)
+						}
+
+						if err := errcode.ServeJSON(w, context.Errors); err != nil {
+							dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+						}
+						return
+					}
+
+					context.useDatabase = true
+					context.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
+				}
+			} else {
+				bp, ok := app.registry.Blobs().(distribution.BlobProvider)
+				if !ok {
+					panic(fmt.Errorf("unable to convert BlobEnumerator into BlobProvider"))
+				}
+
+				context.blobProvider = bp
+
+				if app.Config.Database.Enabled {
+					context.useDatabase = true
+					context.writeFSMetadata = false
+				} else {
+					context.useDatabase = false
+					context.writeFSMetadata = true
+				}
 			}
 
 			// assign and decorate the authorized repository with an event bridge.
@@ -1068,9 +1094,8 @@ func (app *App) context(w http.ResponseWriter, r *http.Request) *Context {
 		"vars.uuid"))
 
 	context := &Context{
-		App:             app,
-		Context:         ctx,
-		writeFSMetadata: true,
+		App:     app,
+		Context: ctx,
 	}
 
 	if app.httpHost.Scheme != "" && app.httpHost.Host != "" {

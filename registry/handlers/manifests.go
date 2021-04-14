@@ -794,12 +794,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 	// repository scoped filesystem blob service will have a link to the
 	// configuration blob; however, since we check for repository scoped access
 	// via the database above, we may retrieve the blob directly common storage.
-	blobService, ok := imh.App.migrationRegistry.Blobs().(distribution.BlobProvider)
-	if !ok {
-		return fmt.Errorf("unable to convert BlobEnumerator into BlobService")
-	}
-
-	cfgPayload, err := blobService.Get(imh, dbCfgBlob.Digest)
+	cfgPayload, err := imh.blobProvider.Get(imh, dbCfgBlob.Digest)
 	if err != nil {
 		return err
 	}
