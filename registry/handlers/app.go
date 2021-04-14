@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -437,8 +436,7 @@ func migrationRegistry(ctx context.Context, config *configuration.Configuration,
 		storageParams = make(configuration.Parameters)
 	}
 
-	rootDir := path.Join(fmt.Sprintf("%s", storageParams["rootdirectory"]), config.Migration.Prefix)
-	storageParams["rootdirectory"] = rootDir
+	storageParams["rootdirectory"] = config.Migration.AlternativeRootDirectory
 
 	driver, err := factory.Create(config.Storage.Type(), storageParams)
 	if err != nil {

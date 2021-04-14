@@ -406,9 +406,12 @@ type Migration struct {
 	// DisableMirrorFS disables registry metadata writes to the filesystem for
 	// migrated repositories.
 	DisableMirrorFS bool `yaml:"disablemirrorfs,omitempty"`
-	// Prefix allows repositories that have been migrated to the database to
-	// have seperate storage paths in the form of <storage-driver-root>/<migration-prefix>/docker/registry/v2
-	Prefix string `yaml:"prefix,omitempty"`
+	// AlternativeRootDirectory allows repositories that have been migrated to the
+	// database to use seperate object storage paths by using a different root
+	// directory in the form of /<alternative-root-directory>/docker/registry/v2
+	// Once the migration is complete, the storage driver configuration must be
+	// updated to use this root directory.
+	AlternativeRootDirectory string `yaml:"alternative-root-directory,omitempty"`
 	// Include allows filtering repositories that should be proxied by name, using a list of regular expressions.
 	Include []*Regexp `yaml:"include,omitempty"`
 	// Exclude allows filtering repositories that should not be proxied by name, using a list of regular expressions.
