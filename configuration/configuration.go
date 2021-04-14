@@ -411,7 +411,7 @@ type Migration struct {
 	// directory in the form of /<alternative-root-directory>/docker/registry/v2
 	// Once the migration is complete, the storage driver configuration must be
 	// updated to use this root directory.
-	AlternativeRootDirectory string `yaml:"alternative-root-directory,omitempty"`
+	AlternativeRootDirectory string `yaml:"alternativerootdirectory,omitempty"`
 	// Include allows filtering repositories that should be proxied by name, using a list of regular expressions.
 	Include []*Regexp `yaml:"include,omitempty"`
 	// Exclude allows filtering repositories that should not be proxied by name, using a list of regular expressions.
