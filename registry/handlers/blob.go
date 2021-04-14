@@ -47,7 +47,7 @@ func blobDispatcher(ctx *Context, r *http.Request) http.Handler {
 		mhandler["DELETE"] = http.HandlerFunc(blobHandler.DeleteBlob)
 	}
 
-	return migrationWrapper(ctx, mhandler)
+	return mhandler
 }
 
 // blobHandler serves http blob requests.
@@ -197,7 +197,7 @@ func (bh *blobHandler) DeleteBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (bh *blobHandler) deleteBlob() error {
-	if !bh.App.Config.Migration.DisableMirrorFS {
+	if bh.writeFSMetadata {
 		blobs := bh.Repository.Blobs(bh)
 		if err := blobs.Delete(bh, bh.Digest); err != nil {
 			return err

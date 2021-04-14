@@ -74,7 +74,7 @@ func manifestDispatcher(ctx *Context, r *http.Request) http.Handler {
 		mhandler["DELETE"] = http.HandlerFunc(manifestHandler.DeleteManifest)
 	}
 
-	return migrationWrapper(ctx, mhandler)
+	return mhandler
 }
 
 // manifestHandler handles http operations on image manifests.
@@ -533,7 +533,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if !imh.App.Config.Migration.DisableMirrorFS {
+	if imh.writeFSMetadata {
 		_, err = manifests.Put(imh, manifest, options...)
 		if err != nil {
 			imh.appendPutError(err)
@@ -550,7 +550,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 
 	// Tag this manifest
 	if imh.Tag != "" {
-		if !imh.App.Config.Migration.DisableMirrorFS {
+		if imh.writeFSMetadata {
 			tags := imh.Repository.Tags(imh)
 			err = tags.Tag(imh, imh.Tag, desc)
 			if err != nil {
@@ -1170,7 +1170,7 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string
 func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Request) {
 	dcontext.GetLogger(imh).Debug("DeleteImageManifest")
 
-	if !imh.App.Config.Migration.DisableMirrorFS {
+	if imh.writeFSMetadata {
 		manifests, err := imh.Repository.Manifests(imh)
 		if err != nil {
 			imh.Errors = append(imh.Errors, err)

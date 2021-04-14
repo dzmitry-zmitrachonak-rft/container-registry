@@ -317,10 +317,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			promclient.MustRegister(collector)
 		}
 
-		if config.Migration.DisableMirrorFS {
-			options = append(options, storage.DisableMirrorFS)
-		}
-
 		// update online GC settings (if needed) in the background to avoid delaying the app start
 		go func() {
 			if err := updateOnlineGCSettings(app.Context, app.db, config); err != nil {
@@ -420,13 +416,13 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		log.Warn("registry does not implement RepositoryRemover. Will not be able to delete repos and tags")
 	}
 
-	if config.Migration.Proxy.Enabled && (len(config.Migration.Proxy.Include) > 0 || len(config.Migration.Proxy.Exclude) > 0) {
-		include := make([]string, len(config.Migration.Proxy.Include))
-		for _, r := range config.Migration.Proxy.Include {
+	if config.Migration.Enabled && (len(config.Migration.Include) > 0 || len(config.Migration.Exclude) > 0) {
+		include := make([]string, len(config.Migration.Include))
+		for _, r := range config.Migration.Include {
 			include = append(include, r.String())
 		}
-		exclude := make([]string, len(config.Migration.Proxy.Exclude))
-		for _, r := range config.Migration.Proxy.Exclude {
+		exclude := make([]string, len(config.Migration.Exclude))
+		for _, r := range config.Migration.Exclude {
 			exclude = append(exclude, r.String())
 		}
 		log.WithFields(logrus.Fields{"include": include, "exclude": exclude}).Info("migration proxy enabled with filters")
@@ -447,6 +443,10 @@ func newNamespace(ctx context.Context, config *configuration.Configuration, opti
 	driver, err := factory.Create(config.Storage.Type(), storageParams)
 	if err != nil {
 		panic(err)
+	}
+
+	if config.Migration.DisableMirrorFS {
+		options = append(options, storage.DisableMirrorFS)
 	}
 
 	registry, err := storage.NewRegistry(ctx, driver, options...)
@@ -479,9 +479,9 @@ func (app *App) needsDatabase(repo distribution.Repository) (bool, error) {
 	}
 
 	// evaluate inclusion filters, if any
-	if len(app.Config.Migration.Proxy.Include) > 0 {
+	if len(app.Config.Migration.Include) > 0 {
 		var proxy bool
-		for _, r := range app.Config.Migration.Proxy.Include {
+		for _, r := range app.Config.Migration.Include {
 			if r.MatchString(repo.Named().String()) {
 				proxy = true
 			}
@@ -492,8 +492,8 @@ func (app *App) needsDatabase(repo distribution.Repository) (bool, error) {
 		}
 	}
 	// evaluate exclusion filters, if any
-	if len(app.Config.Migration.Proxy.Exclude) > 0 {
-		for _, r := range app.Config.Migration.Proxy.Exclude {
+	if len(app.Config.Migration.Exclude) > 0 {
+		for _, r := range app.Config.Migration.Exclude {
 			if r.MatchString(repo.Named().String()) {
 				log.WithField("filter", r.String()).Debug("repository name matches an exclusion filter, request will be served via the filesystem")
 				return false, nil
@@ -979,6 +979,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				}
 
 				context.useDatabase = true
+				context.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
 			}
 
 			// assign and decorate the authorized repository with an event bridge.
@@ -1069,8 +1070,9 @@ func (app *App) context(w http.ResponseWriter, r *http.Request) *Context {
 		"vars.uuid"))
 
 	context := &Context{
-		App:     app,
-		Context: ctx,
+		App:             app,
+		Context:         ctx,
+		writeFSMetadata: true,
 	}
 
 	if app.httpHost.Scheme != "" && app.httpHost.Host != "" {

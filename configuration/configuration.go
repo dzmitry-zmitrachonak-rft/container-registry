@@ -400,22 +400,19 @@ func (r *Regexp) MarshalText() ([]byte, error) {
 
 // Migration configures behavior of features related with the migration from filesystem metadata to database metadata.
 type Migration struct {
-	// DisableMirrorFS disables registry metadata writes to the filesystem.
+	// Enabled enables migration mode, new repositories will be added to the
+	// database, while existing repositories will continue to use the filesystem.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// DisableMirrorFS disables registry metadata writes to the filesystem for
+	// migrated repositories.
 	DisableMirrorFS bool `yaml:"disablemirrorfs,omitempty"`
-	// Proxy configures the target registry for which requests that target new repositories (unknown to this instance)
-	// should be proxied to.
-	Proxy struct {
-		// Enabled enables the proxy mode. Please note that proxy and target registries should share the same secret,
-		// configured with HTTP.Secret. The target registry HTTP.Host should also be set with the hostname of the proxy
-		// registry (public), otherwise Location headers will have the target registry hostname (private).
-		Enabled bool `yaml:"enabled,omitempty"`
-		// URL is the URL of the target registry instance for where requests should be proxied to.
-		URL string `yaml:"url,omitempty"`
-		// Include allows filtering repositories that should be proxied by name, using a list of regular expressions.
-		Include []*Regexp `yaml:"include,omitempty"`
-		// Exclude allows filtering repositories that should not be proxied by name, using a list of regular expressions.
-		Exclude []*Regexp `yaml:"exclude,omitempty"`
-	} `yaml:"proxy,omitempty"`
+	// Prefix allows repositories that have been migrated to the database to
+	// have seperate storage paths in the form of <storage-driver-root>/<migration-prefix>/docker/registry/v2
+	Prefix string `yaml:"prefix,omitempty"`
+	// Include allows filtering repositories that should be proxied by name, using a list of regular expressions.
+	Include []*Regexp `yaml:"include,omitempty"`
+	// Exclude allows filtering repositories that should not be proxied by name, using a list of regular expressions.
+	Exclude []*Regexp `yaml:"exclude,omitempty"`
 }
 
 // MailOptions provides the configuration sections to user, for specific handler.

@@ -35,7 +35,8 @@ type Context struct {
 
 	urlBuilder *v2.URLBuilder
 
-	useDatabase bool
+	useDatabase     bool
+	writeFSMetadata bool
 
 	// TODO(stevvooe): The goal is too completely factor this context and
 	// dispatching out of the web application. Ideally, we should lean on

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -479,10 +478,6 @@ func resolveConfiguration(args []string, opts ...configuration.ParseOption) (*co
 }
 
 func validate(config *configuration.Configuration) error {
-	if !config.Database.Enabled && config.Migration.DisableMirrorFS {
-		return fmt.Errorf("filesystem mirroring may only be disabled when database is enabled")
-	}
-
 	// Validate redirect section.
 	if redirectConfig, ok := config.Storage["redirect"]; ok {
 		v, ok := redirectConfig["disable"]
@@ -493,18 +488,6 @@ func validate(config *configuration.Configuration) error {
 		case bool:
 		default:
 			return fmt.Errorf("invalid type %[1]T for 'storage.redirect.disable' (boolean)", v)
-		}
-	}
-
-	if config.Migration.Proxy.Enabled {
-		if config.Migration.Proxy.URL == "" {
-			return errors.New("a URL is required when the migration proxy is enabled")
-		}
-		if _, err := url.Parse(config.Migration.Proxy.URL); err != nil {
-			return fmt.Errorf("invalid target registry URL: %w", err)
-		}
-		if config.HTTP.Secret == "" {
-			return errors.New("a HTTP secret is required when the migration proxy is enabled")
 		}
 	}
 
