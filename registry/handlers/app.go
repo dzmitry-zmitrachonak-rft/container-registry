@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -70,12 +71,13 @@ type App struct {
 
 	Config *configuration.Configuration
 
-	router           *mux.Router                    // main application router, configured with dispatchers
-	driver           storagedriver.StorageDriver    // driver maintains the app global storage driver instance.
-	db               *datastore.DB                  // db is the global database handle used across the app.
-	registry         distribution.Namespace         // registry is the primary registry backend for the app instance.
-	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
-	accessController auth.AccessController          // main access controller for application
+	router            *mux.Router                    // main application router, configured with dispatchers
+	driver            storagedriver.StorageDriver    // driver maintains the app global storage driver instance.
+	db                *datastore.DB                  // db is the global database handle used across the app.
+	registry          distribution.Namespace         // registry is the primary registry backend for the app instance.
+	migrationRegistry distribution.Namespace         // migrationRegistry is the secondary registry backend for migration.
+	repoRemover       distribution.RepositoryRemover // repoRemover provides ability to delete repos
+	accessController  auth.AccessController          // main access controller for application
 
 	// httpHost is a parsed representation of the http.host parameter from
 	// the configuration. Only the Scheme and Host fields are used.
@@ -380,7 +382,14 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		}
 	}
 
+	app.migrationRegistry = newNamespace(app.Context, config, options...)
+
 	app.registry, err = applyRegistryMiddleware(app, app.registry, config.Middleware["registry"])
+	if err != nil {
+		panic(err)
+	}
+
+	app.migrationRegistry, err = applyRegistryMiddleware(app, app.migrationRegistry, config.Middleware["registry"])
 	if err != nil {
 		panic(err)
 	}
@@ -424,6 +433,76 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	}
 
 	return app
+}
+
+func newNamespace(ctx context.Context, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
+	storageParams := config.Storage.Parameters()
+	if storageParams == nil {
+		storageParams = make(configuration.Parameters)
+	}
+
+	rootDir := path.Join(fmt.Sprintf("%s", storageParams["rootdirectory"]), "gitlab")
+	storageParams["rootdirectory"] = rootDir
+
+	driver, err := factory.Create(config.Storage.Type(), storageParams)
+	if err != nil {
+		panic(err)
+	}
+
+	registry, err := storage.NewRegistry(ctx, driver, options...)
+	if err != nil {
+		panic(err)
+	}
+
+	return registry
+}
+
+func (app *App) needsDatabase(repo distribution.Repository) (bool, error) {
+	if !app.Config.Database.Enabled {
+		return false, nil
+	}
+
+	validator, ok := repo.(storage.RepositoryValidator)
+	if !ok {
+		return false, errors.New("repository does not implement RepositoryValidator interface")
+	}
+
+	// check if repository exists in this instance's storage backend, proxy to target registry if not
+	exists, err := validator.Exists(app.Context)
+	if err != nil {
+		return false, fmt.Errorf("unable to determine if repository exists: %w", err)
+	}
+	log := dcontext.GetLogger(app.Context)
+	if exists {
+		log.Warn("repository will be served via the filesystem")
+		return false, nil
+	}
+
+	// evaluate inclusion filters, if any
+	if len(app.Config.Migration.Proxy.Include) > 0 {
+		var proxy bool
+		for _, r := range app.Config.Migration.Proxy.Include {
+			if r.MatchString(repo.Named().String()) {
+				proxy = true
+			}
+		}
+		if !proxy {
+			log.Warn("repository name does not match any inclusion filter, request will be served via the filesystem")
+			return false, nil
+		}
+	}
+	// evaluate exclusion filters, if any
+	if len(app.Config.Migration.Proxy.Exclude) > 0 {
+		for _, r := range app.Config.Migration.Proxy.Exclude {
+			if r.MatchString(repo.Named().String()) {
+				log.WithField("filter", r.String()).Debug("repository name matches an exclusion filter, request will be served via the filesystem")
+				return false, nil
+			}
+		}
+	}
+
+	log.Warn("repository will be served via the database")
+	return true, nil
 }
 
 var (
@@ -853,6 +932,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				}
 				return
 			}
+
 			repository, err := app.registry.Repository(context, nameRef)
 
 			if err != nil {
@@ -871,6 +951,34 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 					dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
 				}
 				return
+			}
+
+			serveDB, err := app.needsDatabase(repository)
+			if err != nil {
+				panic(err)
+			}
+
+			if serveDB {
+				repository, err = app.migrationRegistry.Repository(context, nameRef)
+				if err != nil {
+					dcontext.GetLogger(context).Errorf("error resolving repository: %v", err)
+
+					switch err := err.(type) {
+					case distribution.ErrRepositoryUnknown:
+						context.Errors = append(context.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
+					case distribution.ErrRepositoryNameInvalid:
+						context.Errors = append(context.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
+					case errcode.Error:
+						context.Errors = append(context.Errors, err)
+					}
+
+					if err := errcode.ServeJSON(w, context.Errors); err != nil {
+						dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+					}
+					return
+				}
+
+				context.useDatabase = true
 			}
 
 			// assign and decorate the authorized repository with an event bridge.

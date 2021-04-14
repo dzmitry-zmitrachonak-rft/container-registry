@@ -262,7 +262,7 @@ func (imh *manifestHandler) rewriteManifestList(manifestList *manifestlist.Deser
 var errETagMatches = errors.New("etag matches")
 
 func (imh *manifestHandler) newManifestGetter(req *http.Request) (manifestGetter, error) {
-	if imh.Config.Database.Enabled {
+	if imh.useDatabase {
 		return newDBManifestGetter(imh, req)
 	}
 
@@ -495,6 +495,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	mediaType := r.Header.Get("Content-Type")
+
 	manifest, desc, err := distribution.UnmarshalManifest(mediaType, jsonBuf.Bytes())
 	if err != nil {
 		imh.Errors = append(imh.Errors, v2.ErrorCodeManifestInvalid.WithDetail(err))
@@ -540,7 +541,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if imh.Config.Database.Enabled {
+	if imh.useDatabase {
 		if err := dbPutManifest(imh, manifest, jsonBuf.Bytes()); err != nil {
 			imh.appendPutError(err)
 			return
@@ -559,7 +560,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		}
 
 		// Associate tag with manifest in database.
-		if imh.Config.Database.Enabled {
+		if imh.useDatabase {
 			repoName := imh.Repository.Named().Name()
 			if err := dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
 				if errors.Is(err, datastore.ErrManifestNotFound) {
@@ -793,7 +794,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 	// repository scoped filesystem blob service will have a link to the
 	// configuration blob; however, since we check for repository scoped access
 	// via the database above, we may retrieve the blob directly common storage.
-	blobService, ok := imh.App.registry.Blobs().(distribution.BlobProvider)
+	blobService, ok := imh.App.migrationRegistry.Blobs().(distribution.BlobProvider)
 	if !ok {
 		return fmt.Errorf("unable to convert BlobEnumerator into BlobService")
 	}
@@ -1197,7 +1198,7 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	if imh.App.Config.Database.Enabled {
+	if imh.useDatabase {
 		if !deleteEnabled(imh.App.Config) {
 			imh.Errors = append(imh.Errors, errcode.ErrorCodeUnsupported)
 			return

@@ -99,7 +99,7 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 	var dgst digest.Digest
 	blobs := bh.Repository.Blobs(bh)
 
-	if bh.Config.Database.Enabled {
+	if bh.useDatabase {
 		if err := dbGetBlob(bh.Context, bh.db, bh.Repository.Named().Name(), bh.Digest); err != nil {
 			bh.Errors = append(bh.Errors, errcode.FromUnknownError(err))
 			return
@@ -203,13 +203,13 @@ func (bh *blobHandler) deleteBlob() error {
 			return err
 		}
 
-		if !bh.App.Config.Database.Enabled {
+		if !bh.useDatabase {
 			return nil
 		}
 
 	}
 
-	if bh.App.Config.Database.Enabled {
+	if bh.useDatabase {
 		return dbDeleteBlob(bh.Context, bh.App.Config, bh.db, bh.Repository.Named().Name(), bh.Digest)
 	}
 
