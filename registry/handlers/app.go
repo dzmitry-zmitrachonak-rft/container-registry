@@ -953,6 +953,20 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
+			bp, ok := app.registry.Blobs().(distribution.BlobProvider)
+			if !ok {
+				panic(fmt.Errorf("unable to convert BlobEnumerator into BlobProvider"))
+			}
+			context.blobProvider = bp
+
+			if app.Config.Database.Enabled {
+				context.useDatabase = true
+				context.writeFSMetadata = false
+			} else {
+				context.useDatabase = false
+				context.writeFSMetadata = true
+			}
+
 			if app.Config.Migration.Enabled {
 				migrateRepo, err := app.shouldMigrate(repository)
 				if err != nil {
@@ -960,11 +974,13 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				}
 
 				if migrateRepo {
+					context.useDatabase = true
+					context.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
+
 					bp, ok := app.migrationRegistry.Blobs().(distribution.BlobProvider)
 					if !ok {
 						panic(fmt.Errorf("unable to convert BlobEnumerator into BlobProvider"))
 					}
-
 					context.blobProvider = bp
 
 					repository, err = app.migrationRegistry.Repository(context, nameRef)
@@ -985,21 +1001,6 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 						}
 						return
 					}
-
-					context.useDatabase = true
-					context.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
-				}
-			} else {
-				bp, ok := app.registry.Blobs().(distribution.BlobProvider)
-				if !ok {
-					panic(fmt.Errorf("unable to convert BlobEnumerator into BlobProvider"))
-				}
-
-				context.blobProvider = bp
-
-				if app.Config.Database.Enabled {
-					context.useDatabase = true
-					context.writeFSMetadata = false
 				} else {
 					context.useDatabase = false
 					context.writeFSMetadata = true
