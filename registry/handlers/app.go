@@ -1015,6 +1015,12 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				panic("unexpected configuration")
 			}
 
+			context.Context = dcontext.WithLogger(context.Context, dcontext.GetLoggerWithFields(context.Context, map[interface{}]interface{}{
+				"use_database":         context.useDatabase,
+				"write_fs_metadata":    context.writeFSMetadata,
+				"migrating_repository": migrateRepo,
+			}))
+
 			// assign and decorate the authorized repository with an event bridge.
 			context.Repository, context.RepositoryRemover = notifications.Listen(
 				repository,
