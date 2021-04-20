@@ -957,11 +957,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		context.Context = dcontext.WithLogger(context.Context, dcontext.GetLogger(context.Context, auth.UserNameKey))
 
 		// sync up context on the request.
-		// TODO (Hayley): We'll need to determine now to handle requests from the
-		// v2/_catalog endpoint with this single registry approach as there's no
-		// repository information. We'll need to favor one side or the other, or
-		// merge the results from both into a single set.
 		r = r.WithContext(context)
+
+		// Save whether we're migrating a repo or not for logging later.
+		var migrateRepo bool
 
 		if app.nameRequired(r) {
 			nameRef, err := reference.WithName(getName(context))
@@ -1002,7 +1001,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
-			migrateRepo, err := app.shouldMigrate(repository)
+			migrateRepo, err = app.shouldMigrate(repository)
 			if err != nil {
 				panic(err)
 			}
@@ -1055,12 +1054,6 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				panic("unexpected configuration")
 			}
 
-			context.Context = dcontext.WithLogger(context.Context, dcontext.GetLoggerWithFields(context.Context, map[interface{}]interface{}{
-				"use_database":         context.useDatabase,
-				"write_fs_metadata":    context.writeFSMetadata,
-				"migrating_repository": migrateRepo,
-			}))
-
 			// assign and decorate the authorized repository with an event bridge.
 			context.Repository, context.RepositoryRemover = notifications.Listen(
 				repository,
@@ -1077,7 +1070,24 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				}
 				return
 			}
+		} else {
+			// This is not a repository-scoped request, so we must return resuts from
+			// either either the filesystem or the database, even if we're configured
+			// for migration.
+			if app.Config.Database.Enabled {
+				context.useDatabase = true
+				context.writeFSMetadata = false
+			} else {
+				context.useDatabase = false
+				context.writeFSMetadata = true
+			}
 		}
+
+		context.Context = dcontext.WithLogger(context.Context, dcontext.GetLoggerWithFields(context.Context, map[interface{}]interface{}{
+			"use_database":         context.useDatabase,
+			"write_fs_metadata":    context.writeFSMetadata,
+			"migrating_repository": migrateRepo,
+		}))
 
 		dispatch(context, r).ServeHTTP(w, r)
 		// Automated error response handling here. Handlers may return their
