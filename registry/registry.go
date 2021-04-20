@@ -20,6 +20,7 @@ import (
 	"github.com/docker/distribution/registry/listener"
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/distribution/version"
+	"github.com/hashicorp/go-multierror"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -478,16 +479,42 @@ func resolveConfiguration(args []string, opts ...configuration.ParseOption) (*co
 }
 
 func validate(config *configuration.Configuration) error {
+	var errs error
 	// Validate redirect section.
 	if redirectConfig, ok := config.Storage["redirect"]; ok {
 		v, ok := redirectConfig["disable"]
 		if !ok {
-			return fmt.Errorf("'storage.redirect' section must include 'disable' parameter (boolean)")
+			errs = multierror.Append(errs, fmt.Errorf("'storage.redirect' section must include 'disable' parameter (boolean)"))
 		}
 		switch v := v.(type) {
 		case bool:
 		default:
-			return fmt.Errorf("invalid type %[1]T for 'storage.redirect.disable' (boolean)", v)
+			errs = multierror.Append(errs, fmt.Errorf("invalid type %[1]T for 'storage.redirect.disable' (boolean)", v))
+		}
+	}
+
+	// Validate migration section.
+	if config.Migration.Enabled {
+		if !config.Database.Enabled {
+			errs = multierror.Append(errs, fmt.Errorf("database must be enabled to migrate"))
+		}
+
+		storageParams := config.Storage.Parameters()
+		if storageParams == nil {
+			storageParams = make(configuration.Parameters)
+		}
+
+		// We can only run garbage collection during a migration if we are managing
+		// migrated fs data under a separate root directory. Otherwise migrated and
+		// unmigrated data will be mixed together and we will not be able to perform
+		// garbage collection safely.
+		if !config.GC.Disabled {
+			if config.Migration.AlternativeRootDirectory == "" ||
+				(config.Migration.AlternativeRootDirectory == fmt.Sprintf("%s", storageParams["rootdirectory"])) {
+				errs = multierror.Append(errs,
+					fmt.Errorf("cannot run online garbage collection during a migration without moving migrated data to new root directory, "+
+						"see AlternativeRootDirectory in the Migration section of the configuration documentation"))
+			}
 		}
 	}
 

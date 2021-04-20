@@ -163,6 +163,12 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 
 	startUploadPurger(app, app.driver, log, purgeConfig)
 
+	// Also start an upload purger for the new root directory if we're migrating
+	// to a different root directory.
+	if app.Config.Migration.Enabled && distinctAlternativeRootDirectory(config) {
+		startUploadPurger(app, app.migrationDriver, log, purgeConfig)
+	}
+
 	app.driver, err = applyStorageMiddleware(app.driver, config.Middleware["storage"])
 	if err != nil {
 		panic(err)
@@ -324,7 +330,18 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				log.WithError(err).Error("failed to update online GC settings")
 			}
 		}()
-		startOnlineGC(app.Context, app.db, app.driver, config)
+
+		// If we're not migrating, then we'll use the main storage driver, if not we
+		// need to use the migration driver since that will contain the storage
+		// managed by the database instead.
+		var gcDriver storagedriver.StorageDriver
+		if app.Config.Migration.Enabled {
+			gcDriver = app.migrationDriver
+		} else {
+			gcDriver = app.driver
+		}
+
+		startOnlineGC(app.Context, app.db, gcDriver, config)
 	}
 
 	// configure storage caches
@@ -441,7 +458,7 @@ func migrationDriver(ctx context.Context, config *configuration.Configuration, o
 		storageParams = make(configuration.Parameters)
 	}
 
-	if config.Migration.AlternativeRootDirectory != "" {
+	if distinctAlternativeRootDirectory(config) {
 		storageParams["rootdirectory"] = config.Migration.AlternativeRootDirectory
 	}
 
@@ -464,6 +481,19 @@ func migrationRegistry(ctx context.Context, driver storagedriver.StorageDriver, 
 	}
 
 	return registry
+}
+
+func distinctAlternativeRootDirectory(config *configuration.Configuration) bool {
+	storageParams := config.Storage.Parameters()
+	if storageParams == nil {
+		storageParams = make(configuration.Parameters)
+	}
+
+	if config.Migration.AlternativeRootDirectory != fmt.Sprintf("%s", storageParams["rootdirectory"]) {
+		return true
+	}
+
+	return false
 }
 
 func (app *App) shouldMigrate(repo distribution.Repository) (bool, error) {
@@ -568,7 +598,8 @@ func updateOnlineGCSettings(ctx context.Context, db datastore.Queryer, config *c
 }
 
 func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storagedriver.StorageDriver, config *configuration.Configuration) {
-	if !config.Database.Enabled || config.GC.Disabled || (config.GC.Blobs.Disabled && config.GC.Manifests.Disabled) {
+	if !config.Database.Enabled || config.GC.Disabled || (config.GC.Blobs.Disabled && config.GC.Manifests.Disabled) &&
+		(config.Migration.Enabled && distinctAlternativeRootDirectory(config)) {
 		return
 	}
 
