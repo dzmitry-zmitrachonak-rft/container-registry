@@ -331,9 +331,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			}
 		}()
 
-		// If we're not migrating, then we'll use the main storage driver, if not we
-		// need to use the migration driver since that will contain the storage
-		// managed by the database instead.
+		// If we're migrating, then we'll use use the migration driver since that
+		// will contain the storage managed by the database, if not we need to use
+		// the main storage driver.
 		var gcDriver storagedriver.StorageDriver
 		if app.Config.Migration.Enabled {
 			gcDriver = app.migrationDriver
