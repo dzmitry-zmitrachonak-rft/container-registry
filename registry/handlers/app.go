@@ -74,7 +74,8 @@ type App struct {
 	driver            storagedriver.StorageDriver    // driver maintains the app global storage driver instance.
 	db                *datastore.DB                  // db is the global database handle used across the app.
 	registry          distribution.Namespace         // registry is the primary registry backend for the app instance.
-	migrationRegistry distribution.Namespace         // migrationRegistry is the secondary registry backend for migration.
+	migrationRegistry distribution.Namespace         // migrationRegistry is the secondary registry backend for migration
+	migrationDriver   storagedriver.StorageDriver    // migrationDriver is the secondary storage driver for migration
 	repoRemover       distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController  auth.AccessController          // main access controller for application
 
@@ -383,7 +384,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	}
 
 	if config.Migration.Enabled {
-		app.migrationRegistry = migrationRegistry(app.Context, config, options...)
+		app.migrationDriver = migrationDriver(app.Context, config)
+
+		app.migrationRegistry = migrationRegistry(app.Context, app.migrationDriver, config, options...)
 
 		app.migrationRegistry, err = applyRegistryMiddleware(app, app.migrationRegistry, config.Middleware["registry"])
 		if err != nil {
@@ -432,19 +435,25 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	return app
 }
 
-func migrationRegistry(ctx context.Context, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
+func migrationDriver(ctx context.Context, config *configuration.Configuration, options ...storage.RegistryOption) storagedriver.StorageDriver {
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {
 		storageParams = make(configuration.Parameters)
 	}
 
-	storageParams["rootdirectory"] = config.Migration.AlternativeRootDirectory
+	if config.Migration.AlternativeRootDirectory != "" {
+		storageParams["rootdirectory"] = config.Migration.AlternativeRootDirectory
+	}
 
 	driver, err := factory.Create(config.Storage.Type(), storageParams)
 	if err != nil {
 		panic(err)
 	}
 
+	return driver
+}
+
+func migrationRegistry(ctx context.Context, driver storagedriver.StorageDriver, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
 	if config.Migration.DisableMirrorFS {
 		options = append(options, storage.DisableMirrorFS)
 	}
