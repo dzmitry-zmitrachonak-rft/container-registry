@@ -120,7 +120,7 @@ func (imp *Importer) findOrCreateDBManifest(ctx context.Context, dbRepo *models.
 	return dbManifest, nil
 }
 
-func (imp *Importer) importLayer(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, dbManifest *models.Manifest, dbLayer *models.Blob) error {
+func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository, dbManifest *models.Manifest, dbLayer *models.Blob) error {
 	if err := imp.blobStore.CreateOrFind(ctx, dbLayer); err != nil {
 		return fmt.Errorf("creating layer blob: %w", err)
 	}
@@ -152,7 +152,7 @@ func (imp *Importer) importLayers(ctx context.Context, fsRepo distribution.Repos
 		})
 		log.Info("importing layer")
 
-		err := imp.importLayer(ctx, fsRepo, dbRepo, dbManifest, &models.Blob{
+		err := imp.importLayer(ctx, dbRepo, dbManifest, &models.Blob{
 			MediaType: fsLayer.MediaType,
 			Digest:    fsLayer.Digest,
 			Size:      fsLayer.Size,
@@ -234,7 +234,7 @@ func (imp *Importer) importV2Manifest(ctx context.Context, fsRepo distribution.R
 		Digest:    m.config().Digest,
 		Size:      m.config().Size,
 	}
-	if err := imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
+	if err = imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
 		return nil, err
 	}
 
