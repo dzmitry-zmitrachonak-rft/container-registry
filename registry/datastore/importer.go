@@ -140,7 +140,7 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 	return nil
 }
 
-func (imp *Importer) importLayers(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
+func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
 	total := len(fsLayers)
 	for i, fsLayer := range fsLayers {
 		log := logrus.WithFields(logrus.Fields{
@@ -265,7 +265,7 @@ func (imp *Importer) importV2Manifest(ctx context.Context, fsRepo distribution.R
 	}
 
 	// import manifest layers
-	if err := imp.importLayers(ctx, fsRepo, dbRepo, dbManifest, m.layers()); err != nil {
+	if err := imp.importLayers(ctx, dbRepo, dbManifest, m.layers()); err != nil {
 		return nil, fmt.Errorf("error importing layers: %w", err)
 	}
 
