@@ -713,7 +713,7 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, dgst digest.Digest
 	defer cancel()
 
 	mts := datastore.NewGCManifestTaskStore(tx)
-	if _, err := mts.FindAndLockBefore(ctx, dbRepo.ID, dbManifest.ID, time.Now().Add(manifestTagGCReviewWindow)); err != nil {
+	if _, err := mts.FindAndLockBefore(ctx, dbRepo.NamespaceID, dbRepo.ID, dbManifest.ID, time.Now().Add(manifestTagGCReviewWindow)); err != nil {
 		return err
 	}
 
@@ -977,7 +977,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	defer cancel()
 
 	mts := datastore.NewGCManifestTaskStore(tx)
-	if _, err := mts.FindAndLockNBefore(ctx, r.ID, ids, time.Now().Add(manifestListCreateGCReviewWindow)); err != nil {
+	if _, err := mts.FindAndLockNBefore(ctx, r.NamespaceID, r.ID, ids, time.Now().Add(manifestListCreateGCReviewWindow)); err != nil {
 		return err
 	}
 
@@ -1144,7 +1144,7 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string
 		defer cancel()
 
 		mts := datastore.NewGCManifestTaskStore(tx)
-		if _, err := mts.FindAndLockNBefore(ctx, r.ID, ids, time.Now().Add(manifestDeleteGCReviewWindow)); err != nil {
+		if _, err := mts.FindAndLockNBefore(ctx, r.NamespaceID, r.ID, ids, time.Now().Add(manifestDeleteGCReviewWindow)); err != nil {
 			return err
 		}
 	}

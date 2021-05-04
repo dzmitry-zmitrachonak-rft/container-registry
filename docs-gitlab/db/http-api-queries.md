@@ -8,18 +8,70 @@ Here we list queries used across several operations and refer to them from each 
 
 ```sql
 SELECT
-    id
+   id
 FROM
-    repositories
+   repositories
 WHERE
-    path = $1;
+      namespace_id = (
+      SELECT
+         id
+      FROM
+         namespaces
+      WHERE
+         name = split_part($1, '/', 1))
+  AND path = $1;
 ```
+
+#### Create or find repository by path
+
+This is an idempotent and safe way to find or create a repository by path for highly concurrent write operations, namely blob and manifest uploads.
+
+1. We start by creating or finding the namespace by `name`. This is the first portion of the path, e.g. `a` for a path of `a/b/c`:
+
+   ```sql
+   INSERT INTO namespaces (name)
+       VALUES ($1)
+   ON CONFLICT (name)
+       DO NOTHING
+   RETURNING
+       id, created_at;
+   ```
+
+   If the result set from the query above has no rows, then we know the namespace already exists and we can find it by name:
+
+   ```sql
+   SELECT
+       id,
+       name,
+       created_at,
+       updated_at
+   FROM
+       namespaces
+   WHERE
+       name = $1;
+   ```
+
+2. With the namespace in hand, we create or find all parent repositories, including the root one (namespace). For a path of `a/b/c`, we therefore create repositories `a` and `b`, in this order, making sure to link them together through `parent_id`:
+
+   ```sql
+   INSERT INTO repositories (namespace_id, name, path, parent_id)
+       VALUES ($1, $2, $3, $4)
+   ON CONFLICT (namespace_id, path)
+       DO NOTHING
+   RETURNING
+       id, created_at;
+   ```
+
+   If the result set from each of the queries above has no rows, then we know the corresponding parent repository already exists and we can [find it by path](#check-if-repository-with-a-given-path-exists-and-grab-its-id).
+
+3. Finally, we create the leaf repository, e.g., `c` for a path of `a/b/c`, linking it to `b`. This is done as described in (2).
 
 #### Find manifest by digest in repository
 
 ```sql
 SELECT
     m.id,
+    m.namespace_id,
     m.repository_id,
     m.schema_version,
     mt.media_type,
@@ -34,8 +86,9 @@ FROM
     JOIN media_types AS mt ON mt.id = m.media_type_id
     LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 WHERE
-    m.repository_id = $1
-    AND m.digest = decode($2, 'hex');
+    m.namespace_id = $1
+    AND m.repository_id = $2
+    AND m.digest = decode($3, 'hex');
 ```
 
 #### Check if manifest exists in repository
@@ -48,8 +101,9 @@ SELECT
         FROM
             manifests
         WHERE
-            repository_id = $1
-            AND digest = decode($2, 'hex'));
+            namespace_id = $1
+            AND repository_id = $2
+            AND digest = decode($3, 'hex'));
 ```
 
 #### Find blob by digest in repository
@@ -65,8 +119,9 @@ FROM
     JOIN media_types AS mt ON mt.id = b.media_type_id
     JOIN repository_blobs AS rb ON rb.blob_digest = b.digest
 WHERE
-    rb.repository_id = $1
-    AND b.digest = decode($2, 'hex');
+    rb.namespace_id = $1
+    AND rb.repository_id = $2
+    AND b.digest = decode($3, 'hex');
 ```
 
 #### Check if blob exists in repository
@@ -79,8 +134,9 @@ SELECT
         FROM
             repository_blobs
         WHERE
-            repository_id = $1
-            AND blob_digest = decode($2, 'hex'));
+            namespace_id = $1
+            AND repository_id = $2
+            AND blob_digest = decode($3, 'hex'));
 ```
 
 #### Link blob to repository
@@ -88,9 +144,9 @@ SELECT
 This operation is idempotent.
 
 ```sql
-INSERT INTO repository_blobs (repository_id, blob_digest)
-    VALUES ($1, decode($2, 'hex'))
-ON CONFLICT (repository_id, blob_digest)
+INSERT INTO repository_blobs (namespace_id, repository_id, blob_digest)
+    VALUES ($1, $2, decode($3, 'hex'))
+ON CONFLICT (namespace_id, repository_id, blob_digest)
     DO NOTHING;
 ```
 
@@ -109,6 +165,7 @@ GET /v2/_catalog
 ```sql
 SELECT
     r.id,
+    r.namespace_id,
     r.name,
     r.path,
     r.parent_id,
@@ -122,7 +179,8 @@ WHERE
         FROM
             manifests AS m
         WHERE
-            m.repository_id = r.id) -- ignore repositories that have no manifests (empty)
+            m.namespace_id = r.namespace_id
+            AND m.repository_id = r.id) -- ignore repositories that have no manifests (empty)
     AND r.path > $1 -- pagination marker (lexicographic)
 ORDER BY
     r.path
@@ -160,7 +218,7 @@ Same as for pull operation. Although we're just checking for existence, the HTTP
 PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>
 ```
 
-1. [Check if repository with `path` `<name>` exists and grab its ID](#check-if-repository-with-a-given-path-exists-and-grab-its-id);
+1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path);
 
 2. "*Create or find*" blob with digest `<digest>` in repository `<name>`. We avoid a "*find or create*" because it's prone to race conditions on inserts and this is a concurrent operation:
 
@@ -185,7 +243,7 @@ PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>
 POST /v2/<name>/blobs/uploads/?mount=<digest>&from=<repository name> 
 ```
 
-1. [Check if repository with `path` `<name>` exists and grab its ID](#check-if-repository-with-a-given-path-exists-and-grab-its-id);
+1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path);
 2. [Check if *source* repository with `path` `<repository name>` exists and grab its ID](#check-if-repository-with-a-given-path-exists-and-grab-its-id);
 3. [Check if blob with digest `<digest>` exists and is linked to the *source* `<repository name>` repository](#check-if-blob-exists-in-repository);
 4. [Link blob with digest `<digest>` to *target* `<name>` repository](#link-blob-to-repository).
@@ -204,8 +262,9 @@ DELETE /v2/<name>/blobs/<digest>
 
    ```sql
    DELETE FROM repository_blobs
-   WHERE repository_id = $1
-   		AND blob_digest = decode($2, 'hex');
+   WHERE namespace_id = $1
+        AND repository_id = $2
+   		AND blob_digest = decode($3, 'hex');
    ```
 
    If the query affected no rows we know the blob link does not exist and raise the corresponding error. This avoids the need for a separate preceding `SELECT` to find if the link exists.
@@ -235,6 +294,7 @@ A manifest can be pulled by digest or tag.
    ```sql
    SELECT
        m.id,
+       m.namespace_id,
        m.repository_id,
        m.created_at,
        m.schema_version,
@@ -249,11 +309,13 @@ A manifest can be pulled by digest or tag.
        manifests AS m
        JOIN media_types AS mt ON mt.id = m.media_type_id
        LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
-       JOIN tags AS t ON t.repository_id = m.repository_id
+       JOIN tags AS t ON t.namespace_id = m.namespace_id
+            AND t.repository_id = m.repository_id
             AND t.manifest_id = m.id
    WHERE
-       m.repository_id = $2
-       AND t.name = $1;
+       m.namespace_id = $1
+       AND m.repository_id = $2
+       AND t.name = $3;
    ```
 
 #### Check existence
@@ -280,7 +342,7 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 
 ###### By digest
 
-1. [Check if repository with `path` `<name>` exists and grab its ID](#check-if-repository-with-a-given-path-exists-and-grab-its-id);
+1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path)
 
 2. For each referenced artifact in the manifest payload (configuration, layer and/or other manifest):
 
@@ -291,9 +353,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 3. "*Create or find*" manifest in repository `<name>`. We avoid a "*find or create*" because it's prone to race conditions on inserts and this is a concurrent operation:
 
    ```sql
-   INSERT INTO manifests (repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
-       VALUES ($1, $2, $3, decode($4, 'hex'), $5, $6, decode($7, 'hex'))
-   ON CONFLICT (repository_id, digest)
+   INSERT INTO manifests (namespace_id, repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
+       VALUES ($1, $2, $3, $4, decode($5, 'hex'), $6, $7, decode($8, 'hex'))
+   ON CONFLICT (namespace_id, repository_id, digest)
        DO NOTHING
    RETURNING
        id, created_at;
@@ -308,10 +370,10 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
    2. Create layer record. It does nothing if already exists:
 
       ```sql
-      INSERT INTO layers (repository_id, manifest_id, digest, size, media_type_id)
-          VALUES ($1, $2, decode($3, 'hex'), $4, $5)
-      ON CONFLICT (repository_id, manifest_id, digest)
-      			DO NOTHING;
+      INSERT INTO layers (namespace_id, repository_id, manifest_id, digest, size, media_type_id)
+          VALUES ($1, $2, $3, decode($4, 'hex'), $5, $6)
+      ON CONFLICT (namespace_id, repository_id, manifest_id, digest)
+          DO NOTHING;
       ```
 
 ###### By tag
@@ -323,9 +385,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
    If the tag doesn't exist we insert it, if the tag already exists we update it, but only if the current manifest that it points to is different (to avoid "empty" updates that may trigger unwanted/unnecessary actions in the database):
 
    ```sql
-   INSERT INTO tags (repository_id, manifest_id, name)
-       VALUES ($1, $2, $3)
-   ON CONFLICT (repository_id, name)
+   INSERT INTO tags (namespace_id, repository_id, manifest_id, name)
+       VALUES ($1, $2, $3, $4)
+   ON CONFLICT (namespace_id, repository_id, name)
        DO UPDATE SET
            manifest_id = EXCLUDED.manifest_id, updated_at = now()
        WHERE
@@ -338,16 +400,16 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 
 ###### By digest
 
-1. [Check if repository with `path` `<name>` exists and grab its ID](#check-if-repository-with-a-given-path-exists-and-grab-its-id);
+1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path);
 
 2. For each manifest referenced in the list, [check if manifest exists in repository `<name>`](#check-if-manifest-exists-in-repository);
 
 3. "*Create or find*" manifest list in repository `<name>`. We avoid a "*find or create*" because it's prone to race conditions on inserts and this is a concurrent operation:
 
    ```sql
-   INSERT INTO manifests (repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
-       VALUES ($1, $2, $3, decode($4, 'hex'), $5, $6, decode($7, 'hex'))
-   ON CONFLICT (repository_id, digest)
+   INSERT INTO manifests (namespace_id, repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
+       VALUES ($1, $2, $3, $4, decode($5, 'hex'), $6, $7, decode($8, 'hex'))
+   ON CONFLICT (namespace_id, repository_id, digest)
        DO NOTHING
    RETURNING
        id, created_at;
@@ -358,9 +420,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 4. Create a relationship record for each manifest referenced in the manifest list payload, where `parent_id` is the manifest list ID and `child_id` is the referenced manifest ID (bulk insert). Do nothing if relationship already exists:
 
    ```sql
-   INSERT INTO manifest_references (repository_id, parent_id, child_id)
-       VALUES ($1, $2, $3)
-   ON CONFLICT (repository_id, parent_id, child_id)
+   INSERT INTO manifest_references (namespace_id, repository_id, parent_id, child_id)
+       VALUES ($1, $2, $3, $4)
+   ON CONFLICT (namespace_id, repository_id, parent_id, child_id)
        DO NOTHING;
     ```
 
@@ -383,8 +445,9 @@ DELETE /v2/<name>/manifests/<reference>
 
    ```sql
    DELETE FROM manifests
-   WHERE repository_id = $1
-       AND digest = decode($2, 'hex');
+   WHERE namespace_id = $1
+       AND repository_id = $2
+       AND digest = decode($3, 'hex');
    ```
 
    If the query affected no rows we know the manifest does not exist and raise the corresponding error. This avoids the need for a separate preceding `SELECT` to find if the manifest exists.
@@ -404,19 +467,21 @@ GET /v2/<name>/tags/list
    ```sql
    SELECT
        id,
-       name,
+       namespace_id,
        repository_id,
        manifest_id,
+       name,
        created_at,
        updated_at
    FROM
        tags
    WHERE
-       repository_id = $1
-       AND name > $2 -- pagination marker (lexicographic)
+       namespace_id = $1
+       AND repository_id = $2
+       AND name > $3 -- pagination marker (lexicographic)
    ORDER BY
        name
-   LIMIT $3; -- pagination limit
+   LIMIT $4; -- pagination limit
    ```
 
 #### Delete
@@ -433,8 +498,9 @@ DELETE /v2/<name>/tags/reference/<reference>
 
    ```sql
    DELETE FROM tags
-   WHERE repository_id = $1
-       AND name = $2;
+   WHERE namespace_id = $1
+       AND repository_id = $2
+       AND name = $3;
    ```
 
    If the resultset has no rows we know the tag does not exist and raise the corresponding error. This avoids the need for a separate preceding `SELECT` to find if the tag exists.

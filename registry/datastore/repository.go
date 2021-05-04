@@ -132,7 +132,7 @@ func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) 
 func scanFullRepository(row *sql.Row) (*models.Repository, error) {
 	r := new(models.Repository)
 
-	if err := row.Scan(&r.ID, &r.Name, &r.Path, &r.ParentID, &r.CreatedAt, &r.UpdatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.NamespaceID, &r.Name, &r.Path, &r.ParentID, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("scanning repository: %w", err)
 		}
@@ -148,7 +148,7 @@ func scanFullRepositories(rows *sql.Rows) (models.Repositories, error) {
 
 	for rows.Next() {
 		r := new(models.Repository)
-		if err := rows.Scan(&r.ID, &r.Name, &r.Path, &r.ParentID, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.NamespaceID, &r.Name, &r.Path, &r.ParentID, &r.CreatedAt, &r.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning repository: %w", err)
 		}
 		rr = append(rr, r)
@@ -165,6 +165,7 @@ func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repos
 	defer metrics.InstrumentQuery("repository_find_by_id")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			path,
 			parent_id,
@@ -184,6 +185,7 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 	defer metrics.InstrumentQuery("repository_find_by_path")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			path,
 			parent_id,
@@ -192,7 +194,14 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		FROM
 			repositories
 		WHERE
-			path = $1`
+			  namespace_id = (
+			  SELECT
+				 id
+			  FROM
+				 namespaces
+			  WHERE
+				 name = split_part($1, '/', 1))
+		  AND path = $1`
 	row := s.db.QueryRowContext(ctx, q, path)
 
 	return scanFullRepository(row)
@@ -203,6 +212,7 @@ func (s *repositoryStore) FindAll(ctx context.Context) (models.Repositories, err
 	defer metrics.InstrumentQuery("repository_find_all")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			path,
 			parent_id,
@@ -228,6 +238,7 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 	defer metrics.InstrumentQuery("repository_find_all_paginated")()
 	q := `SELECT
 			r.id,
+			r.namespace_id,
 			r.name,
 			r.path,
 			r.parent_id,
@@ -241,7 +252,8 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 				FROM
 					manifests AS m
 				WHERE
-					m.repository_id = r.id)
+					m.namespace_id = r.namespace_id
+					AND m.repository_id = r.id)
 			AND r.path > $1
 		ORDER BY
 			r.path
@@ -260,6 +272,7 @@ func (s *repositoryStore) FindDescendantsOf(ctx context.Context, id int64) (mode
 	q := `WITH RECURSIVE descendants AS (
 			SELECT
 				id,
+				namespace_id,
 				name,
 				path,
 				parent_id,
@@ -272,6 +285,7 @@ func (s *repositoryStore) FindDescendantsOf(ctx context.Context, id int64) (mode
 			UNION ALL
 			SELECT
 				r.id,
+				r.namespace_id,
 				r.name,
 				r.path,
 				r.parent_id,
@@ -302,6 +316,7 @@ func (s *repositoryStore) FindAncestorsOf(ctx context.Context, id int64) (models
 	q := `WITH RECURSIVE ancestors AS (
 			SELECT
 				id,
+				namespace_id,
 				name,
 				path,
 				parent_id,
@@ -314,6 +329,7 @@ func (s *repositoryStore) FindAncestorsOf(ctx context.Context, id int64) (models
 			UNION ALL
 			SELECT
 				r.id,
+				r.namespace_id,
 				r.name,
 				r.path,
 				r.parent_id,
@@ -343,6 +359,7 @@ func (s *repositoryStore) FindSiblingsOf(ctx context.Context, id int64) (models.
 	defer metrics.InstrumentQuery("repository_find_siblings_of")()
 	q := `SELECT
 			siblings.id,
+			siblings.namespace_id,
 			siblings.name,
 			siblings.path,
 			siblings.parent_id,
@@ -368,6 +385,7 @@ func (s *repositoryStore) Tags(ctx context.Context, r *models.Repository) (model
 	defer metrics.InstrumentQuery("repository_tags")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -395,6 +413,7 @@ func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repositor
 	defer metrics.InstrumentQuery("repository_tags_paginated")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -403,12 +422,13 @@ func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repositor
 		FROM
 			tags
 		WHERE
-			repository_id = $1
-			AND name > $2
+			namespace_id = $1
+			AND repository_id = $2
+			AND name > $3
 		ORDER BY
 			name
-		LIMIT $3`
-	rows, err := s.db.QueryContext(ctx, q, r.ID, lastName, limit)
+		LIMIT $4`
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, lastName, limit)
 	if err != nil {
 		return nil, fmt.Errorf("finding tags with pagination: %w", err)
 	}
@@ -428,11 +448,12 @@ func (s *repositoryStore) TagsCountAfterName(ctx context.Context, r *models.Repo
 		FROM
 			tags
 		WHERE
-			repository_id = $1
-			AND name > $2`
+			namespace_id = $1
+			AND repository_id = $2
+			AND name > $3`
 
 	var count int
-	if err := s.db.QueryRowContext(ctx, q, r.ID, lastName).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, lastName).Scan(&count); err != nil {
 		return count, fmt.Errorf("counting tags lexicographically after name: %w", err)
 	}
 
@@ -444,6 +465,7 @@ func (s *repositoryStore) ManifestTags(ctx context.Context, r *models.Repository
 	defer metrics.InstrumentQuery("repository_manifest_tags")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -452,10 +474,11 @@ func (s *repositoryStore) ManifestTags(ctx context.Context, r *models.Repository
 		FROM
 			tags
 		WHERE
-			repository_id = $1
-			AND manifest_id = $2`
+			namespace_id = $1
+			AND repository_id = $2
+			AND manifest_id = $3`
 
-	rows, err := s.db.QueryContext(ctx, q, r.ID, m.ID)
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, m.ID)
 	if err != nil {
 		return nil, fmt.Errorf("finding tags: %w", err)
 	}
@@ -493,7 +516,8 @@ func (s *repositoryStore) CountAfterPath(ctx context.Context, path string) (int,
 				FROM
 					manifests AS m
 				WHERE
-					m.repository_id = r.id)
+					m.namespace_id = r.namespace_id -- PROBLEM - cross partition scan
+					AND m.repository_id = r.id)
 			AND r.path > $1`
 
 	var count int
@@ -509,6 +533,7 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 	defer metrics.InstrumentQuery("repository_manifests")()
 	q := `SELECT
 			m.id,
+			m.namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -523,10 +548,11 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.repository_id = $1
+			m.namespace_id = $1
+			AND m.repository_id = $2
 		ORDER BY m.id`
 
-	rows, err := s.db.QueryContext(ctx, q, r.ID)
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID)
 	if err != nil {
 		return nil, fmt.Errorf("finding manifests: %w", err)
 	}
@@ -539,6 +565,7 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 	defer metrics.InstrumentQuery("repository_find_manifest_by_digest")()
 	q := `SELECT
 			m.id,
+			m.namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -553,14 +580,15 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.repository_id = $1
-			AND m.digest = decode($2, 'hex')`
+			m.namespace_id = $1
+			AND m.repository_id = $2
+			AND m.digest = decode($3, 'hex')`
 
 	dgst, err := NewDigest(d)
 	if err != nil {
 		return nil, err
 	}
-	row := s.db.QueryRowContext(ctx, q, r.ID, dgst)
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, dgst)
 
 	return scanFullManifest(row)
 }
@@ -570,6 +598,7 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 	defer metrics.InstrumentQuery("repository_find_manifest_by_tag_name")()
 	q := `SELECT
 			m.id,
+			m.namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -583,13 +612,15 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 			manifests AS m
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
-			JOIN tags AS t ON t.repository_id = m.repository_id
+			JOIN tags AS t ON t.namespace_id = m.namespace_id
+				AND t.repository_id = m.repository_id
 				AND t.manifest_id = m.id
 		WHERE
-			m.repository_id = $1
-			AND t.name = $2`
+			m.namespace_id = $1
+			AND m.repository_id = $2
+			AND t.name = $3`
 
-	row := s.db.QueryRowContext(ctx, q, r.ID, tagName)
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, tagName)
 
 	return scanFullManifest(row)
 }
@@ -608,9 +639,10 @@ func (s *repositoryStore) Blobs(ctx context.Context, r *models.Repository) (mode
 			JOIN repositories AS r ON r.id = rb.repository_id
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
-			r.id = $1`
+			r.namespace_id = $1
+			AND r.id = $2`
 
-	rows, err := s.db.QueryContext(ctx, q, r.ID)
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID)
 	if err != nil {
 		return nil, fmt.Errorf("finding blobs: %w", err)
 	}
@@ -618,7 +650,7 @@ func (s *repositoryStore) Blobs(ctx context.Context, r *models.Repository) (mode
 	return scanFullBlobs(rows)
 }
 
-// FindBlobByDigest finds a blob by digest within a repository.
+// FindBlob finds a blob by digest within a repository.
 func (s *repositoryStore) FindBlob(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Blob, error) {
 	defer metrics.InstrumentQuery("repository_find_blob")()
 	q := `SELECT
@@ -631,19 +663,20 @@ func (s *repositoryStore) FindBlob(ctx context.Context, r *models.Repository, d 
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 			JOIN repository_blobs AS rb ON rb.blob_digest = b.digest
 		WHERE
-			rb.repository_id = $1
-			AND b.digest = decode($2, 'hex')`
+			rb.namespace_id = $1
+			AND rb.repository_id = $2
+			AND b.digest = decode($3, 'hex')`
 
 	dgst, err := NewDigest(d)
 	if err != nil {
 		return nil, err
 	}
-	row := s.db.QueryRowContext(ctx, q, r.ID, dgst)
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, dgst)
 
 	return scanFullBlob(row)
 }
 
-// ExistsBlobByDigest finds if a blob with a given digest exists within a repository.
+// ExistsBlob finds if a blob with a given digest exists within a repository.
 func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
 	defer metrics.InstrumentQuery("repository_exists_blob")()
 	q := `SELECT
@@ -653,8 +686,9 @@ func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, 
 				FROM
 					repository_blobs
 				WHERE
-					repository_id = $1
-					AND blob_digest = decode($2, 'hex'))`
+					namespace_id = $1
+					AND repository_id = $2
+					AND blob_digest = decode($3, 'hex'))`
 
 	dgst, err := NewDigest(d)
 	if err != nil {
@@ -662,7 +696,7 @@ func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, 
 	}
 
 	var exists bool
-	row := s.db.QueryRowContext(ctx, q, r.ID, dgst)
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, dgst)
 	if err := row.Scan(&exists); err != nil {
 		return false, fmt.Errorf("scanning blob: %w", err)
 	}
@@ -673,12 +707,12 @@ func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, 
 // Create saves a new repository.
 func (s *repositoryStore) Create(ctx context.Context, r *models.Repository) error {
 	defer metrics.InstrumentQuery("repository_create")()
-	q := `INSERT INTO repositories (name, path, parent_id)
-			VALUES ($1, $2, $3)
+	q := `INSERT INTO repositories (namespace_id, name, path, parent_id)
+			VALUES ($1, $2, $3, $4)
 		RETURNING
 			id, created_at`
 
-	row := s.db.QueryRowContext(ctx, q, r.Name, r.Path, r.ParentID)
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID)
 	if err := row.Scan(&r.ID, &r.CreatedAt); err != nil {
 		return fmt.Errorf("creating repository: %w", err)
 	}
@@ -691,6 +725,7 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 	defer metrics.InstrumentQuery("repository_find_tag_by_name")()
 	q := `SELECT
 			id,
+			namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -699,9 +734,10 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 		FROM
 			tags
 		WHERE
-			repository_id = $1
-			AND name = $2`
-	row := s.db.QueryRowContext(ctx, q, r.ID, name)
+			namespace_id = $1
+			AND repository_id = $2
+			AND name = $3`
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, name)
 
 	return scanFullTag(row)
 }
@@ -711,15 +747,24 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 // on write operations between the corresponding read (FindByPath) and write (Create) operations. Separate Find* and
 // Create method calls should be preferred to this when race conditions are not a concern.
 func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository) error {
+	if r.NamespaceID == 0 {
+		n := &models.Namespace{Name: strings.Split(r.Path, "/")[0]}
+		ns := NewNamespaceStore(s.db)
+		if err := ns.CreateOrFind(ctx, n); err != nil {
+			return fmt.Errorf("creating or finding namespace: %w", err)
+		}
+		r.NamespaceID = n.ID
+	}
+
 	defer metrics.InstrumentQuery("repository_create_or_find")()
-	q := `INSERT INTO repositories (name, path, parent_id)
-			VALUES ($1, $2, $3)
-		ON CONFLICT (path)
+	q := `INSERT INTO repositories (namespace_id, name, path, parent_id)
+			VALUES ($1, $2, $3, $4)
+		ON CONFLICT (namespace_id, path)
 			DO NOTHING
 		RETURNING
 			id, created_at`
 
-	row := s.db.QueryRowContext(ctx, q, r.Name, r.Path, r.ParentID)
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID)
 	if err := row.Scan(&r.ID, &r.CreatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("creating repository: %w", err)
@@ -762,7 +807,7 @@ func repositoryName(path string) string {
 // createOrFindParentByPath creates parent repositories for a given path, if any (e.g. `a` and `b` for path `"a/b/c"`),
 // preserving their hierarchical relationship. Returns the immediate parent repository, if any (e.g. `b`). No error is
 // raised if a repository already exists.
-func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path string) (*models.Repository, error) {
+func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path string, n *models.Namespace) (*models.Repository, error) {
 	parentsPath := repositoryParentPaths(path)
 	if len(parentsPath) == 0 {
 		return nil, nil
@@ -773,8 +818,9 @@ func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path str
 
 	for _, parentPath := range parentsPath {
 		r = &models.Repository{
-			Name: repositoryName(parentPath),
-			Path: parentPath,
+			NamespaceID: n.ID,
+			Name:        repositoryName(parentPath),
+			Path:        parentPath,
 			ParentID: sql.NullInt64{
 				Int64: currParentID,
 				Valid: currParentID > 0,
@@ -796,13 +842,19 @@ func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path str
 // Returns the leaf repository (e.g. `c`). No error is raised if a parent repository already exists, only if the leaf
 // repository does.
 func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*models.Repository, error) {
+	n := &models.Namespace{Name: strings.Split(path, "/")[0]}
+	ns := NewNamespaceStore(s.db)
+	if err := ns.CreateOrFind(ctx, n); err != nil {
+		return nil, fmt.Errorf("creating or finding namespace: %w", err)
+	}
+
 	defer metrics.InstrumentQuery("repository_create_by_path")()
-	p, err := s.createOrFindParentByPath(ctx, path)
+	p, err := s.createOrFindParentByPath(ctx, path, n)
 	if err != nil {
 		return nil, fmt.Errorf("creating or finding parent repository: %w", err)
 	}
 
-	r := &models.Repository{Name: repositoryName(path), Path: path}
+	r := &models.Repository{NamespaceID: n.ID, Name: repositoryName(path), Path: path}
 	if p != nil {
 		r.ParentID = sql.NullInt64{Int64: p.ID, Valid: true}
 	}
@@ -816,13 +868,19 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 // CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the leaf repository
 // already exists.
 func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error) {
+	n := &models.Namespace{Name: strings.Split(path, "/")[0]}
+	ns := NewNamespaceStore(s.db)
+	if err := ns.CreateOrFind(ctx, n); err != nil {
+		return nil, fmt.Errorf("creating or finding namespace: %w", err)
+	}
+
 	defer metrics.InstrumentQuery("repository_create_or_find_by_path")()
-	p, err := s.createOrFindParentByPath(ctx, path)
+	p, err := s.createOrFindParentByPath(ctx, path, n)
 	if err != nil {
 		return nil, fmt.Errorf("creating or finding parent repository: %w", err)
 	}
 
-	r := &models.Repository{Name: repositoryName(path), Path: path}
+	r := &models.Repository{NamespaceID: n.ID, Name: repositoryName(path), Path: path}
 	if p != nil {
 		r.ParentID = sql.NullInt64{Int64: p.ID, Valid: true}
 	}
@@ -841,11 +899,12 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 		SET
 			(name, path, parent_id, updated_at) = ($1, $2, $3, now())
 		WHERE
-			id = $4
+			namespace_id = $4
+			AND id = $5
 		RETURNING
 			updated_at`
 
-	row := s.db.QueryRowContext(ctx, q, r.Name, r.Path, r.ParentID, r.ID)
+	row := s.db.QueryRowContext(ctx, q, r.Name, r.Path, r.ParentID, r.NamespaceID, r.ID)
 	if err := row.Scan(&r.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("repository not found")
@@ -859,9 +918,9 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 // UntagManifest deletes all tags of a manifest in a repository.
 func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error {
 	defer metrics.InstrumentQuery("repository_untag_manifest")()
-	q := "DELETE FROM tags WHERE repository_id = $1 AND manifest_id = $2"
+	q := "DELETE FROM tags WHERE namespace_id = $1 AND repository_id = $2 AND manifest_id = $3"
 
-	_, err := s.db.ExecContext(ctx, q, r.ID, m.ID)
+	_, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, m.ID)
 	if err != nil {
 		return fmt.Errorf("untagging manifest: %w", err)
 	}
@@ -872,16 +931,16 @@ func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repositor
 // LinkBlob links a blob to a repository. It does nothing if already linked.
 func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error {
 	defer metrics.InstrumentQuery("repository_link_blob")()
-	q := `INSERT INTO repository_blobs (repository_id, blob_digest)
-			VALUES ($1, decode($2, 'hex'))
-		ON CONFLICT (repository_id, blob_digest)
+	q := `INSERT INTO repository_blobs (namespace_id, repository_id, blob_digest)
+			VALUES ($1, $2, decode($3, 'hex'))
+		ON CONFLICT (namespace_id, repository_id, blob_digest)
 			DO NOTHING`
 
 	dgst, err := NewDigest(d)
 	if err != nil {
 		return err
 	}
-	if _, err := s.db.ExecContext(ctx, q, r.ID, dgst); err != nil {
+	if _, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, dgst); err != nil {
 		return fmt.Errorf("linking blob: %w", err)
 	}
 
@@ -892,13 +951,13 @@ func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, d 
 // the link was deleted or not. This avoids the need for a separate preceding `SELECT` to find if it exists.
 func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
 	defer metrics.InstrumentQuery("repository_unlink_blob")()
-	q := "DELETE FROM repository_blobs WHERE repository_id = $1 AND blob_digest = decode($2, 'hex')"
+	q := "DELETE FROM repository_blobs WHERE namespace_id = $1 AND repository_id = $2 AND blob_digest = decode($3, 'hex')"
 
 	dgst, err := NewDigest(d)
 	if err != nil {
 		return false, err
 	}
-	res, err := s.db.ExecContext(ctx, q, r.ID, dgst)
+	res, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, dgst)
 	if err != nil {
 		return false, fmt.Errorf("linking blob: %w", err)
 	}
@@ -915,9 +974,9 @@ func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, 
 // deleted or not. This avoids the need for a separate preceding `SELECT` to find if it exists.
 func (s *repositoryStore) DeleteTagByName(ctx context.Context, r *models.Repository, name string) (bool, error) {
 	defer metrics.InstrumentQuery("repository_delete_tag_by_name")()
-	q := "DELETE FROM tags WHERE repository_id = $1 AND name = $2"
+	q := "DELETE FROM tags WHERE namespace_id = $1 AND repository_id = $2 AND name = $3"
 
-	res, err := s.db.ExecContext(ctx, q, r.ID, name)
+	res, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, name)
 	if err != nil {
 		return false, fmt.Errorf("deleting tag: %w", err)
 	}
@@ -935,14 +994,14 @@ func (s *repositoryStore) DeleteTagByName(ctx context.Context, r *models.Reposit
 // it is referenced by a manifest list.
 func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
 	defer metrics.InstrumentQuery("repository_delete_manifest")()
-	q := "DELETE FROM manifests WHERE repository_id = $1 AND digest = decode($2, 'hex')"
+	q := "DELETE FROM manifests WHERE namespace_id = $1 AND repository_id = $2 AND digest = decode($3, 'hex')"
 
 	dgst, err := NewDigest(d)
 	if err != nil {
 		return false, err
 	}
 
-	res, err := s.db.ExecContext(ctx, q, r.ID, dgst)
+	res, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, dgst)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation && pgErr.TableName == "manifest_references" {
