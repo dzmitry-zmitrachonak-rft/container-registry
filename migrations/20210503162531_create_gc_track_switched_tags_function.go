@@ -14,10 +14,10 @@ func init() {
 					AS $$
 				BEGIN
 					INSERT INTO gc_manifest_review_queue (namespace_id, repository_id, manifest_id, review_after)
-						VALUES (OLD.namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after('tag_switch'))
+						VALUES (OLD.namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_switch'))
 					ON CONFLICT (namespace_id, repository_id, manifest_id)
 						DO UPDATE SET
-							review_after = gc_review_after('tag_switch');
+							review_after = gc_review_after ('tag_switch');
 					RETURN NULL;
 				END;
 				$$

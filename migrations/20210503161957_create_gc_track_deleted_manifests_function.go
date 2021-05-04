@@ -15,10 +15,10 @@ func init() {
 				BEGIN
 					IF OLD.configuration_blob_digest IS NOT NULL THEN
 						INSERT INTO gc_blob_review_queue (digest, review_after)
-							VALUES (OLD.configuration_blob_digest, gc_review_after('manifest_delete'))
+							VALUES (OLD.configuration_blob_digest, gc_review_after ('manifest_delete'))
 						ON CONFLICT (digest)
 							DO UPDATE SET
-								review_after = gc_review_after('manifest_delete');
+								review_after = gc_review_after ('manifest_delete');
 					END IF;
 					RETURN NULL;
 				END;

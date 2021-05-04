@@ -194,14 +194,14 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		FROM
 			repositories
 		WHERE
-			  namespace_id = (
-			  SELECT
-				 id
-			  FROM
-				 namespaces
-			  WHERE
-				 name = split_part($1, '/', 1))
-		  AND path = $1`
+			namespace_id = (
+				SELECT
+					id
+				FROM
+					namespaces
+				WHERE
+					name = split_part($1, '/', 1))
+			AND path = $1`
 	row := s.db.QueryRowContext(ctx, q, path)
 
 	return scanFullRepository(row)

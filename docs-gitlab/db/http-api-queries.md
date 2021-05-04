@@ -8,18 +8,18 @@ Here we list queries used across several operations and refer to them from each 
 
 ```sql
 SELECT
-   id
+    id
 FROM
-   repositories
+    repositories
 WHERE
-      namespace_id = (
-      SELECT
-         id
-      FROM
-         namespaces
-      WHERE
-         name = split_part($1, '/', 1))
-  AND path = $1;
+    namespace_id = (
+        SELECT
+            id
+        FROM
+            namespaces
+        WHERE
+            name = split_part($1, '/', 1))
+    AND path = $1;
 ```
 
 #### Create or find repository by path
@@ -263,8 +263,8 @@ DELETE /v2/<name>/blobs/<digest>
    ```sql
    DELETE FROM repository_blobs
    WHERE namespace_id = $1
-        AND repository_id = $2
-   		AND blob_digest = decode($3, 'hex');
+       AND repository_id = $2
+       AND blob_digest = decode($3, 'hex');
    ```
 
    If the query affected no rows we know the blob link does not exist and raise the corresponding error. This avoids the need for a separate preceding `SELECT` to find if the link exists.

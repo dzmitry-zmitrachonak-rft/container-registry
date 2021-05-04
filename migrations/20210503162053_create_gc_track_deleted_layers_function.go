@@ -14,10 +14,10 @@ func init() {
 					AS $$
 				BEGIN
 					INSERT INTO gc_blob_review_queue (digest, review_after)
-						VALUES (OLD.digest, gc_review_after('layer_delete'))
+						VALUES (OLD.digest, gc_review_after ('layer_delete'))
 					ON CONFLICT (digest)
 						DO UPDATE SET
-							review_after = gc_review_after('layer_delete');
+							review_after = gc_review_after ('layer_delete');
 					RETURN NULL;
 				END;
 				$$
