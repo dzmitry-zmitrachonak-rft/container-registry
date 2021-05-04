@@ -720,6 +720,7 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, dgst digest.Digest
 	tagStore := datastore.NewTagStore(tx)
 	if err := tagStore.CreateOrUpdate(ctx, &models.Tag{
 		Name:         tagName,
+		NamespaceID:  dbRepo.NamespaceID,
 		RepositoryID: dbRepo.ID,
 		ManifestID:   dbManifest.ID,
 	}); err != nil {
@@ -811,6 +812,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 		log.Debug("manifest not found in database")
 
 		m := &models.Manifest{
+			NamespaceID:   dbRepo.NamespaceID,
 			RepositoryID:  dbRepo.ID,
 			SchemaVersion: versioned.SchemaVersion,
 			MediaType:     versioned.MediaType,
@@ -941,6 +943,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	}
 
 	ml = &models.Manifest{
+		NamespaceID:   r.NamespaceID,
 		RepositoryID:  r.ID,
 		SchemaVersion: manifestList.SchemaVersion,
 		MediaType:     mediaType,

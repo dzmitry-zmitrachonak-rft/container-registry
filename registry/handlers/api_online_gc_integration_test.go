@@ -38,7 +38,7 @@ func findAndLockGCManifestTask(t *testing.T, env *testEnv, repoName reference.Na
 	require.NotNil(t, m)
 
 	mts := datastore.NewGCManifestTaskStore(tx)
-	mt, err := mts.FindAndLockBefore(env.ctx, r.ID, m.ID, time.Now())
+	mt, err := mts.FindAndLockBefore(env.ctx, r.NamespaceID, r.ID, m.ID, time.Now())
 	require.NoError(t, err)
 	require.NotNil(t, mt)
 
