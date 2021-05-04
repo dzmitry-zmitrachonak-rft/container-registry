@@ -294,7 +294,11 @@ func TestManifestsAPI_Tag_OnlineGC_BlocksAndResumesAfterGCReview_DanglingManifes
 	time.AfterFunc(lockDuration, func() {
 		// the manifest is dangling, so we delete it and commit the transaction, as the GC would do
 		ms := datastore.NewManifestStore(tx)
-		found, err := ms.Delete(env.ctx, &models.Manifest{RepositoryID: mt.RepositoryID, ID: mt.ManifestID})
+		found, err := ms.Delete(env.ctx, &models.Manifest{
+			NamespaceID:  mt.NamespaceID,
+			RepositoryID: mt.RepositoryID,
+			ID:           mt.ManifestID,
+		})
 		require.NoError(t, err)
 		require.True(t, found)
 		require.NoError(t, tx.Commit())
@@ -545,7 +549,11 @@ func TestManifestsAPI_CreateList_OnlineGC_BlocksAndResumesAfterGCReview_Dangling
 	time.AfterFunc(lockDuration, func() {
 		// the manifest is dangling, so we delete it and commit transaction, as the GC would do
 		ms := datastore.NewManifestStore(tx)
-		found, err := ms.Delete(env.ctx, &models.Manifest{RepositoryID: mt.RepositoryID, ID: mt.ManifestID})
+		found, err := ms.Delete(env.ctx, &models.Manifest{
+			NamespaceID:  mt.NamespaceID,
+			RepositoryID: mt.RepositoryID,
+			ID:           mt.ManifestID,
+		})
 		require.NoError(t, err)
 		require.True(t, found)
 		require.NoError(t, tx.Commit())
