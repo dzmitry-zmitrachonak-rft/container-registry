@@ -18,7 +18,7 @@ func init() {
 					CONSTRAINT pk_repositories PRIMARY KEY (namespace_id, id),
 					CONSTRAINT fk_repositories_namespace_id_namespaces FOREIGN KEY (namespace_id) REFERENCES namespaces (id) ON DELETE CASCADE,
 					CONSTRAINT fk_repositories_namespace_id_and_parent_id_repositories FOREIGN KEY (namespace_id, parent_id) REFERENCES repositories (namespace_id, id) ON DELETE CASCADE,
-					CONSTRAINT unique_repositories_path UNIQUE (namespace_id, path),
+					CONSTRAINT unique_repositories_namespace_id_and_path UNIQUE (namespace_id, path),
 					CONSTRAINT check_repositories_name_length CHECK ((char_length(name) <= 255)),
 					CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
 				)

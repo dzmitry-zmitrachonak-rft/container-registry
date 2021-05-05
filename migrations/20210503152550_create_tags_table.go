@@ -17,7 +17,7 @@ func init() {
 					name text NOT NULL,
 					CONSTRAINT pk_tags PRIMARY KEY (namespace_id, repository_id, id),
 					CONSTRAINT fk_tags_repository_id_and_manifest_id_manifests FOREIGN KEY (namespace_id, repository_id, manifest_id) REFERENCES manifests (namespace_id, repository_id, id) ON DELETE CASCADE,
-					CONSTRAINT unique_tags_repository_id_and_name UNIQUE (namespace_id, repository_id, name),
+					CONSTRAINT unique_tags_namespace_id_and_repository_id_and_name UNIQUE (namespace_id, repository_id, name),
 					CONSTRAINT check_tags_name_length CHECK ((char_length(name) <= 255))
 				)
 				PARTITION BY HASH (namespace_id)`,

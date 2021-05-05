@@ -19,7 +19,7 @@ CREATE TABLE repositories (
     CONSTRAINT pk_repositories PRIMARY KEY (namespace_id, id),
     CONSTRAINT fk_repositories_namespace_id_namespaces FOREIGN KEY (namespace_id) REFERENCES namespaces (id) ON DELETE CASCADE,
     CONSTRAINT fk_repositories_namespace_id_and_parent_id_repositories FOREIGN KEY (namespace_id, parent_id) REFERENCES repositories (namespace_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_repositories_path UNIQUE (namespace_id, path),
+    CONSTRAINT unique_repositories_namespace_id_and_path UNIQUE (namespace_id, path),
     CONSTRAINT check_repositories_name_length CHECK ((char_length(name) <= 255)),
     CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
 )
@@ -84,8 +84,8 @@ CREATE TABLE manifests (
     CONSTRAINT fk_manifests_media_type_id_media_types FOREIGN KEY (media_type_id) REFERENCES media_types (id),
     CONSTRAINT fk_manifests_configuration_media_type_id_media_types FOREIGN KEY (configuration_media_type_id) REFERENCES media_types (id),
     CONSTRAINT fk_manifests_configuration_blob_digest_blobs FOREIGN KEY (configuration_blob_digest) REFERENCES blobs (digest),
-    CONSTRAINT unique_manifests_repository_id_and_digest UNIQUE (namespace_id, repository_id, digest),
-    CONSTRAINT unique_manifests_configuration_blob_digest_and_repo_id_and_id UNIQUE (namespace_id, configuration_blob_digest, repository_id, id)
+    CONSTRAINT unique_manifests_namespace_id_and_repository_id_and_digest UNIQUE (namespace_id, repository_id, digest),
+    CONSTRAINT unique_manifests_nmspc_id_and_cfg_blob_dgst_and_repo_id_and_id UNIQUE (namespace_id, configuration_blob_digest, repository_id, id)
 )
 PARTITION BY HASH (namespace_id);
 
@@ -150,7 +150,7 @@ CREATE TABLE tags (
     name text NOT NULL,
     CONSTRAINT pk_tags PRIMARY KEY (namespace_id, repository_id, id),
     CONSTRAINT fk_tags_repository_id_and_manifest_id_manifests FOREIGN KEY (namespace_id, repository_id, manifest_id) REFERENCES manifests (namespace_id, repository_id, id) ON DELETE CASCADE,
-    CONSTRAINT unique_tags_repository_id_and_name UNIQUE (namespace_id, repository_id, name),
+    CONSTRAINT unique_tags_namespace_id_and_repository_id_and_name UNIQUE (namespace_id, repository_id, name),
     CONSTRAINT check_tags_name_length CHECK ((char_length(name) <= 255))
 )
 PARTITION BY HASH (namespace_id);
