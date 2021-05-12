@@ -23,12 +23,10 @@ func init() {
 					CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
-				"CREATE INDEX IF NOT EXISTS index_repositories_on_top_level_namespace_id ON repositories USING btree (top_level_namespace_id)",
 				"CREATE INDEX IF NOT EXISTS index_repositories_on_top_level_namespace_id_and_parent_id ON repositories USING btree (top_level_namespace_id, parent_id)",
 			},
 			Down: []string{
 				"DROP INDEX IF EXISTS index_repositories_on_top_level_namespace_id_and_parent_id CASCADE",
-				"DROP INDEX IF EXISTS index_repositories_on_top_level_namespace_id CASCADE",
 				"DROP TABLE IF EXISTS repositories CASCADE",
 			},
 		},

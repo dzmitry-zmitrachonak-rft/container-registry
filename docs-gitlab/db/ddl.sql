@@ -24,8 +24,6 @@ CREATE TABLE repositories (
     CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
 );
 
-CREATE INDEX index_repositories_on_top_level_namespace_id ON repositories USING btree (top_level_namespace_id);
-
 CREATE INDEX index_repositories_on_top_level_namespace_id_and_parent_id ON repositories USING btree (top_level_namespace_id, parent_id);
 
 CREATE TABLE media_types (
