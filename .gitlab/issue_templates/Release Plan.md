@@ -59,22 +59,19 @@ See [release instructions](https://gitlab.com/gitlab-org/container-registry/-/tr
     - [ ] Update `GITLAB_CONTAINER_REGISTRY_VERSION` in [`ci_files/variables.yml`](https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile.build.ubi8`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile.build.ubi8)
-    - [ ] Label merge request with: `~/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
+    - [ ] Label merge request with: `~/label ~"feature::maintenance" ~"Category:Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
 - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
-    - [ ] Create `bump-registry-version-vX-Y-Z-gitlab.yml` in [`changelogs/unreleased`](https://gitlab.com/gitlab-org/omnibus-gitlab/tree/master/changelogs/unreleased)
     - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb)
-    - [ ] Label merge request with: `/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
+    - [ ] Label merge request with: `/label ~"feature::maintenance" ~"Category:Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
 - [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts):
-    - [ ] Create `bump-registry-version-vX-Y-Z-gitlab.yml` in [`changelogs/unreleased`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/changelogs/unreleased)
     - [ ] Update `tag` in [`charts/registry/values.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/charts/registry/values.yaml)
-    - [ ] Update `tag` in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/doc/charts/registry/index.md)
-    - [ ] Update `version` and `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml)
     - [ ] Replace all mentions to the previous `vX.Y.Z-gitlab` release in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/doc/charts/registry/index.md)
-    - [ ] Label merge request with: `/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
+    - [ ] Update `version` and `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml)
+    - [ ] Label merge request with: `/label ~"feature::maintenance" ~"Category:Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
 - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com):
     - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl#L75)
     - [ ] Update `tag` in [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl#L6)
-    - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
+    - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"team::Delivery" ~"Workflow::ready for review"`
 
 <details>
 <summary><b>Instructions</b></summary>
