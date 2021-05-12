@@ -182,6 +182,15 @@ func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repos
 
 // FindByPath finds a repository by path.
 func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.Repository, error) {
+	ns := NewNamespaceStore(s.db)
+	n, err := ns.FindByName(ctx, strings.SplitN(path, "/", 2)[0])
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		return nil, nil
+	}
+
 	defer metrics.InstrumentQuery("repository_find_by_path")()
 	q := `SELECT
 			id,
@@ -194,15 +203,10 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		FROM
 			repositories
 		WHERE
-			namespace_id = (
-				SELECT
-					id
-				FROM
-					namespaces
-				WHERE
-					name = split_part($1, '/', 1))
-			AND path = $1`
-	row := s.db.QueryRowContext(ctx, q, path)
+			namespace_id = $1
+			AND path = $2`
+
+	row := s.db.QueryRowContext(ctx, q, n.ID, path)
 
 	return scanFullRepository(row)
 }

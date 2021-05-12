@@ -77,7 +77,14 @@ func TestRepositoryStore_FindByPath(t *testing.T) {
 
 func TestRepositoryStore_FindByPath_NotFound(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByPath(suite.ctx, "foo/bar")
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/bar")
+	require.Nil(t, r)
+	require.NoError(t, err)
+}
+
+func TestRepositoryStore_FindByPath_NamespaceNotFound(t *testing.T) {
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByPath(suite.ctx, "foo/gitlab-org/gitlab-test")
 	require.Nil(t, r)
 	require.NoError(t, err)
 }

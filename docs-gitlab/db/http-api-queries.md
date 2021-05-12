@@ -6,20 +6,27 @@ Here we list queries used across several operations and refer to them from each 
 
 #### Check if repository with a given path exists and grab its ID
 
+First we check if the namespace exists and grab its ID:
+
+```sql
+SELECT
+    id
+FROM
+   namespaces
+WHERE
+   name = $1
+```
+
+Then we find the repository:
+
 ```sql
 SELECT
     id
 FROM
     repositories
 WHERE
-    namespace_id = (
-        SELECT
-            id
-        FROM
-            namespaces
-        WHERE
-            name = split_part($1, '/', 1))
-    AND path = $1;
+    namespace_id = $1
+    AND path = $2;
 ```
 
 #### Create or find repository by path
