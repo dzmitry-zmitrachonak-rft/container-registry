@@ -19,12 +19,10 @@ func init() {
 					CONSTRAINT unique_repository_blobs_tp_lvl_nmspc_id_and_rpstry_id_blb_dgst UNIQUE (top_level_namespace_id, repository_id, blob_digest)
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
-				"CREATE INDEX IF NOT EXISTS  index_repository_blobs_on_top_lvl_nmspc_id_and_repository_id ON repository_blobs USING btree (top_level_namespace_id, repository_id)",
 				"CREATE INDEX IF NOT EXISTS index_repository_blobs_on_blob_digest ON repository_blobs USING btree (blob_digest)",
 			},
 			Down: []string{
 				"DROP INDEX IF EXISTS index_repository_blobs_on_blob_digest CASCADE",
-				"DROP INDEX IF EXISTS  index_repository_blobs_on_top_lvl_nmspc_id_and_repository_id CASCADE",
 				"DROP TABLE IF EXISTS repository_blobs CASCADE",
 			},
 		},

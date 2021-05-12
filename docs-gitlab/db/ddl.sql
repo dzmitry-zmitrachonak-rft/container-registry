@@ -60,8 +60,6 @@ CREATE TABLE repository_blobs (
 )
 PARTITION BY HASH (top_level_namespace_id);
 
-CREATE INDEX index_repository_blobs_on_top_lvl_nmspc_id_and_repository_id ON repository_blobs USING btree (top_level_namespace_id, repository_id);
-
 CREATE INDEX index_repository_blobs_on_blob_digest ON repository_blobs USING btree (blob_digest);
 
 CREATE TABLE manifests (
