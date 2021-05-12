@@ -13,8 +13,8 @@ func init() {
 					RETURNS TRIGGER
 					AS $$
 				BEGIN
-					INSERT INTO gc_manifest_review_queue (namespace_id, repository_id, manifest_id, review_after)
-						VALUES (NEW.namespace_id, NEW.repository_id, NEW.id, gc_review_after('manifest_upload'));
+					INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
+						VALUES (NEW.top_level_namespace_id, NEW.repository_id, NEW.id, gc_review_after('manifest_upload'));
 					RETURN NULL;
 				END;
 				$$

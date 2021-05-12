@@ -71,7 +71,7 @@ func scanFullGCManifestTask(row *sql.Row) (*models.GCManifestTask, error) {
 func (s *gcManifestTaskStore) FindAll(ctx context.Context) ([]*models.GCManifestTask, error) {
 	defer metrics.InstrumentQuery("gc_manifest_task_find_all")()
 	q := `SELECT
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			manifest_id,
 			review_after,
@@ -91,7 +91,7 @@ func (s *gcManifestTaskStore) FindAll(ctx context.Context) ([]*models.GCManifest
 func (s *gcManifestTaskStore) FindAndLockBefore(ctx context.Context, namespaceID, repositoryID, manifestID int64, date time.Time) (*models.GCManifestTask, error) {
 	defer metrics.InstrumentQuery("gc_manifest_task_find_and_lock_before")()
 	q := `SELECT
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			manifest_id,
 			review_after,
@@ -99,7 +99,7 @@ func (s *gcManifestTaskStore) FindAndLockBefore(ctx context.Context, namespaceID
 		FROM
 			gc_manifest_review_queue
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND manifest_id = $3
 			AND review_after < $4
@@ -113,7 +113,7 @@ func (s *gcManifestTaskStore) FindAndLockBefore(ctx context.Context, namespaceID
 func (s *gcManifestTaskStore) FindAndLockNBefore(ctx context.Context, namespaceID, repositoryID int64, manifestIDs []int64, date time.Time) ([]*models.GCManifestTask, error) {
 	defer metrics.InstrumentQuery("gc_manifest_task_find_and_lock_n_before")()
 	q := `SELECT
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			manifest_id,
 			review_after,
@@ -121,12 +121,12 @@ func (s *gcManifestTaskStore) FindAndLockNBefore(ctx context.Context, namespaceI
 		FROM
 			gc_manifest_review_queue
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND manifest_id IN (%s)
 			AND review_after < $3
 		ORDER BY
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			manifest_id
 		FOR UPDATE`
@@ -166,7 +166,7 @@ func (s *gcManifestTaskStore) Count(ctx context.Context) (int, error) {
 func (s *gcManifestTaskStore) Next(ctx context.Context) (*models.GCManifestTask, error) {
 	defer metrics.InstrumentQuery("gc_manifest_task_next")()
 	q := `SELECT
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			manifest_id,
 			review_after,
@@ -203,7 +203,7 @@ func (s *gcManifestTaskStore) Postpone(ctx context.Context, m *models.GCManifest
 			review_after = $1,
 			review_count = $2
 		WHERE
-			namespace_id = $3
+			top_level_namespace_id = $3
 			AND repository_id = $4
 			AND manifest_id = $5`
 
@@ -238,7 +238,7 @@ func (s *gcManifestTaskStore) IsDangling(ctx context.Context, m *models.GCManife
 				 FROM
 					 tags
 				 WHERE
-					 namespace_id = $1
+					 top_level_namespace_id = $1
 					 AND repository_id = $2
 					 AND manifest_id = $3
 				 UNION ALL
@@ -247,7 +247,7 @@ func (s *gcManifestTaskStore) IsDangling(ctx context.Context, m *models.GCManife
 				 FROM
 					 manifest_references
 				 WHERE
-					 namespace_id = $1
+					 top_level_namespace_id = $1
 					 AND repository_id = $2
 					 AND child_id = $3)`
 
@@ -263,7 +263,7 @@ func (s *gcManifestTaskStore) IsDangling(ctx context.Context, m *models.GCManife
 func (s *gcManifestTaskStore) Delete(ctx context.Context, m *models.GCManifestTask) error {
 	defer metrics.InstrumentQuery("gc_manifest_task_delete")()
 	q := `DELETE FROM gc_manifest_review_queue
-		WHERE namespace_id = $1
+		WHERE top_level_namespace_id = $1
 			AND repository_id = $2
 			AND manifest_id = $3`
 

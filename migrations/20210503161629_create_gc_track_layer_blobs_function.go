@@ -13,8 +13,8 @@ func init() {
 					RETURNS TRIGGER
 					AS $$
 				BEGIN
-					INSERT INTO gc_blobs_layers (namespace_id, repository_id, layer_id, digest)
-						VALUES (NEW.namespace_id, NEW.repository_id, NEW.id, NEW.digest)
+					INSERT INTO gc_blobs_layers (top_level_namespace_id, repository_id, layer_id, digest)
+						VALUES (NEW.top_level_namespace_id, NEW.repository_id, NEW.id, NEW.digest)
 					ON CONFLICT (digest, layer_id)
 						DO NOTHING;
 					RETURN NULL;

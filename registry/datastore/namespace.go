@@ -58,7 +58,7 @@ func (s *namespaceStore) FindByName(ctx context.Context, name string) (*models.N
 			created_at,
 			updated_at
 		FROM
-			namespaces
+			top_level_namespaces
 		WHERE
 			name = $1`
 	row := s.db.QueryRowContext(ctx, q, name)
@@ -72,7 +72,7 @@ func (s *namespaceStore) FindByName(ctx context.Context, name string) (*models.N
 // Create method calls should be preferred to this when race conditions are not a concern.
 func (s *namespaceStore) CreateOrFind(ctx context.Context, n *models.Namespace) error {
 	defer metrics.InstrumentQuery("namespace_create_or_find")()
-	q := `INSERT INTO namespaces (name)
+	q := `INSERT INTO top_level_namespaces (name)
 			VALUES ($1)
 		ON CONFLICT (name)
 			DO NOTHING

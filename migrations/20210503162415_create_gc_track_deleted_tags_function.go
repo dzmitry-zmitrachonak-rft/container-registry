@@ -21,9 +21,9 @@ func init() {
 						WHERE
 							repository_id = OLD.repository_id
 							AND id = OLD.manifest_id) THEN
-					INSERT INTO gc_manifest_review_queue (namespace_id, repository_id, manifest_id, review_after)
-						VALUES (OLD.namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_delete'))
-					ON CONFLICT (namespace_id, repository_id, manifest_id)
+					INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
+						VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_delete'))
+					ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
 						DO UPDATE SET
 							review_after = gc_review_after ('tag_delete');
 				END IF;

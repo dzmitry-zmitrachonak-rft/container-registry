@@ -1,4 +1,4 @@
-INSERT INTO "gc_blobs_layers"("id", "namespace_id", "repository_id", "layer_id", "digest")
+INSERT INTO "gc_blobs_layers"("id", "top_level_namespace_id", "repository_id", "layer_id", "digest")
 VALUES (1, 1, 3, 1, decode('01c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9', 'hex')),
        (2, 1, 3, 2, decode('016b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21', 'hex')),
        (3, 2, 6, 3, decode('01c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9', 'hex')),

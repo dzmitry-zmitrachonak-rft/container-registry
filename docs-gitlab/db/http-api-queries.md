@@ -12,7 +12,7 @@ First we check if the namespace exists and grab its ID:
 SELECT
     id
 FROM
-   namespaces
+   top_level_namespaces
 WHERE
    name = $1
 ```
@@ -25,7 +25,7 @@ SELECT
 FROM
     repositories
 WHERE
-    namespace_id = $1
+    top_level_namespace_id = $1
     AND path = $2;
 ```
 
@@ -36,7 +36,7 @@ This is an idempotent and safe way to find or create a repository by path for hi
 1. We start by creating or finding the namespace by `name`. This is the first portion of the path, e.g. `a` for a path of `a/b/c`:
 
    ```sql
-   INSERT INTO namespaces (name)
+   INSERT INTO top_level_namespaces (name)
        VALUES ($1)
    ON CONFLICT (name)
        DO NOTHING
@@ -53,7 +53,7 @@ This is an idempotent and safe way to find or create a repository by path for hi
        created_at,
        updated_at
    FROM
-       namespaces
+       top_level_namespaces
    WHERE
        name = $1;
    ```
@@ -61,9 +61,9 @@ This is an idempotent and safe way to find or create a repository by path for hi
 2. With the namespace in hand, we create or find all parent repositories, including the root one (namespace). For a path of `a/b/c`, we therefore create repositories `a` and `b`, in this order, making sure to link them together through `parent_id`:
 
    ```sql
-   INSERT INTO repositories (namespace_id, name, path, parent_id)
+   INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
        VALUES ($1, $2, $3, $4)
-   ON CONFLICT (namespace_id, path)
+   ON CONFLICT (top_level_namespace_id, path)
        DO NOTHING
    RETURNING
        id, created_at;
@@ -78,7 +78,7 @@ This is an idempotent and safe way to find or create a repository by path for hi
 ```sql
 SELECT
     m.id,
-    m.namespace_id,
+    m.top_level_namespace_id,
     m.repository_id,
     m.schema_version,
     mt.media_type,
@@ -93,7 +93,7 @@ FROM
     JOIN media_types AS mt ON mt.id = m.media_type_id
     LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 WHERE
-    m.namespace_id = $1
+    m.top_level_namespace_id = $1
     AND m.repository_id = $2
     AND m.digest = decode($3, 'hex');
 ```
@@ -108,7 +108,7 @@ SELECT
         FROM
             manifests
         WHERE
-            namespace_id = $1
+            top_level_namespace_id = $1
             AND repository_id = $2
             AND digest = decode($3, 'hex'));
 ```
@@ -126,7 +126,7 @@ FROM
     JOIN media_types AS mt ON mt.id = b.media_type_id
     JOIN repository_blobs AS rb ON rb.blob_digest = b.digest
 WHERE
-    rb.namespace_id = $1
+    rb.top_level_namespace_id = $1
     AND rb.repository_id = $2
     AND b.digest = decode($3, 'hex');
 ```
@@ -141,7 +141,7 @@ SELECT
         FROM
             repository_blobs
         WHERE
-            namespace_id = $1
+            top_level_namespace_id = $1
             AND repository_id = $2
             AND blob_digest = decode($3, 'hex'));
 ```
@@ -151,9 +151,9 @@ SELECT
 This operation is idempotent.
 
 ```sql
-INSERT INTO repository_blobs (namespace_id, repository_id, blob_digest)
+INSERT INTO repository_blobs (top_level_namespace_id, repository_id, blob_digest)
     VALUES ($1, $2, decode($3, 'hex'))
-ON CONFLICT (namespace_id, repository_id, blob_digest)
+ON CONFLICT (top_level_namespace_id, repository_id, blob_digest)
     DO NOTHING;
 ```
 
@@ -172,7 +172,7 @@ GET /v2/_catalog
 ```sql
 SELECT
     r.id,
-    r.namespace_id,
+    r.top_level_namespace_id,
     r.name,
     r.path,
     r.parent_id,
@@ -186,7 +186,7 @@ WHERE
         FROM
             manifests AS m
         WHERE
-            m.namespace_id = r.namespace_id
+            m.top_level_namespace_id = r.top_level_namespace_id
             AND m.repository_id = r.id) -- ignore repositories that have no manifests (empty)
     AND r.path > $1 -- pagination marker (lexicographic)
 ORDER BY
@@ -269,7 +269,7 @@ DELETE /v2/<name>/blobs/<digest>
 
    ```sql
    DELETE FROM repository_blobs
-   WHERE namespace_id = $1
+   WHERE top_level_namespace_id = $1
        AND repository_id = $2
        AND blob_digest = decode($3, 'hex');
    ```
@@ -301,7 +301,7 @@ A manifest can be pulled by digest or tag.
    ```sql
    SELECT
        m.id,
-       m.namespace_id,
+       m.top_level_namespace_id,
        m.repository_id,
        m.created_at,
        m.schema_version,
@@ -316,11 +316,11 @@ A manifest can be pulled by digest or tag.
        manifests AS m
        JOIN media_types AS mt ON mt.id = m.media_type_id
        LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
-       JOIN tags AS t ON t.namespace_id = m.namespace_id
+       JOIN tags AS t ON t.top_level_namespace_id = m.top_level_namespace_id
             AND t.repository_id = m.repository_id
             AND t.manifest_id = m.id
    WHERE
-       m.namespace_id = $1
+       m.top_level_namespace_id = $1
        AND m.repository_id = $2
        AND t.name = $3;
    ```
@@ -360,9 +360,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 3. "*Create or find*" manifest in repository `<name>`. We avoid a "*find or create*" because it's prone to race conditions on inserts and this is a concurrent operation:
 
    ```sql
-   INSERT INTO manifests (namespace_id, repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
+   INSERT INTO manifests (top_level_namespace_id, repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
        VALUES ($1, $2, $3, $4, decode($5, 'hex'), $6, $7, decode($8, 'hex'))
-   ON CONFLICT (namespace_id, repository_id, digest)
+   ON CONFLICT (top_level_namespace_id, repository_id, digest)
        DO NOTHING
    RETURNING
        id, created_at;
@@ -377,9 +377,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
    2. Create layer record. It does nothing if already exists:
 
       ```sql
-      INSERT INTO layers (namespace_id, repository_id, manifest_id, digest, size, media_type_id)
+      INSERT INTO layers (top_level_namespace_id, repository_id, manifest_id, digest, size, media_type_id)
           VALUES ($1, $2, $3, decode($4, 'hex'), $5, $6)
-      ON CONFLICT (namespace_id, repository_id, manifest_id, digest)
+      ON CONFLICT (top_level_namespace_id, repository_id, manifest_id, digest)
           DO NOTHING;
       ```
 
@@ -392,9 +392,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
    If the tag doesn't exist we insert it, if the tag already exists we update it, but only if the current manifest that it points to is different (to avoid "empty" updates that may trigger unwanted/unnecessary actions in the database):
 
    ```sql
-   INSERT INTO tags (namespace_id, repository_id, manifest_id, name)
+   INSERT INTO tags (top_level_namespace_id, repository_id, manifest_id, name)
        VALUES ($1, $2, $3, $4)
-   ON CONFLICT (namespace_id, repository_id, name)
+   ON CONFLICT (top_level_namespace_id, repository_id, name)
        DO UPDATE SET
            manifest_id = EXCLUDED.manifest_id, updated_at = now()
        WHERE
@@ -414,9 +414,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 3. "*Create or find*" manifest list in repository `<name>`. We avoid a "*find or create*" because it's prone to race conditions on inserts and this is a concurrent operation:
 
    ```sql
-   INSERT INTO manifests (namespace_id, repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
+   INSERT INTO manifests (top_level_namespace_id, repository_id, schema_version, media_type_id, digest, payload, configuration_payload, configuration_blob_digest)
        VALUES ($1, $2, $3, $4, decode($5, 'hex'), $6, $7, decode($8, 'hex'))
-   ON CONFLICT (namespace_id, repository_id, digest)
+   ON CONFLICT (top_level_namespace_id, repository_id, digest)
        DO NOTHING
    RETURNING
        id, created_at;
@@ -427,9 +427,9 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 4. Create a relationship record for each manifest referenced in the manifest list payload, where `parent_id` is the manifest list ID and `child_id` is the referenced manifest ID (bulk insert). Do nothing if relationship already exists:
 
    ```sql
-   INSERT INTO manifest_references (namespace_id, repository_id, parent_id, child_id)
+   INSERT INTO manifest_references (top_level_namespace_id, repository_id, parent_id, child_id)
        VALUES ($1, $2, $3, $4)
-   ON CONFLICT (namespace_id, repository_id, parent_id, child_id)
+   ON CONFLICT (top_level_namespace_id, repository_id, parent_id, child_id)
        DO NOTHING;
     ```
 
@@ -452,7 +452,7 @@ DELETE /v2/<name>/manifests/<reference>
 
    ```sql
    DELETE FROM manifests
-   WHERE namespace_id = $1
+   WHERE top_level_namespace_id = $1
        AND repository_id = $2
        AND digest = decode($3, 'hex');
    ```
@@ -474,7 +474,7 @@ GET /v2/<name>/tags/list
    ```sql
    SELECT
        id,
-       namespace_id,
+       top_level_namespace_id,
        repository_id,
        manifest_id,
        name,
@@ -483,7 +483,7 @@ GET /v2/<name>/tags/list
    FROM
        tags
    WHERE
-       namespace_id = $1
+       top_level_namespace_id = $1
        AND repository_id = $2
        AND name > $3 -- pagination marker (lexicographic)
    ORDER BY
@@ -505,7 +505,7 @@ DELETE /v2/<name>/tags/reference/<reference>
 
    ```sql
    DELETE FROM tags
-   WHERE namespace_id = $1
+   WHERE top_level_namespace_id = $1
        AND repository_id = $2
        AND name = $3;
    ```

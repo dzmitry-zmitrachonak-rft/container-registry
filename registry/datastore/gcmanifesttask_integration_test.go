@@ -407,7 +407,7 @@ func pickGCManifestTask(t *testing.T, db datastore.Queryer, namespaceID, reposit
 		FROM
 			gc_manifest_review_queue
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND manifest_id = $3
 		FOR UPDATE`

@@ -49,7 +49,7 @@ func scanFullGCLayerLinks(rows *sql.Rows) ([]*models.GCLayerLink, error) {
 func (s *gcLayerLinkStore) FindAll(ctx context.Context) ([]*models.GCLayerLink, error) {
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			layer_id,
 			encode(digest, 'hex') as digest

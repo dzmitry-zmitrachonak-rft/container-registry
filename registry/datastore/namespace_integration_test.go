@@ -30,7 +30,7 @@ func TestNamespaceStore_FindByName(t *testing.T) {
 	n, err := s.FindByName(suite.ctx, "gitlab-org")
 	require.NoError(t, err)
 
-	// see testdata/fixtures/namespaces.sql
+	// see testdata/fixtures/top_level_namespaces.sql
 	require.Equal(t, &models.Namespace{
 		ID:        1,
 		Name:      "gitlab-org",

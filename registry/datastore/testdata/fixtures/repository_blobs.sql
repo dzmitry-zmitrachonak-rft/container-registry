@@ -1,4 +1,4 @@
-INSERT INTO "repository_blobs"("id", "namespace_id", "repository_id", "blob_digest", "created_at")
+INSERT INTO "repository_blobs"("id", "top_level_namespace_id", "repository_id", "blob_digest", "created_at")
 VALUES (1, 1, 3, decode('01c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9', 'hex'), E'2020-05-27 13:05:35.338639+00'),
        (2, 1, 3, decode('016b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21', 'hex'), E'2020-05-27 13:05:35.338639+00'),
        (3, 1, 3, decode('01f01256086224ded321e042e74135d72d5f108089a1cda03ab4820dfc442807c1', 'hex'), E'2020-05-27 13:05:35.338639+00'),

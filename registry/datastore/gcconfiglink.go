@@ -49,7 +49,7 @@ func scanFullGCConfigLinks(rows *sql.Rows) ([]*models.GCConfigLink, error) {
 func (s *gcConfigLinkStore) FindAll(ctx context.Context) ([]*models.GCConfigLink, error) {
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			repository_id,
 			manifest_id,
 			encode(digest, 'hex') as digest

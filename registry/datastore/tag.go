@@ -78,7 +78,7 @@ func (s *tagStore) FindByID(ctx context.Context, id int64) (*models.Tag, error) 
 	defer metrics.InstrumentQuery("tag_find_by_id")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -98,7 +98,7 @@ func (s *tagStore) FindAll(ctx context.Context) (models.Tags, error) {
 	defer metrics.InstrumentQuery("tag_find_all")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -132,7 +132,7 @@ func (s *tagStore) Repository(ctx context.Context, t *models.Tag) (*models.Repos
 	defer metrics.InstrumentQuery("tag_repository")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			path,
 			parent_id,
@@ -141,7 +141,7 @@ func (s *tagStore) Repository(ctx context.Context, t *models.Tag) (*models.Repos
 		FROM
 			repositories
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND id = $2`
 	row := s.db.QueryRowContext(ctx, q, t.NamespaceID, t.RepositoryID)
 
@@ -153,7 +153,7 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 	defer metrics.InstrumentQuery("tag_manifest")()
 	q := `SELECT
 			m.id,
-			m.namespace_id,
+			m.top_level_namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -168,7 +168,7 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.namespace_id = $1
+			m.top_level_namespace_id = $1
 			AND m.repository_id = $2
 			AND m.id = $3`
 	row := s.db.QueryRowContext(ctx, q, t.NamespaceID, t.RepositoryID, t.ManifestID)
@@ -181,9 +181,9 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 // points to a different manifest (in which case it should be updated).
 func (s *tagStore) CreateOrUpdate(ctx context.Context, t *models.Tag) error {
 	defer metrics.InstrumentQuery("tag_create_or_update")()
-	q := `INSERT INTO tags (namespace_id, repository_id, manifest_id, name)
+	q := `INSERT INTO tags (top_level_namespace_id, repository_id, manifest_id, name)
 		   VALUES ($1, $2, $3, $4)
-	   ON CONFLICT (namespace_id, repository_id, name)
+	   ON CONFLICT (top_level_namespace_id, repository_id, name)
 		   DO UPDATE SET
 			   manifest_id = EXCLUDED.manifest_id, updated_at = now()
 		   WHERE

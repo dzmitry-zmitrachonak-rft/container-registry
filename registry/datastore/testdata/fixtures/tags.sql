@@ -1,4 +1,4 @@
-INSERT INTO "tags"("id", "namespace_id", "name", "repository_id", "manifest_id", "created_at", "updated_at")
+INSERT INTO "tags"("id", "top_level_namespace_id", "name", "repository_id", "manifest_id", "created_at", "updated_at")
 VALUES (1, 1, E'1.0.0', 3, 1, E'2020-03-02 17:57:43.283783+00', NULL),
        (2, 1, E'2.0.0', 3, 2, E'2020-03-02 17:57:44.283783+00', NULL),
        (3, 1, E'latest', 3, 2, E'2020-03-02 17:57:45.283783+00', E'2020-03-02 17:57:53.029514+00'),

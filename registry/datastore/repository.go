@@ -165,7 +165,7 @@ func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repos
 	defer metrics.InstrumentQuery("repository_find_by_id")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			path,
 			parent_id,
@@ -194,7 +194,7 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 	defer metrics.InstrumentQuery("repository_find_by_path")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			path,
 			parent_id,
@@ -203,7 +203,7 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		FROM
 			repositories
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND path = $2`
 
 	row := s.db.QueryRowContext(ctx, q, n.ID, path)
@@ -216,7 +216,7 @@ func (s *repositoryStore) FindAll(ctx context.Context) (models.Repositories, err
 	defer metrics.InstrumentQuery("repository_find_all")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			path,
 			parent_id,
@@ -242,7 +242,7 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 	defer metrics.InstrumentQuery("repository_find_all_paginated")()
 	q := `SELECT
 			r.id,
-			r.namespace_id,
+			r.top_level_namespace_id,
 			r.name,
 			r.path,
 			r.parent_id,
@@ -256,7 +256,7 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 				FROM
 					manifests AS m
 				WHERE
-					m.namespace_id = r.namespace_id
+					m.top_level_namespace_id = r.top_level_namespace_id
 					AND m.repository_id = r.id)
 			AND r.path > $1
 		ORDER BY
@@ -276,7 +276,7 @@ func (s *repositoryStore) FindDescendantsOf(ctx context.Context, id int64) (mode
 	q := `WITH RECURSIVE descendants AS (
 			SELECT
 				id,
-				namespace_id,
+				top_level_namespace_id,
 				name,
 				path,
 				parent_id,
@@ -289,7 +289,7 @@ func (s *repositoryStore) FindDescendantsOf(ctx context.Context, id int64) (mode
 			UNION ALL
 			SELECT
 				r.id,
-				r.namespace_id,
+				r.top_level_namespace_id,
 				r.name,
 				r.path,
 				r.parent_id,
@@ -320,7 +320,7 @@ func (s *repositoryStore) FindAncestorsOf(ctx context.Context, id int64) (models
 	q := `WITH RECURSIVE ancestors AS (
 			SELECT
 				id,
-				namespace_id,
+				top_level_namespace_id,
 				name,
 				path,
 				parent_id,
@@ -333,7 +333,7 @@ func (s *repositoryStore) FindAncestorsOf(ctx context.Context, id int64) (models
 			UNION ALL
 			SELECT
 				r.id,
-				r.namespace_id,
+				r.top_level_namespace_id,
 				r.name,
 				r.path,
 				r.parent_id,
@@ -363,7 +363,7 @@ func (s *repositoryStore) FindSiblingsOf(ctx context.Context, id int64) (models.
 	defer metrics.InstrumentQuery("repository_find_siblings_of")()
 	q := `SELECT
 			siblings.id,
-			siblings.namespace_id,
+			siblings.top_level_namespace_id,
 			siblings.name,
 			siblings.path,
 			siblings.parent_id,
@@ -389,7 +389,7 @@ func (s *repositoryStore) Tags(ctx context.Context, r *models.Repository) (model
 	defer metrics.InstrumentQuery("repository_tags")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -417,7 +417,7 @@ func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repositor
 	defer metrics.InstrumentQuery("repository_tags_paginated")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -426,7 +426,7 @@ func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repositor
 		FROM
 			tags
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND name > $3
 		ORDER BY
@@ -452,7 +452,7 @@ func (s *repositoryStore) TagsCountAfterName(ctx context.Context, r *models.Repo
 		FROM
 			tags
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND name > $3`
 
@@ -469,7 +469,7 @@ func (s *repositoryStore) ManifestTags(ctx context.Context, r *models.Repository
 	defer metrics.InstrumentQuery("repository_manifest_tags")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -478,7 +478,7 @@ func (s *repositoryStore) ManifestTags(ctx context.Context, r *models.Repository
 		FROM
 			tags
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND manifest_id = $3`
 
@@ -520,7 +520,7 @@ func (s *repositoryStore) CountAfterPath(ctx context.Context, path string) (int,
 				FROM
 					manifests AS m
 				WHERE
-					m.namespace_id = r.namespace_id -- PROBLEM - cross partition scan
+					m.top_level_namespace_id = r.top_level_namespace_id -- PROBLEM - cross partition scan
 					AND m.repository_id = r.id)
 			AND r.path > $1`
 
@@ -537,7 +537,7 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 	defer metrics.InstrumentQuery("repository_manifests")()
 	q := `SELECT
 			m.id,
-			m.namespace_id,
+			m.top_level_namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -552,7 +552,7 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.namespace_id = $1
+			m.top_level_namespace_id = $1
 			AND m.repository_id = $2
 		ORDER BY m.id`
 
@@ -569,7 +569,7 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 	defer metrics.InstrumentQuery("repository_find_manifest_by_digest")()
 	q := `SELECT
 			m.id,
-			m.namespace_id,
+			m.top_level_namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -584,7 +584,7 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.namespace_id = $1
+			m.top_level_namespace_id = $1
 			AND m.repository_id = $2
 			AND m.digest = decode($3, 'hex')`
 
@@ -602,7 +602,7 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 	defer metrics.InstrumentQuery("repository_find_manifest_by_tag_name")()
 	q := `SELECT
 			m.id,
-			m.namespace_id,
+			m.top_level_namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -616,11 +616,11 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 			manifests AS m
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
-			JOIN tags AS t ON t.namespace_id = m.namespace_id
+			JOIN tags AS t ON t.top_level_namespace_id = m.top_level_namespace_id
 				AND t.repository_id = m.repository_id
 				AND t.manifest_id = m.id
 		WHERE
-			m.namespace_id = $1
+			m.top_level_namespace_id = $1
 			AND m.repository_id = $2
 			AND t.name = $3`
 
@@ -643,7 +643,7 @@ func (s *repositoryStore) Blobs(ctx context.Context, r *models.Repository) (mode
 			JOIN repositories AS r ON r.id = rb.repository_id
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 		WHERE
-			r.namespace_id = $1
+			r.top_level_namespace_id = $1
 			AND r.id = $2`
 
 	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID)
@@ -667,7 +667,7 @@ func (s *repositoryStore) FindBlob(ctx context.Context, r *models.Repository, d 
 			JOIN media_types AS mt ON mt.id = b.media_type_id
 			JOIN repository_blobs AS rb ON rb.blob_digest = b.digest
 		WHERE
-			rb.namespace_id = $1
+			rb.top_level_namespace_id = $1
 			AND rb.repository_id = $2
 			AND b.digest = decode($3, 'hex')`
 
@@ -690,7 +690,7 @@ func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, 
 				FROM
 					repository_blobs
 				WHERE
-					namespace_id = $1
+					top_level_namespace_id = $1
 					AND repository_id = $2
 					AND blob_digest = decode($3, 'hex'))`
 
@@ -711,7 +711,7 @@ func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, 
 // Create saves a new repository.
 func (s *repositoryStore) Create(ctx context.Context, r *models.Repository) error {
 	defer metrics.InstrumentQuery("repository_create")()
-	q := `INSERT INTO repositories (namespace_id, name, path, parent_id)
+	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
 			VALUES ($1, $2, $3, $4)
 		RETURNING
 			id, created_at`
@@ -729,7 +729,7 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 	defer metrics.InstrumentQuery("repository_find_tag_by_name")()
 	q := `SELECT
 			id,
-			namespace_id,
+			top_level_namespace_id,
 			name,
 			repository_id,
 			manifest_id,
@@ -738,7 +738,7 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 		FROM
 			tags
 		WHERE
-			namespace_id = $1
+			top_level_namespace_id = $1
 			AND repository_id = $2
 			AND name = $3`
 	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, name)
@@ -761,9 +761,9 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 	}
 
 	defer metrics.InstrumentQuery("repository_create_or_find")()
-	q := `INSERT INTO repositories (namespace_id, name, path, parent_id)
+	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
 			VALUES ($1, $2, $3, $4)
-		ON CONFLICT (namespace_id, path)
+		ON CONFLICT (top_level_namespace_id, path)
 			DO NOTHING
 		RETURNING
 			id, created_at`
@@ -903,7 +903,7 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 		SET
 			(name, path, parent_id, updated_at) = ($1, $2, $3, now())
 		WHERE
-			namespace_id = $4
+			top_level_namespace_id = $4
 			AND id = $5
 		RETURNING
 			updated_at`
@@ -922,7 +922,7 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 // UntagManifest deletes all tags of a manifest in a repository.
 func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error {
 	defer metrics.InstrumentQuery("repository_untag_manifest")()
-	q := "DELETE FROM tags WHERE namespace_id = $1 AND repository_id = $2 AND manifest_id = $3"
+	q := "DELETE FROM tags WHERE top_level_namespace_id = $1 AND repository_id = $2 AND manifest_id = $3"
 
 	_, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, m.ID)
 	if err != nil {
@@ -935,9 +935,9 @@ func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repositor
 // LinkBlob links a blob to a repository. It does nothing if already linked.
 func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error {
 	defer metrics.InstrumentQuery("repository_link_blob")()
-	q := `INSERT INTO repository_blobs (namespace_id, repository_id, blob_digest)
+	q := `INSERT INTO repository_blobs (top_level_namespace_id, repository_id, blob_digest)
 			VALUES ($1, $2, decode($3, 'hex'))
-		ON CONFLICT (namespace_id, repository_id, blob_digest)
+		ON CONFLICT (top_level_namespace_id, repository_id, blob_digest)
 			DO NOTHING`
 
 	dgst, err := NewDigest(d)
@@ -955,7 +955,7 @@ func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, d 
 // the link was deleted or not. This avoids the need for a separate preceding `SELECT` to find if it exists.
 func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
 	defer metrics.InstrumentQuery("repository_unlink_blob")()
-	q := "DELETE FROM repository_blobs WHERE namespace_id = $1 AND repository_id = $2 AND blob_digest = decode($3, 'hex')"
+	q := "DELETE FROM repository_blobs WHERE top_level_namespace_id = $1 AND repository_id = $2 AND blob_digest = decode($3, 'hex')"
 
 	dgst, err := NewDigest(d)
 	if err != nil {
@@ -978,7 +978,7 @@ func (s *repositoryStore) UnlinkBlob(ctx context.Context, r *models.Repository, 
 // deleted or not. This avoids the need for a separate preceding `SELECT` to find if it exists.
 func (s *repositoryStore) DeleteTagByName(ctx context.Context, r *models.Repository, name string) (bool, error) {
 	defer metrics.InstrumentQuery("repository_delete_tag_by_name")()
-	q := "DELETE FROM tags WHERE namespace_id = $1 AND repository_id = $2 AND name = $3"
+	q := "DELETE FROM tags WHERE top_level_namespace_id = $1 AND repository_id = $2 AND name = $3"
 
 	res, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, name)
 	if err != nil {
@@ -998,7 +998,7 @@ func (s *repositoryStore) DeleteTagByName(ctx context.Context, r *models.Reposit
 // it is referenced by a manifest list.
 func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error) {
 	defer metrics.InstrumentQuery("repository_delete_manifest")()
-	q := "DELETE FROM manifests WHERE namespace_id = $1 AND repository_id = $2 AND digest = decode($3, 'hex')"
+	q := "DELETE FROM manifests WHERE top_level_namespace_id = $1 AND repository_id = $2 AND digest = decode($3, 'hex')"
 
 	dgst, err := NewDigest(d)
 	if err != nil {

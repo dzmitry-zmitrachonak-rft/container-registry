@@ -1,4 +1,4 @@
-INSERT INTO "manifest_references"("id", "namespace_id", "repository_id", "parent_id", "child_id", "created_at")
+INSERT INTO "manifest_references"("id", "top_level_namespace_id", "repository_id", "parent_id", "child_id", "created_at")
 VALUES (1, 1, 3, 6, 1, E'2020-04-02 18:45:03.470711+00'),
        (2, 1, 3, 6, 2, E'2020-04-02 18:45:03.470711+00'),
        (3, 2, 7, 8, 10, E'2020-04-02 18:45:03.470711+00'),

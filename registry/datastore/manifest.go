@@ -133,7 +133,7 @@ func (s *manifestStore) FindAll(ctx context.Context) (models.Manifests, error) {
 	defer metrics.InstrumentQuery("manifest_find_all")()
 	q := `SELECT
 			m.id,
-			m.namespace_id,
+			m.top_level_namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -200,7 +200,7 @@ func (s *manifestStore) References(ctx context.Context, m *models.Manifest) (mod
 	defer metrics.InstrumentQuery("manifest_references")()
 	q := `SELECT DISTINCT
 			m.id,
-			m.namespace_id,
+			m.top_level_namespace_id,
 			m.repository_id,
 			m.schema_version,
 			mt.media_type,
@@ -212,12 +212,12 @@ func (s *manifestStore) References(ctx context.Context, m *models.Manifest) (mod
 			m.created_at
 		FROM
 			manifests AS m
-			JOIN manifest_references AS mr ON mr.namespace_id = m.namespace_id
+			JOIN manifest_references AS mr ON mr.top_level_namespace_id = m.top_level_namespace_id
 				AND mr.child_id = m.id
 			JOIN media_types AS mt ON mt.id = m.media_type_id
 			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
 		WHERE
-			m.namespace_id = $1
+			m.top_level_namespace_id = $1
 			AND mr.repository_id = $2
 			AND mr.parent_id = $3`
 
@@ -252,7 +252,7 @@ func mapMediaType(ctx context.Context, db Queryer, mediaType string) (int, error
 // Create saves a new Manifest.
 func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	defer metrics.InstrumentQuery("manifest_create")()
-	q := `INSERT INTO manifests (namespace_id, repository_id, schema_version, media_type_id, digest, payload,
+	q := `INSERT INTO manifests (top_level_namespace_id, repository_id, schema_version, media_type_id, digest, payload,
 				configuration_media_type_id, configuration_blob_digest, configuration_payload)
 			VALUES ($1, $2, $3, $4, decode($5, 'hex'), $6, $7, decode($8, 'hex'), $9)
 		RETURNING
@@ -302,9 +302,9 @@ func (s *manifestStore) AssociateManifest(ctx context.Context, ml *models.Manife
 		return fmt.Errorf("cannot associate a manifest with itself")
 	}
 
-	q := `INSERT INTO manifest_references (namespace_id, repository_id, parent_id, child_id)
+	q := `INSERT INTO manifest_references (top_level_namespace_id, repository_id, parent_id, child_id)
 			VALUES ($1, $2, $3, $4)
-		ON CONFLICT (namespace_id, repository_id, parent_id, child_id)
+		ON CONFLICT (top_level_namespace_id, repository_id, parent_id, child_id)
 			DO NOTHING`
 
 	if _, err := s.db.ExecContext(ctx, q, ml.NamespaceID, ml.RepositoryID, ml.ID, m.ID); err != nil {
@@ -323,7 +323,7 @@ func (s *manifestStore) AssociateManifest(ctx context.Context, ml *models.Manife
 func (s *manifestStore) DissociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error {
 	defer metrics.InstrumentQuery("manifest_dissociate_manifest")()
 	q := `DELETE FROM manifest_references
-		WHERE namespace_id = $1
+		WHERE top_level_namespace_id = $1
 			AND repository_id = $2
 			AND parent_id = $3
 			AND child_id = $4`
@@ -343,9 +343,9 @@ func (s *manifestStore) DissociateManifest(ctx context.Context, ml *models.Manif
 // AssociateLayerBlob associates a layer blob and a manifest. It does nothing if already associated.
 func (s *manifestStore) AssociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error {
 	defer metrics.InstrumentQuery("manifest_associate_layer_blob")()
-	q := `INSERT INTO layers (namespace_id, repository_id, manifest_id, digest, media_type_id, size)
+	q := `INSERT INTO layers (top_level_namespace_id, repository_id, manifest_id, digest, media_type_id, size)
 			VALUES ($1, $2, $3, decode($4, 'hex'), $5, $6)
-		ON CONFLICT (namespace_id, repository_id, manifest_id, digest)
+		ON CONFLICT (top_level_namespace_id, repository_id, manifest_id, digest)
 			DO NOTHING`
 
 	dgst, err := NewDigest(b.Digest)
@@ -368,7 +368,7 @@ func (s *manifestStore) AssociateLayerBlob(ctx context.Context, m *models.Manife
 func (s *manifestStore) DissociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error {
 	defer metrics.InstrumentQuery("manifest_dissociate_layer_blob")()
 	q := `DELETE FROM layers
-		WHERE namespace_id = $1
+		WHERE top_level_namespace_id = $1
 			AND repository_id = $2
 			AND manifest_id = $3
 			AND digest = decode($4, 'hex')`
@@ -395,7 +395,7 @@ func (s *manifestStore) DissociateLayerBlob(ctx context.Context, m *models.Manif
 // manifest list.
 func (s *manifestStore) Delete(ctx context.Context, m *models.Manifest) (bool, error) {
 	defer metrics.InstrumentQuery("manifest_delete")()
-	q := "DELETE FROM manifests WHERE namespace_id = $1 AND repository_id = $2 AND id = $3"
+	q := "DELETE FROM manifests WHERE top_level_namespace_id = $1 AND repository_id = $2 AND id = $3"
 
 	res, err := s.db.ExecContext(ctx, q, m.NamespaceID, m.RepositoryID, m.ID)
 	if err != nil {

@@ -27,7 +27,7 @@ type trigger struct {
 }
 
 const (
-	NamespacesTable            table = "namespaces"
+	NamespacesTable            table = "top_level_namespaces"
 	RepositoriesTable          table = "repositories"
 	MediaTypesTable            table = "media_types"
 	ManifestsTable             table = "manifests"

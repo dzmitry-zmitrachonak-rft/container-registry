@@ -1,4 +1,4 @@
-INSERT INTO "repositories"("id", "namespace_id", "name", "path", "parent_id", "created_at")
+INSERT INTO "repositories"("id", "top_level_namespace_id", "name", "path", "parent_id", "created_at")
 VALUES (1, 1, 'gitlab-org', 'gitlab-org', NULL, '2020-03-02 17:47:39.849864+00'),
        (2, 1, 'gitlab-test', 'gitlab-org/gitlab-test', 1, '2020-03-02 17:47:40.866312+00'),
        (3, 1, 'backend', 'gitlab-org/gitlab-test/backend', 2, '2020-03-02 17:42:12.566212+00'),

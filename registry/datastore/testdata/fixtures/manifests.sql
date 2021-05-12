@@ -1,4 +1,4 @@
-INSERT INTO "manifests"("id", "namespace_id", "repository_id", "schema_version", "media_type_id", "digest",
+INSERT INTO "manifests"("id", "top_level_namespace_id", "repository_id", "schema_version", "media_type_id", "digest",
                         "payload", "configuration_media_type_id", "configuration_blob_digest", "configuration_payload", "created_at")
 VALUES (1, 1, 3, 2, 3,
         decode('01bd165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155', 'hex'), convert_to(
