@@ -106,8 +106,6 @@ CREATE TABLE manifest_references (
 )
 PARTITION BY HASH (top_level_namespace_id);
 
-CREATE INDEX index_manifest_references_on_tp_lvl_nmspc_id_rpstry_id_prnt_id ON manifest_references USING btree (top_level_namespace_id, repository_id, parent_id);
-
 CREATE INDEX index_manifest_references_on_tp_lvl_nmspc_id_rpstry_id_chld_id ON manifest_references USING btree (top_level_namespace_id, repository_id, child_id);
 
 CREATE TABLE layers (

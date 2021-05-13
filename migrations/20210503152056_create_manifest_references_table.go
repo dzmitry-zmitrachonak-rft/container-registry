@@ -21,12 +21,10 @@ func init() {
 					CONSTRAINT check_manifest_references_parent_id_and_child_id_differ CHECK (parent_id <> child_id)
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
-				"CREATE INDEX IF NOT EXISTS index_manifest_references_on_tp_lvl_nmspc_id_rpstry_id_prnt_id ON manifest_references USING btree (top_level_namespace_id, repository_id, parent_id)",
 				"CREATE INDEX IF NOT EXISTS index_manifest_references_on_tp_lvl_nmspc_id_rpstry_id_chld_id ON manifest_references USING btree (top_level_namespace_id, repository_id, child_id)",
 			},
 			Down: []string{
 				"DROP INDEX IF EXISTS index_manifest_references_on_tp_lvl_nmspc_id_rpstry_id_chld_id CASCADE",
-				"DROP INDEX IF EXISTS index_manifest_references_on_tp_lvl_nmspc_id_rpstry_id_prnt_id CASCADE",
 				"DROP TABLE IF EXISTS manifest_references CASCADE",
 			},
 		},
