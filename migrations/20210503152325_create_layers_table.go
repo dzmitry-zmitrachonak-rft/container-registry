@@ -21,7 +21,7 @@ func init() {
 					CONSTRAINT fk_layers_media_type_id_media_types FOREIGN KEY (media_type_id) REFERENCES media_types (id),
 					CONSTRAINT fk_layers_digest_blobs FOREIGN KEY (digest) REFERENCES blobs (digest),
 					CONSTRAINT unique_layers_tp_lvl_nmspc_id_rpstry_id_and_mnfst_id_and_digest UNIQUE (top_level_namespace_id, repository_id, manifest_id, digest),
-					CONSTRAINT unique_layers_digest_and_top_lvl_nmspc_id_and_rpstory_id_and_id UNIQUE (digest, top_level_namespace_id, repository_id, id)
+					CONSTRAINT unique_layers_top_lvl_nmspc_id_and_rpstory_id_and_id_and_digest UNIQUE (top_level_namespace_id, repository_id, id, digest)
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
 				"CREATE INDEX IF NOT EXISTS index_layers_on_media_type_id ON layers USING btree (media_type_id)",
