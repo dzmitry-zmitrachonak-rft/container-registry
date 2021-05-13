@@ -85,8 +85,6 @@ CREATE TABLE manifests (
 )
 PARTITION BY HASH (top_level_namespace_id);
 
-CREATE INDEX index_manifests_on_namespace_id_and_repository_id ON manifests USING btree (top_level_namespace_id, repository_id);
-
 CREATE INDEX index_manifests_on_media_type_id ON manifests USING btree (media_type_id);
 
 CREATE INDEX index_manifests_on_configuration_media_type_id ON manifests USING btree (configuration_media_type_id);

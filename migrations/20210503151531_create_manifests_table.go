@@ -28,7 +28,6 @@ func init() {
 					CONSTRAINT unique_manifests_tp_lvl_nmspc_id_and_cfg_blob_dgst_repo_id_id UNIQUE (top_level_namespace_id, configuration_blob_digest, repository_id, id)
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
-				"CREATE INDEX IF NOT EXISTS index_manifests_on_top_level_namespace_id_and_repository_id ON manifests USING btree (top_level_namespace_id, repository_id)",
 				"CREATE INDEX IF NOT EXISTS index_manifests_on_media_type_id ON manifests USING btree (media_type_id)",
 				"CREATE INDEX IF NOT EXISTS index_manifests_on_configuration_media_type_id ON manifests USING btree (configuration_media_type_id)",
 				"CREATE INDEX IF NOT EXISTS index_manifests_on_configuration_blob_digest ON manifests USING btree (configuration_blob_digest)",
@@ -37,7 +36,6 @@ func init() {
 				"DROP INDEX IF EXISTS index_manifests_on_configuration_blob_digest CASCADE",
 				"DROP INDEX IF EXISTS index_manifests_on_configuration_media_type_id CASCADE",
 				"DROP INDEX IF EXISTS index_manifests_on_media_type_id CASCADE",
-				"DROP INDEX IF EXISTS index_manifests_on_top_level_namespace_id_and_repository_id CASCADE",
 				"DROP TABLE IF EXISTS manifests CASCADE",
 			},
 		},
