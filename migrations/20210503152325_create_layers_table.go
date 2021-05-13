@@ -24,14 +24,12 @@ func init() {
 					CONSTRAINT unique_layers_digest_and_top_lvl_nmspc_id_and_rpstory_id_and_id UNIQUE (digest, top_level_namespace_id, repository_id, id)
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
-				"CREATE INDEX IF NOT EXISTS index_layers_on_top_lvl_nmspc_id_and_rpstory_id_and_manifest_id ON layers USING btree (top_level_namespace_id, repository_id, manifest_id)",
 				"CREATE INDEX IF NOT EXISTS index_layers_on_media_type_id ON layers USING btree (media_type_id)",
 				"CREATE INDEX IF NOT EXISTS index_layers_on_digest ON layers USING btree (digest)",
 			},
 			Down: []string{
 				"DROP INDEX IF EXISTS index_layers_on_digest CASCADE",
 				"DROP INDEX IF EXISTS index_layers_on_media_type_id CASCADE",
-				"DROP INDEX IF EXISTS index_layers_on_top_lvl_nmspc_id_and_rpstory_id_and_manifest_id CASCADE",
 				"DROP TABLE IF EXISTS layers CASCADE",
 			},
 		},
