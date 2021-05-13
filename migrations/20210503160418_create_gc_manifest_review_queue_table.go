@@ -17,10 +17,8 @@ func init() {
 					CONSTRAINT fk_gc_manifest_review_queue_tp_lvl_nspc_id_rp_id_mfst_id_mnfsts FOREIGN KEY (top_level_namespace_id, repository_id, manifest_id) REFERENCES manifests (top_level_namespace_id, repository_id, id) ON DELETE CASCADE
 				)`,
 				"CREATE INDEX IF NOT EXISTS index_gc_manifest_review_queue_on_review_after ON gc_manifest_review_queue USING btree (review_after)",
-				"CREATE INDEX IF NOT EXISTS index_gc_manifest_review_queue_on_nmspc_id_rpstry_id_mnfst_id ON gc_manifest_review_queue USING btree (namespace_id, repository_id, manifest_id)",
 			},
 			Down: []string{
-				"DROP INDEX IF EXISTS index_gc_manifest_review_queue_on_nmspc_id_rpstry_id_mnfst_id CASCADE",
 				"DROP INDEX IF EXISTS index_gc_manifest_review_queue_on_review_after CASCADE",
 				"DROP TABLE IF EXISTS gc_manifest_review_queue CASCADE",
 			},

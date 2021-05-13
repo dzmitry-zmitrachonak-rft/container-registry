@@ -23,7 +23,7 @@ CREATE TABLE repositories (
     CONSTRAINT check_repositories_name_length CHECK ((char_length(name) <= 255)),
     CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
 )
-PARTITION BY HASH (namespace_id);
+PARTITION BY HASH (top_level_namespace_id);
 
 CREATE INDEX index_repositories_on_top_level_namespace_id_and_parent_id ON repositories USING btree (top_level_namespace_id, parent_id);
 
@@ -209,8 +209,6 @@ CREATE TABLE gc_manifest_review_queue (
 );
 
 CREATE INDEX index_gc_manifest_review_queue_on_review_after ON gc_manifest_review_queue USING btree (review_after);
-
-CREATE INDEX index_gc_manifest_review_queue_on_nmspc_id_rpstry_id_mnfst_id ON gc_manifest_review_queue USING btree (namespace_id, repository_id, manifest_id);
 
 CREATE TABLE gc_review_after_defaults (
     event text NOT NULL,
