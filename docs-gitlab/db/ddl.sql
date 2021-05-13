@@ -81,7 +81,7 @@ CREATE TABLE manifests (
     CONSTRAINT fk_manifests_configuration_media_type_id_media_types FOREIGN KEY (configuration_media_type_id) REFERENCES media_types (id),
     CONSTRAINT fk_manifests_configuration_blob_digest_blobs FOREIGN KEY (configuration_blob_digest) REFERENCES blobs (digest),
     CONSTRAINT unique_manifests_top_lvl_nmspc_id_and_repository_id_and_digest UNIQUE (top_level_namespace_id, repository_id, digest),
-    CONSTRAINT unique_manifests_tp_lvl_nmspc_id_and_cfg_blob_dgst_repo_id_id UNIQUE (top_level_namespace_id, configuration_blob_digest, repository_id, id)
+    CONSTRAINT unique_manifests_top_lvl_nmspc_id_and_repo_id_id_cfg_blob_dgst UNIQUE (top_level_namespace_id, repository_id, id, configuration_blob_digest)
 )
 PARTITION BY HASH (top_level_namespace_id);
 
@@ -167,13 +167,13 @@ CREATE TABLE gc_blobs_configurations (
     manifest_id bigint NOT NULL,
     digest bytea NOT NULL,
     CONSTRAINT pk_gc_blobs_configurations PRIMARY KEY (digest, id),
-    CONSTRAINT fk_gc_blobs_configurations_tp_lvl_nspc_id_dgst_r_id_m_id_mnfsts FOREIGN KEY (top_level_namespace_id, digest, repository_id, manifest_id) REFERENCES manifests (top_level_namespace_id, configuration_blob_digest, repository_id, id) ON DELETE CASCADE,
+    CONSTRAINT fk_gc_blobs_configurations_tp_lvl_nspc_id_r_id_m_id_dgst_mnfsts FOREIGN KEY (top_level_namespace_id, repository_id, manifest_id, digest) REFERENCES manifests (top_level_namespace_id, repository_id, id, configuration_blob_digest) ON DELETE CASCADE,
     CONSTRAINT fk_gc_blobs_configurations_digest_blobs FOREIGN KEY (digest) REFERENCES blobs (digest) ON DELETE CASCADE,
     CONSTRAINT unique_gc_blobs_configurations_digest_and_manifest_id UNIQUE (digest, manifest_id)
 )
 PARTITION BY HASH (digest);
 
-CREATE INDEX index_gc_blobs_configurations_on_tp_lvl_nmspc_id_dgst_r_id_m_id ON gc_blobs_configurations USING btree (top_level_namespace_id, digest, repository_id, manifest_id);
+CREATE INDEX index_gc_blobs_configurations_on_tp_lvl_nmspc_id_r_id_m_id_dgst ON gc_blobs_configurations USING btree (top_level_namespace_id, repository_id, manifest_id, digest);
 
 CREATE TABLE gc_tmp_blobs_manifests (
     created_at timestamp WITH time zone NOT NULL DEFAULT now(),

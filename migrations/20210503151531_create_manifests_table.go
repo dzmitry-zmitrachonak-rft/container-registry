@@ -25,7 +25,7 @@ func init() {
 					CONSTRAINT fk_manifests_configuration_media_type_id_media_types FOREIGN KEY (configuration_media_type_id) REFERENCES media_types (id),
 					CONSTRAINT fk_manifests_configuration_blob_digest_blobs FOREIGN KEY (configuration_blob_digest) REFERENCES blobs (digest),
 					CONSTRAINT unique_manifests_top_lvl_nmspc_id_and_repository_id_and_digest UNIQUE (top_level_namespace_id, repository_id, digest),
-					CONSTRAINT unique_manifests_tp_lvl_nmspc_id_and_cfg_blob_dgst_repo_id_id UNIQUE (top_level_namespace_id, configuration_blob_digest, repository_id, id)
+					CONSTRAINT unique_manifests_top_lvl_nmspc_id_and_repo_id_id_cfg_blob_dgst UNIQUE (top_level_namespace_id, repository_id, id, configuration_blob_digest)
 				)
 				PARTITION BY HASH (top_level_namespace_id)`,
 				"CREATE INDEX IF NOT EXISTS index_manifests_on_media_type_id ON manifests USING btree (media_type_id)",

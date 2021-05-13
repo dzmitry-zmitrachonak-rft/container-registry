@@ -14,15 +14,15 @@ func init() {
 					manifest_id bigint NOT NULL,
 					digest bytea NOT NULL,
 					CONSTRAINT pk_gc_blobs_configurations PRIMARY KEY (digest, id),
-					CONSTRAINT fk_gc_blobs_configurations_tp_lvl_nspc_id_dgst_r_id_m_id_mnfsts FOREIGN KEY (top_level_namespace_id, digest, repository_id, manifest_id) REFERENCES manifests (top_level_namespace_id, configuration_blob_digest, repository_id, id) ON DELETE CASCADE,
+					CONSTRAINT fk_gc_blobs_configurations_tp_lvl_nspc_id_r_id_m_id_dgst_mnfsts FOREIGN KEY (top_level_namespace_id, repository_id, manifest_id, digest) REFERENCES manifests (top_level_namespace_id, repository_id, id, configuration_blob_digest) ON DELETE CASCADE,
 					CONSTRAINT fk_gc_blobs_configurations_digest_blobs FOREIGN KEY (digest) REFERENCES blobs (digest) ON DELETE CASCADE,
 					CONSTRAINT unique_gc_blobs_configurations_digest_and_manifest_id UNIQUE (digest, manifest_id)
 				)
 				PARTITION BY HASH (digest)`,
-				"CREATE INDEX IF NOT EXISTS index_gc_blobs_configurations_on_tp_lvl_nmspc_id_dgst_r_id_m_id ON gc_blobs_configurations USING btree (top_level_namespace_id, digest, repository_id, manifest_id)",
+				"CREATE INDEX IF NOT EXISTS index_gc_blobs_configurations_on_tp_lvl_nmspc_id_r_id_m_id_dgst ON gc_blobs_configurations USING btree (top_level_namespace_id, repository_id, manifest_id, digest)",
 			},
 			Down: []string{
-				"DROP INDEX IF EXISTS index_gc_blobs_configurations_on_tp_lvl_nmspc_id_dgst_r_id_m_id CASCADE",
+				"DROP INDEX IF EXISTS index_gc_blobs_configurations_on_tp_lvl_nmspc_id_r_id_m_id_dgst CASCADE",
 				"DROP TABLE IF EXISTS gc_blobs_configurations CASCADE",
 			},
 		},
