@@ -7846,6 +7846,8 @@ ALTER TABLE ONLY partitions.layers_p_0
 ALTER TABLE ONLY public.layers
     ADD CONSTRAINT unique_layers_top_lvl_nmspc_id_and_rpstory_id_and_id_and_digest UNIQUE (top_level_namespace_id, repository_id, id, digest);
 
+COMMENT ON CONSTRAINT unique_layers_top_lvl_nmspc_id_and_rpstory_id_and_id_and_digest ON public.layers IS 'Unique constraint required to optimize the cascade on delete from manifests to gc_blobs_layers, through layers';
+
 ALTER TABLE ONLY partitions.layers_p_0
     ADD CONSTRAINT layers_p_0_top_level_namespace_id_repository_id_id_digest_key UNIQUE (top_level_namespace_id, repository_id, id, digest);
 
@@ -8826,6 +8828,8 @@ ALTER TABLE ONLY partitions.manifests_p_0
 
 ALTER TABLE ONLY public.manifests
     ADD CONSTRAINT unique_manifests_top_lvl_nmspc_id_and_repo_id_id_cfg_blob_dgst UNIQUE (top_level_namespace_id, repository_id, id, configuration_blob_digest);
+
+COMMENT ON CONSTRAINT unique_manifests_top_lvl_nmspc_id_and_repo_id_id_cfg_blob_dgst ON public.manifests IS 'Unique constraint required to optimize the cascade on delete from manifests to gc_blobs_configurations';
 
 ALTER TABLE ONLY partitions.manifests_p_0
     ADD CONSTRAINT manifests_p_0_top_level_namespace_id_repository_id_id_confi_key UNIQUE (top_level_namespace_id, repository_id, id, configuration_blob_digest);
