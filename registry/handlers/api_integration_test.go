@@ -42,6 +42,7 @@ import (
 	registryhandlers "github.com/docker/distribution/registry/handlers"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/factory"
+	_ "github.com/docker/distribution/registry/storage/driver/filesystem"
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	_ "github.com/docker/distribution/registry/storage/driver/testdriver"
 	"github.com/docker/distribution/testutil"
@@ -83,6 +84,12 @@ func disableMirrorFS(config *configuration.Configuration) {
 func withSharedInMemoryDriver(name string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Storage["sharedinmemorydriver"] = configuration.Parameters{"name": name}
+	}
+}
+
+func withFSDriver(path string) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Storage["filesystem"] = configuration.Parameters{"rootdirectory": path}
 	}
 }
 
@@ -1513,6 +1520,18 @@ func TestAPIConformance(t *testing.T) {
 	for _, f := range testFuncs {
 		for _, o := range envOpts {
 			t.Run(funcName(f)+" "+o.name, func(t *testing.T) {
+
+				// Use filesystem driver here. This way, we're able to test conformance
+				// with migration mode enabled as the inmemory driver does not support
+				// root directories.
+				rootDir, err := ioutil.TempDir("", "api-conformance-")
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					os.RemoveAll(rootDir)
+				})
+
+				o.opts = append(o.opts, withFSDriver(rootDir))
+
 				f(t, o.opts...)
 			})
 		}
@@ -4691,7 +4710,6 @@ func tags_Delete_UnknownRepository(t *testing.T, opts ...configOpt) {
 }
 
 func tags_Delete_ReadOnly(t *testing.T, opts ...configOpt) {
-	opts = append(opts, withSharedInMemoryDriver(t.Name()))
 	setupEnv := newTestEnv(t, opts...)
 	defer setupEnv.Shutdown()
 
