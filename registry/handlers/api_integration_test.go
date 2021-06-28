@@ -2492,6 +2492,114 @@ func manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository(t *testing.
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+func TestManifestAPI_Put_Schema2ManifestMigration(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "test-manifest-api-")
+	require.NoError(t, err)
+
+	migrationDir, err := ioutil.TempDir("", "test-manifest-api-")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+		os.RemoveAll(migrationDir)
+	})
+
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	oldRepoPath := "old-repo"
+
+	// Push up a random image to create the repository on the filesystem
+	seedRandomSchema2Manifest(t, env1, oldRepoPath, putByDigest, writeToFilesystemOnly)
+
+	// Bring up a new environment in migration mode.
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	// Push up a new manifest to the old repo.
+	oldRepoTag := "schema2-old-repo"
+
+	seedRandomSchema2Manifest(t, env2, oldRepoPath, putByTag(oldRepoTag))
+	oldTagURL := buildManifestTagURL(t, env2, oldRepoPath, oldRepoTag)
+
+	// Push a new manifest to a new repo.
+	newRepoPath := "new-repo"
+	newRepoTag := "schema2-new-repo"
+
+	seedRandomSchema2Manifest(t, env2, newRepoPath, putByTag(newRepoTag))
+	newTagURL := buildManifestTagURL(t, env2, newRepoPath, newRepoTag)
+
+	// Ensure both repos are accessible in migration mode.
+	req, err := http.NewRequest("GET", oldTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Bring up an environment that uses database only metadata and the migration root.
+	env3 := newTestEnv(t, withFSDriver(migrationDir))
+	defer env3.Shutdown()
+
+	oldTagURL = buildManifestTagURL(t, env3, oldRepoPath, oldRepoTag)
+	newTagURL = buildManifestTagURL(t, env3, newRepoPath, newRepoTag)
+
+	// Ensure only the new repo is accessible in database metadata mode.
+	req, err = http.NewRequest("GET", oldTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Disable the database and read from the mirrored FS metadata.
+	env3.config.Database.Enabled = false
+
+	req, err = http.NewRequest("GET", oldTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
 func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {
 	env := newTestEnv(t, opts...)
 	defer env.Shutdown()
