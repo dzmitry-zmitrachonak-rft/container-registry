@@ -67,7 +67,7 @@ type ErrBlobTransferFailed struct {
 }
 
 func (err ErrBlobTransferFailed) Error() string {
-	return fmt.Sprintf("failed to transfer blob digest=%q cleanup=%q cleanupError=%q: %q", err.Digest, err.Cleanup, err.CleanupErr.Error(), err.Reason.Error())
+	return fmt.Sprintf("failed to transfer blob digest=%q cleanup=%t cleanupError=%q: %q", err.Digest, err.Cleanup, err.CleanupErr.Error(), err.Reason.Error())
 }
 
 // Descriptor describes targeted content. Used in conjunction with a blob
