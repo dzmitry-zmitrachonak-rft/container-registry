@@ -1560,7 +1560,17 @@ func TestAPIConformance(t *testing.T) {
 		)
 	}
 
+	// Randomize test functions and environments to prevent failures
+	// (and successes) due to order of execution effects.
+	rand.Shuffle(len(testFuncs), func(i, j int) {
+		testFuncs[i], testFuncs[j] = testFuncs[j], testFuncs[i]
+	})
+
 	for _, f := range testFuncs {
+		rand.Shuffle(len(envOpts), func(i, j int) {
+			envOpts[i], envOpts[j] = envOpts[j], envOpts[i]
+		})
+
 		for _, o := range envOpts {
 			t.Run(funcName(f)+" "+o.name, func(t *testing.T) {
 
