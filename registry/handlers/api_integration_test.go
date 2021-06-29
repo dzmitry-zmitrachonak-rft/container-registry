@@ -81,6 +81,16 @@ func disableMirrorFS(config *configuration.Configuration) {
 	config.Migration.DisableMirrorFS = true
 }
 
+func withMigrationEnabled(config *configuration.Configuration) {
+	config.Migration.Enabled = true
+}
+
+func withMigrationRootDirectory(path string) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.RootDirectory = path
+	}
+}
+
 func withSharedInMemoryDriver(name string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Storage["sharedinmemorydriver"] = configuration.Parameters{"name": name}
@@ -308,7 +318,7 @@ func catalog_Get(t *testing.T, opts ...configOpt) {
 
 	// If the database is enabled, disable it and rerun the tests again with the
 	// database to check that the filesystem mirroring worked correctly.
-	if env.config.Database.Enabled && !env.config.Migration.DisableMirrorFS {
+	if env.config.Database.Enabled && !env.config.Migration.DisableMirrorFS && !env.config.Migration.Enabled {
 		env.config.Database.Enabled = false
 		defer func() { env.config.Database.Enabled = true }()
 
@@ -1499,22 +1509,55 @@ func TestAPIConformance(t *testing.T) {
 	}
 
 	type envOpt struct {
-		name string
-		opts []configOpt
+		name             string
+		opts             []configOpt
+		migrationEnabled bool
+		migrationRoot    string
 	}
 
 	var envOpts = []envOpt{
 		{
-			"with filesystem mirroring",
-			[]configOpt{},
+			name: "with filesystem mirroring",
+			opts: []configOpt{},
 		},
 	}
 
 	if os.Getenv("REGISTRY_DATABASE_ENABLED") == "true" {
-		envOpts = append(envOpts, envOpt{
-			"with filesystem mirroring disabled",
-			[]configOpt{disableMirrorFS},
-		})
+		envOpts = append(envOpts,
+			envOpt{
+				name: "with filesystem mirroring disabled",
+				opts: []configOpt{disableMirrorFS},
+			},
+			// Testing migration without a seperate root directory will need to remain
+			// disabled until we update the routing logic in phase 2 of the migration
+			// plan, as that will allow us to diferentiate new repositories with
+			// metadata in the old prefix.
+			// https://gitlab.com/gitlab-org/container-registry/-/issues/374#routing-1
+			/*
+				envOpt{
+					name:             "with migration enabled and filesystem mirroring disabled",
+					opts:             []configOpt{disableMirrorFS},
+					migrationEnabled: true,
+				},
+				envOpt{
+					name:             "with migration enabled and filesystem mirroring",
+					opts:             []configOpt{},
+					migrationEnabled: true,
+				},
+			*/
+			envOpt{
+				name:             "with migration enabled migration root directory and filesystem mirroring disabled",
+				opts:             []configOpt{disableMirrorFS},
+				migrationEnabled: true,
+				migrationRoot:    "new/",
+			},
+			envOpt{
+				name:             "with migration enabled migration root directory and filesystem mirroring",
+				opts:             []configOpt{},
+				migrationEnabled: true,
+				migrationRoot:    "new/",
+			},
+		)
 	}
 
 	for _, f := range testFuncs {
@@ -1531,6 +1574,15 @@ func TestAPIConformance(t *testing.T) {
 				})
 
 				o.opts = append(o.opts, withFSDriver(rootDir))
+
+				// This is a little hacky, but we need to create the migration root
+				// under the temp test dir to ensure we only write under that directory
+				// for a given test.
+				if o.migrationEnabled {
+					migrationRoot := path.Join(rootDir, o.migrationRoot)
+
+					o.opts = append(o.opts, withMigrationEnabled, withMigrationRootDirectory(migrationRoot))
+				}
 
 				f(t, o.opts...)
 			})
@@ -4499,7 +4551,7 @@ func tags_Get(t *testing.T, opts ...configOpt) {
 	// If the database is enabled, disable it and rerun the tests again with the
 	// database to check that the filesystem mirroring worked correctly.
 	// All results should be the full list as the filesytem does not support pagination.
-	if env.config.Database.Enabled && !env.config.Migration.DisableMirrorFS {
+	if env.config.Database.Enabled && !env.config.Migration.DisableMirrorFS && !env.config.Migration.Enabled {
 		env.config.Database.Enabled = false
 		defer func() { env.config.Database.Enabled = true }()
 
