@@ -1065,7 +1065,19 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			"migrating_repository": migrateRepo,
 		}))
 
+		// Set temporary response header to denote the code path that a request has followed during migration
+		if app.Config.Migration.Enabled {
+			var path string
+			if migrateRepo {
+				path = "new"
+			} else {
+				path = "old"
+			}
+			w.Header().Set("Gitlab-Migration-Path", path)
+		}
+
 		dispatch(context, r).ServeHTTP(w, r)
+
 		// Automated error response handling here. Handlers may return their
 		// own errors if they need different behavior (such as range errors
 		// for layer upload).
