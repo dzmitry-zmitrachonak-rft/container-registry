@@ -2600,6 +2600,84 @@ func TestManifestAPI_Put_Schema2ManifestMigration(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+// The `Gitlab-Migration-Path` response header is set at the dispatcher level, and therefore transversal to all routes,
+// so testing it for the simplest write (starting a blob upload) and read (unknown manifest get) operations is enough.
+// The validation of the routing logic lies elsewhere.
+func TestAPI_MigrationPathResponseHeader(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	migrationDir, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+		os.RemoveAll(migrationDir)
+	})
+
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	oldRepoRef, err := reference.WithName("old-repo")
+	require.NoError(t, err)
+	newRepoRef, err := reference.WithName("new-repo")
+	require.NoError(t, err)
+
+	// Write and read against the old repo. With migration disabled, the header should not be added to the response
+	testMigrationPathRespHeader(t, env1, oldRepoRef, "")
+
+	// Bring up a new environment in migration mode
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	// Run the same tests again. Now the header should mention that the requests followed the old code path
+	testMigrationPathRespHeader(t, env2, oldRepoRef, "old")
+
+	// Write and read against a new repo. The header should mention that the requests followed the new code path
+	testMigrationPathRespHeader(t, env2, newRepoRef, "new")
+}
+
+func testMigrationPathRespHeader(t *testing.T, env *testEnv, repoRef reference.Named, expectedValue string) {
+	t.Helper()
+
+	// test write operation, with a blob upload start
+	layerUploadURL, err := env.builder.BuildBlobUploadURL(repoRef)
+	require.NoError(t, err)
+
+	u, err := url.Parse(layerUploadURL)
+	require.NoError(t, err)
+
+	base, err := url.Parse(env.server.URL)
+	require.NoError(t, err)
+
+	layerUploadURL = base.ResolveReference(u).String()
+	resp, err := http.Post(layerUploadURL, "", nil)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	checkResponse(t, "", resp, http.StatusAccepted)
+	require.Equal(t, expectedValue, resp.Header.Get("Gitlab-Migration-Path"))
+
+	// test read operation, with a get for an unknown manifest
+	ref, err := reference.WithTag(repoRef, "foo")
+	require.NoError(t, err)
+
+	manifestURL, err := env.builder.BuildManifestURL(ref)
+	require.NoError(t, err)
+
+	resp, err = http.Get(manifestURL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	checkResponse(t, "", resp, http.StatusNotFound)
+	require.Equal(t, expectedValue, resp.Header.Get("Gitlab-Migration-Path"))
+}
+
 func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {
 	env := newTestEnv(t, opts...)
 	defer env.Shutdown()
