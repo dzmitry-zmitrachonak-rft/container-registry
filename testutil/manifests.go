@@ -13,6 +13,7 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -173,6 +174,11 @@ func UploadRandomImageList(tb testing.TB, registry distribution.Namespace, repos
 		descriptor, err := blobstatter.Stat(ctx, image.ManifestDigest)
 		require.NoError(tb, err)
 
+		// Set correct mediatype for image descriptor.
+		mt, _, err := image.manifest.Payload()
+		require.NoError(tb, err)
+		descriptor.MediaType = mt
+
 		platformSpec := manifestlist.PlatformSpec{
 			Architecture: "atari2600",
 			OS:           "CP/M",
@@ -199,6 +205,51 @@ func UploadRandomImageList(tb testing.TB, registry distribution.Namespace, repos
 		manifest:       ml,
 		ManifestDigest: dgst,
 		Images:         images,
+	}
+}
+
+func UploadRandomNonConformantBuildxCache(tb testing.TB, registry distribution.Namespace, repository distribution.Repository) ImageList {
+	ctx := context.Background()
+	var manifestDescriptors []manifestlist.ManifestDescriptor
+
+	randomLayers, err := CreateRandomLayers(4)
+	require.NoError(tb, err)
+
+	err = UploadBlobs(repository, randomLayers)
+	require.NoError(tb, err)
+
+	for layerDigest := range randomLayers {
+		blobstatter := registry.BlobStatter()
+
+		descriptor, err := blobstatter.Stat(ctx, layerDigest)
+		require.NoError(tb, err)
+
+		platformSpec := manifestlist.PlatformSpec{
+			Architecture: "atari2600",
+			OS:           "CP/M",
+			Variant:      "ternary",
+			Features:     []string{"VLIW", "superscalaroutoforderdevnull"},
+		}
+		manifestDescriptor := manifestlist.ManifestDescriptor{
+			Descriptor: descriptor,
+			Platform:   platformSpec,
+		}
+		manifestDescriptors = append(manifestDescriptors, manifestDescriptor)
+	}
+
+	ml, err := manifestlist.FromDescriptors(manifestDescriptors)
+	require.NoError(tb, err)
+	ml.MediaType = v1.MediaTypeImageIndex
+
+	manifestService, err := repository.Manifests(ctx)
+	require.NoError(tb, err)
+
+	dgst, err := manifestService.Put(ctx, ml)
+	require.NoError(tb, err)
+
+	return ImageList{
+		manifest:       ml,
+		ManifestDigest: dgst,
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/manifest/manifestlist"
+	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
 
@@ -205,7 +206,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 			for dgst := range taggedManifests.members {
 				semaphore <- struct{}{}
-				d := dgst
+				manifestDigest := dgst
 
 				g.Go(func() error {
 					defer func() {
@@ -215,19 +216,64 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 					dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
 						"referenced_by": "tag",
 						"digest_type":   "manifest",
-						"digest":        d,
+						"digest":        manifestDigest,
 						"repository":    repoName,
 					}).Info("marking manifest")
-					markSet.add(d)
+					markSet.add(manifestDigest)
 
-					manifest, err := manifestService.Get(ctx, d)
+					manifest, err := manifestService.Get(ctx, manifestDigest)
 					if err != nil {
-						return fmt.Errorf("retrieving manifest for digest %v: %w", d, err)
+						return fmt.Errorf("retrieving manifest for digest %v: %w", manifestDigest, err)
 					}
 
 					if manifestList, ok := manifest.(*manifestlist.DeserializedManifestList); ok {
-						for _, r := range manifestList.References() {
+						// Docker buildx incorrectly uses OCI Image Indexes to store lists
+						// of layer blobs, account for this so that garbage collection
+						// can preserve these blobs and won't break later down the line
+						// when we try to get these digests as manifests due to
+						// the fallback behavior introduced in
+						// https://github.com/distribution/distribution/pull/864
+						splitRef := mlcompat.References(manifestList)
+
+						// Normal manifest list with only manifest references, add these
+						// to the set of referenced manifests.
+						for _, r := range splitRef.Manifests {
+							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+								"digest_type":   "manifest",
+								"digest":        r.Digest,
+								"mediatype":     r.MediaType,
+								"parent_digest": manifestDigest,
+								"repository":    repoName,
+							}).Info("marking manifest list reference")
+
 							referencedManifests.add(r.Digest)
+						}
+
+						// A manifest list with blob references. Do some extra logging here
+						// and provide the list of tags associated with this manifest.
+						if len(splitRef.Blobs) > 0 {
+							tags, err := cachedTagStore.Lookup(ctx, distribution.Descriptor{Digest: manifestDigest})
+							if err != nil {
+								return fmt.Errorf("retrieving tags for digest %v: %w", dgst, err)
+							}
+							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+								"mediatype":  manifestList.Versioned.MediaType,
+								"digest":     manifestDigest,
+								"tags":       tags,
+								"repository": repoName,
+							}).Warn("nonconformant manifest list with layer references, please report this to GitLab")
+						}
+
+						// Mark the manifest list layer references as normal blobs.
+						for _, r := range splitRef.Blobs {
+							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+								"digest_type":   "layer",
+								"digest":        r.Digest,
+								"mediatype":     r.MediaType,
+								"parent_digest": manifestDigest,
+								"repository":    repoName,
+							}).Info("marking manifest list layer reference")
+							markSet.add(r.Digest)
 						}
 					} else {
 						for _, descriptor := range manifest.References() {

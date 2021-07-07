@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -463,5 +464,61 @@ func TestGarbageCollectManifestListReferences(t *testing.T) {
 		ok, err := manifestService.Exists(ctx, img.ManifestDigest)
 		require.NoError(t, err)
 		require.True(t, ok)
+	}
+}
+
+func TestGarbageCollectNotConformantBuildxCacheReferences(t *testing.T) {
+	ctx := context.Background()
+	inmemoryDriver := inmemory.New()
+
+	registry := createRegistry(t, inmemoryDriver)
+	repo := makeRepository(t, registry, "testgarbagecollectnonconformantbuildxcachereferences")
+
+	// Create a manifest cache and tag only the manifest cache.
+	taggedCache := testutil.UploadRandomNonConformantBuildxCache(t, registry, repo)
+
+	err := repo.Tags(ctx).Tag(ctx, "cache-latest", distribution.Descriptor{Digest: taggedCache.ManifestDigest})
+	require.NoError(t, err)
+
+	untaggedCache := testutil.UploadRandomNonConformantBuildxCache(t, registry, repo)
+
+	manifestService, err := repo.Manifests(ctx)
+	require.NoError(t, err)
+	blobstatter := registry.BlobStatter()
+
+	// Get The untagged cache before it's cleaned up.
+	untaggedCacheManifest, err := manifestService.Get(ctx, untaggedCache.ManifestDigest)
+	require.NoError(t, err)
+
+	untaggedCacheReferences := untaggedCacheManifest.References()
+
+	// Run garbage collection.
+	err = MarkAndSweep(context.Background(), inmemoryDriver, registry, GCOpts{
+		DryRun:         false,
+		RemoveUntagged: true,
+	})
+	require.NoError(t, err)
+
+	// Tagged cache and its layers should still exist.
+	ok, err := manifestService.Exists(ctx, taggedCache.ManifestDigest)
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	m, err := manifestService.Get(ctx, taggedCache.ManifestDigest)
+	require.NoError(t, err)
+
+	for _, desc := range m.References() {
+		_, err := blobstatter.Stat(ctx, desc.Digest)
+		require.NoError(t, err)
+	}
+
+	// Untagged cache and its layers should no longer exist.
+	ok, err = manifestService.Exists(ctx, untaggedCache.ManifestDigest)
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	for _, desc := range untaggedCacheReferences {
+		_, err := blobstatter.Stat(ctx, desc.Digest)
+		require.True(t, errors.Is(err, distribution.ErrBlobUnknown))
 	}
 }
