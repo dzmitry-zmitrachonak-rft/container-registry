@@ -3,6 +3,9 @@
 - configuration: Remove proxy configuration migration section
 - registry: Remove ability to migrate to remote registry
 
+### Fixed
+- registry/storage: Offline garbage collection now appropriately handles docker buildx cache manifests
+
 ## [v3.5.0-gitlab] - 2021-06-10
 ### Changed
 - registry/datastore: Partitioning by top-level namespace
