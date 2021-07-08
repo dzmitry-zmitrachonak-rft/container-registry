@@ -34,6 +34,7 @@ import (
 	"github.com/docker/distribution/registry/gc"
 	"github.com/docker/distribution/registry/gc/worker"
 	"github.com/docker/distribution/registry/internal"
+	"github.com/docker/distribution/registry/internal/migration"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
 	repositorymiddleware "github.com/docker/distribution/registry/middleware/repository"
 	"github.com/docker/distribution/registry/proxy"
@@ -488,7 +489,7 @@ func distinctMigrationRootDirectory(config *configuration.Configuration) bool {
 	return false
 }
 
-func (app *App) shouldMigrate(repo distribution.Repository) (bool, error) {
+func (app *App) shouldMigrate(ctx context.Context, repo distribution.Repository) (bool, error) {
 	if !(app.Config.Database.Enabled && app.Config.Migration.Enabled) {
 		return false, nil
 	}
@@ -500,18 +501,33 @@ func (app *App) shouldMigrate(repo distribution.Repository) (bool, error) {
 
 	// check if repository exists in the old storage prefix, if not we should signal
 	// to use to the database and the migration storage prefix.
-	exists, err := validator.Exists(app.Context)
+	exists, err := validator.Exists(ctx)
 	if err != nil {
 		return false, fmt.Errorf("unable to determine if repository exists: %w", err)
 	}
 
-	log := dcontext.GetLogger(app.Context)
+	log := dcontext.GetLogger(ctx)
 	if exists {
-		log.Info("repository will be served via the filesystem")
+		log.Info("repository is old, serving via old code path")
 		return false, nil
 	}
 
-	log.Info("repository will be served via the database")
+	// this is used to bypass the JWT token validation, currently only used for testing purposes (defaults to false)
+	if app.Config.Migration.AuthEligibilityDisabled {
+	        log.Info("migration auth eligibility is disabled in registry config, serving new repository via old code path")
+		return true, nil
+	}
+
+	// validate eligibility flag set by Rails to determine which code path this _new_ repository should follow
+	if !migration.HasEligibilityFlag(ctx) {
+		log.Info("migration eligibility not set, serving new repository via old code path")
+		return false, nil
+	}
+	if !migration.IsEligible(ctx) {
+		log.Info("new repository flagged as not eligible for migration, serving via old code path")
+		return false, nil
+	}
+	log.Info("new repository flagged as eligible for migration, serving via new code path")
 	return true, nil
 }
 
@@ -973,7 +989,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
-			migrateRepo, err = app.shouldMigrate(repository)
+			migrateRepo, err = app.shouldMigrate(context, repository)
 			if err != nil {
 				err = fmt.Errorf("determining whether repository is eligible for migration: %v", err)
 				dcontext.GetLogger(context).Error(err)
@@ -1222,7 +1238,9 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 		return err
 	}
 
-	dcontext.GetLogger(ctx, auth.UserNameKey).Info("authorized request")
+	// This is the very first log entry for all authorized requests, so by logging the `migration_eligible=bool` KV pair
+	// here, we can correlate this entry with the subsequent access/app entries using their `correlation_id`.
+	dcontext.GetLogger(ctx, auth.UserNameKey, migration.EligibilityKey).Info("authorized request")
 	// TODO(stevvooe): This pattern needs to be cleaned up a bit. One context
 	// should be replaced by another, rather than replacing the context on a
 	// mutable object.

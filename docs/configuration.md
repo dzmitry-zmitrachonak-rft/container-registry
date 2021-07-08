@@ -648,6 +648,7 @@ migration:
   enabled: true
   disablemirrorfs: true
   rootdirectory: /migration/root
+  autheligibilitydisabled: false
 ```
 
 | Parameter     | Required | Description                                                                                                                                                                                                                                          |
@@ -655,6 +656,7 @@ migration:
 | `enabled`         | no       | When set to `true` migration mode is enabled, new repositories will be added to the database, while existing repositories will continue to use the filesystem.
 | `disablemirrorfs` | no       | When set to `true`, the registry does not write metadata to the filesystem. Defaults to `false`. Must be used in combination with the metadata database.
 | `rootdirectory`   | no       | RootDirectory allows repositories that have been migrated to the database to use separate object storage paths. Using a distinct rootdirectory from the main storage driver configuration allows online migrations.
+| `autheligibilitydisabled`   | no       | Allows disabling the evaluation of JWT tokens sent from Rails to determine the code path that _new_ repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
 
 ## `auth`
 

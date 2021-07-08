@@ -411,6 +411,9 @@ type Migration struct {
 	// /<root-directory>/docker/registry/v2 Once the migration is complete, the
 	// storage driver configuration must be updated to use this root directory.
 	RootDirectory string `yaml:"rootdirectory,omitempty"`
+	// AuthEligibilityDisabled allows disabling the evaluation of JWT tokens sent from Rails to determine the code path
+	// that new repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
+	AuthEligibilityDisabled bool `yaml:"autheligibilitydisabled,omitempty"`
 }
 
 // MailOptions provides the configuration sections to user, for specific handler.

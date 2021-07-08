@@ -1,6 +1,7 @@
 package token
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/x509"
@@ -15,9 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/context"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/auth"
+	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/libtrust"
+	"github.com/stretchr/testify/require"
 )
 
 func makeRootKeys(numKeys int) ([]libtrust.PrivateKey, error) {
@@ -355,7 +358,7 @@ func TestAccessController(t *testing.T) {
 		Action: "baz",
 	}
 
-	ctx := context.WithRequest(context.Background(), req)
+	ctx := dcontext.WithRequest(context.Background(), req)
 	authCtx, err := accessController.Authorized(ctx, testAccess)
 	challenge, ok := err.(auth.Challenge)
 	if !ok {
@@ -475,6 +478,201 @@ func TestAccessController(t *testing.T) {
 	_, err = accessController.Authorized(ctx, testAccess)
 	if err != nil {
 		t.Fatalf("accessController returned unexpected error: %s", err)
+	}
+}
+
+type migrationTest struct {
+	name string
+	flag *bool
+}
+
+func newTestMigrationAuthContext(t *testing.T, ctx context.Context, req *http.Request, actions []*ResourceActions, access ...auth.Access) context.Context {
+	t.Helper()
+
+	rootKeys, err := makeRootKeys(1)
+	require.NoError(t, err)
+
+	rootCertBundleFilename, err := writeTempRootCerts(rootKeys)
+	require.NoError(t, err)
+	t.Cleanup(func() { os.Remove(rootCertBundleFilename) })
+
+	testRealm := "https://gitlab.com/jwt/auth"
+	testIssuer := "omnibus-gitlab-issuer"
+	testService := "container_registry"
+
+	options := map[string]interface{}{
+		"realm":          testRealm,
+		"issuer":         testIssuer,
+		"service":        testService,
+		"rootcertbundle": rootCertBundleFilename,
+		"autoredirect":   false,
+	}
+
+	accessController, err := newAccessController(options)
+	require.NoError(t, err)
+
+	token, err := makeTestToken(
+		testIssuer, testService, actions, rootKeys[0], 1, time.Now(), time.Now().Add(5*time.Minute),
+	)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.compactRaw()))
+
+	authCtx, err := accessController.Authorized(ctx, access...)
+	require.NoError(t, err)
+
+	return authCtx
+}
+
+func TestAccessController_Migration_ReadRequest(t *testing.T) {
+	req, err := http.NewRequest("GET", "https://registry.gitlab.com/v2/myrepo/tags/list", nil)
+	require.NoError(t, err)
+	ctx := dcontext.WithRequest(dcontext.Background(), req)
+
+	access := auth.Access{
+		Resource: auth.Resource{
+			Type: "repository",
+			Name: "myrepo",
+		},
+		Action: "pull",
+	}
+
+	trueVal := true
+	falseVal := false
+	tt := []migrationTest{
+		{name: "no flag", flag: nil},
+		{name: "false flag", flag: &falseVal},
+		{name: "true flag", flag: &trueVal},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			actions := []*ResourceActions{{
+				Type:              access.Type,
+				Name:              access.Name,
+				Actions:           []string{access.Action},
+				MigrationEligible: test.flag,
+			}}
+			authCtx := newTestMigrationAuthContext(t, ctx, req, actions, access)
+
+			require.False(t, migration.HasEligibilityFlag(authCtx))
+
+			// ensure user info was not affected and is still accessible
+			userInfo, ok := authCtx.Value(auth.UserKey).(auth.UserInfo)
+			require.True(t, ok)
+			require.Equal(t, "foo", userInfo.Name)
+		})
+	}
+}
+
+func TestAccessController_Migration_WriteRequest(t *testing.T) {
+	req, err := http.NewRequest("POST", "https://registry.gitlab.com/v2/myrepo/blobs/uploads/", nil)
+	require.NoError(t, err)
+	ctx := dcontext.WithRequest(dcontext.Background(), req)
+
+	access := auth.Access{
+		Resource: auth.Resource{
+			Type: "repository",
+			Name: "myrepo",
+		},
+		Action: "push",
+	}
+
+	trueVal := true
+	falseVal := false
+	tt := []migrationTest{
+		{name: "no flag", flag: nil},
+		{name: "false flag", flag: &falseVal},
+		{name: "true flag", flag: &trueVal},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			actions := []*ResourceActions{{
+				Type:              access.Type,
+				Name:              access.Name,
+				Actions:           []string{access.Action},
+				MigrationEligible: test.flag,
+			}}
+
+			authCtx := newTestMigrationAuthContext(t, ctx, req, actions, access)
+
+			if test.flag != nil {
+				require.True(t, migration.HasEligibilityFlag(authCtx))
+				require.Equal(t, *test.flag, migration.IsEligible(authCtx))
+			} else {
+				require.False(t, migration.HasEligibilityFlag(authCtx))
+			}
+
+			// ensure user info was not affected and is still accessible
+			userInfo, ok := authCtx.Value(auth.UserKey).(auth.UserInfo)
+			require.True(t, ok)
+			require.Equal(t, "foo", userInfo.Name)
+		})
+	}
+}
+
+func TestAccessController_Migration_WriteRequest_MultipleAccess(t *testing.T) {
+	url := "https://registry.gitlab.com/v2/myrepo-b/blobs/uploads/?mount=sha256:f72c9c3fbe478eac9b924b6bec463b6b1e0a5ebcd902085662a29f8a20df327d&from=myrepo-a"
+	req, err := http.NewRequest("POST", url, nil)
+	require.NoError(t, err)
+	ctx := dcontext.WithRequest(dcontext.Background(), req)
+
+	destPullAccess := auth.Access{
+		Resource: auth.Resource{
+			Type: "repository",
+			Name: "myrepo-b",
+		},
+		Action: "pull",
+	}
+	destPushAccess := destPullAccess
+	destPushAccess.Action = "push"
+
+	srcPullAccess := auth.Access{
+		Resource: auth.Resource{
+			Type: "repository",
+			Name: "myrepo-a",
+		},
+		Action: "pull",
+	}
+
+	trueVal := true
+	falseVal := false
+	tt := []migrationTest{
+		{name: "no flag", flag: nil},
+		{name: "false flag", flag: &falseVal},
+		{name: "true flag", flag: &trueVal},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			actions := []*ResourceActions{
+				{
+					Type:    srcPullAccess.Type,
+					Name:    srcPullAccess.Name,
+					Actions: []string{srcPullAccess.Action},
+				},
+				{
+					Type:              destPushAccess.Type,
+					Name:              destPushAccess.Name,
+					Actions:           []string{destPullAccess.Action, destPushAccess.Action},
+					MigrationEligible: test.flag,
+				},
+			}
+
+			authCtx := newTestMigrationAuthContext(t, ctx, req, actions, srcPullAccess, destPullAccess, destPushAccess)
+
+			if test.flag != nil {
+				require.True(t, migration.HasEligibilityFlag(authCtx))
+				require.Equal(t, *test.flag, migration.IsEligible(authCtx))
+			} else {
+				require.False(t, migration.HasEligibilityFlag(authCtx))
+			}
+
+			// ensure user info was not affected and is still accessible
+			userInfo, ok := authCtx.Value(auth.UserKey).(auth.UserInfo)
+			require.True(t, ok)
+			require.Equal(t, "foo", userInfo.Name)
+		})
 	}
 }
 
