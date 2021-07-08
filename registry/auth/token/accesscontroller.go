@@ -14,6 +14,7 @@ import (
 
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/auth"
+	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/libtrust"
 )
 
@@ -283,8 +284,71 @@ func (ac *accessController) Authorized(ctx context.Context, accessItems ...auth.
 	}
 
 	ctx = auth.WithResources(ctx, token.resources())
+	ctx = injectMigrationEligibility(ctx, accessItems, token.Claims)
 
 	return auth.WithUser(ctx, auth.UserInfo{Name: token.Claims.Subject}), nil
+}
+
+// Note: Usually, there is only one repository involved in each request, but for cross-repository
+// blob mounts, there will be two. For example, when mounting a blob from A to B, the JWT token
+// will look like this:
+// {
+//  "access": [
+//    {
+//      "actions": [
+//        "pull"
+//      ],
+//      "name": "A",
+//      "type": "repository",
+//      "migration_eligible": <does not matter>
+//    },
+//    {
+//      "actions": [
+//        "pull",
+//        "push"
+//      ],
+//      "name": "B",
+//      "type": "repository",
+//      "migration_eligible": <matters>
+//    }
+//  ],
+//  ...
+// }
+// In the example above, we don't really care about access for A. We only care about B, as that is
+// the target (and potentially new) repository.
+//
+// In this function we determine the target repository by identifying the one whose _required_
+// actions includes push. We don't do this by looking at the token (which is generated outside the
+// registry) but rather at `requiredPerms`, which are assembled by us and define the _required_
+// permissions to perform a given request (regardless of the claims present in the token, which
+// ideally will match). Because of this, we know there can only be zero or one access object whose
+// action is `push`, and that's our target repository.
+//
+// If the request does not require `push` permissions then we don't need to worry about it and can
+// return early. However, if it does, we need to parse the eligibility flag from the JWT token
+// at `access[name=<target repo>].migration_eligible`.
+func injectMigrationEligibility(ctx context.Context, requiredPerms []auth.Access, claims *ClaimSet) context.Context {
+	// determine if request requires `push` action, and if so identify the target repository name
+	var targetRepo string
+	for _, a := range requiredPerms {
+		if a.Action == "push" {
+			targetRepo = a.Name
+			break
+		}
+	}
+	// if not, skip, as new repositories can only be created with a request that requires `push` permissions
+	if targetRepo == "" {
+		return ctx
+	}
+
+	// locate migration flag sent from Rails, and wrap context
+	for _, a := range claims.Access {
+		if a.Name == targetRepo && a.MigrationEligible != nil {
+			return migration.WithMigrationEligibility(ctx, *a.MigrationEligible)
+		}
+	}
+
+	return ctx
 }
 
 // init handles registering the token auth backend.

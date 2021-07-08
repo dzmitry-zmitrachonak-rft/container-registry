@@ -5102,6 +5102,13 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 				t.Fatal(err)
 			}
 		}
+
+		if config.Migration.Enabled {
+			// The registry API test suite has no auth logic at all, neither we currently have a way to spin a test auth
+			// server and wire it to all migration tests, so we disable auth based eligibility validation during the
+			// migration tests for now. The underlying logic is tested in the `registry/auth/token` package.
+			config.Migration.AuthEligibilityDisabled = true
+		}
 	}
 
 	app := registryhandlers.NewApp(ctx, config)
