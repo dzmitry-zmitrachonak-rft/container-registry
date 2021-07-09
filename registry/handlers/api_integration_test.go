@@ -1244,6 +1244,37 @@ func TestDeleteDisabled(t *testing.T) {
 	checkResponse(t, "deleting layer with delete disabled", resp, http.StatusMethodNotAllowed)
 }
 
+func TestBlobMount_Migration_FromOldToNewRepoWithMigrationRoot(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	// Create a repository on the old code path and seed it with a layer.
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	env1.config.Database.Enabled = false
+
+	args, _ := createRepoWithBlob(t, env1)
+
+	// Create a repository on the new code path with migration enabled and a
+	// migration root directory. The filesystem should not find the source repo
+	// since it's under the old root and we will not attempt a blob mount.
+	toRepo := "new-target"
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	assertBlobPostMountResponse(t, env2, args.imageName.String(), toRepo, args.layerDigest, http.StatusAccepted)
+}
+
 func TestDeleteReadOnly(t *testing.T) {
 	setupEnv := newTestEnv(t, withSharedInMemoryDriver(t.Name()))
 	defer setupEnv.Shutdown()
