@@ -12,7 +12,6 @@ import (
 )
 
 func TestReferences(t *testing.T) {
-
 	var tests = []struct {
 		name              string
 		descriptors       []manifestlist.ManifestDescriptor
@@ -89,7 +88,7 @@ func TestReferences(t *testing.T) {
 					Digest:    digest.FromString("OCI Layer 2"),
 				},
 				{
-					MediaType: "application/vnd.buildkit.cacheconfig.v0",
+					MediaType: MediaTypeBuildxCacheConfig,
 					Size:      4233,
 					Digest:    digest.FromString("Cache Config 1"),
 				},
@@ -141,5 +140,171 @@ func TestReferences(t *testing.T) {
 		allRef := append(splitRef.Manifests, splitRef.Blobs...)
 
 		require.ElementsMatch(t, ml.References(), allRef)
+	}
+}
+
+func TestIsLikeyBuildxCache(t *testing.T) {
+	var tests = []struct {
+		name        string
+		descriptors []manifestlist.ManifestDescriptor
+		expected    bool
+	}{
+		{
+			name: "OCI Image Index",
+			descriptors: []manifestlist.ManifestDescriptor{
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageManifest,
+						Size:      2343,
+						Digest:    digest.FromString("OCI Manifest 1"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageManifest,
+						Size:      354,
+						Digest:    digest.FromString("OCI Manifest 2"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Buildx Cache Manifest",
+			descriptors: []manifestlist.ManifestDescriptor{
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageLayer,
+						Size:      792343,
+						Digest:    digest.FromString("OCI Layer 1"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageLayer,
+						Size:      35324234,
+						Digest:    digest.FromString("OCI Layer 2"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: MediaTypeBuildxCacheConfig,
+						Size:      4233,
+						Digest:    digest.FromString("Cache Config 1"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Mixed Manifest List",
+			descriptors: []manifestlist.ManifestDescriptor{
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: schema2.MediaTypeManifest,
+						Size:      723,
+						Digest:    digest.FromString("Schema2 Manifest 1"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: schema2.MediaTypeLayer,
+						Size:      2340184,
+						Digest:    digest.FromString("Schema 2 Layer 1"),
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		ml, err := manifestlist.FromDescriptors(tt.descriptors)
+		require.NoError(t, err)
+
+		require.Equal(t, tt.expected, LikelyBuildxCache(ml))
+	}
+}
+
+func TestContainsBlobs(t *testing.T) {
+	var tests = []struct {
+		name        string
+		descriptors []manifestlist.ManifestDescriptor
+		expected    bool
+	}{
+		{
+			name: "OCI Image Index",
+			descriptors: []manifestlist.ManifestDescriptor{
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageManifest,
+						Size:      2343,
+						Digest:    digest.FromString("OCI Manifest 1"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageManifest,
+						Size:      354,
+						Digest:    digest.FromString("OCI Manifest 2"),
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Buildx Cache Manifest",
+			descriptors: []manifestlist.ManifestDescriptor{
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageLayer,
+						Size:      792343,
+						Digest:    digest.FromString("OCI Layer 1"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: v1.MediaTypeImageLayer,
+						Size:      35324234,
+						Digest:    digest.FromString("OCI Layer 2"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: MediaTypeBuildxCacheConfig,
+						Size:      4233,
+						Digest:    digest.FromString("Cache Config 1"),
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Mixed Manifest List",
+			descriptors: []manifestlist.ManifestDescriptor{
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: schema2.MediaTypeManifest,
+						Size:      723,
+						Digest:    digest.FromString("Schema2 Manifest 1"),
+					},
+				},
+				{
+					Descriptor: distribution.Descriptor{
+						MediaType: schema2.MediaTypeLayer,
+						Size:      2340184,
+						Digest:    digest.FromString("Schema 2 Layer 1"),
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		ml, err := manifestlist.FromDescriptors(tt.descriptors)
+		require.NoError(t, err)
+
+		require.Equal(t, tt.expected, ContainsBlobs(ml))
 	}
 }
