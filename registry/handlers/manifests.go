@@ -14,6 +14,7 @@ import (
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
+	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
@@ -150,6 +151,10 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	if manifestType == ociImageIndexSchema && !supports(r, ociImageIndexSchema) {
 		imh.Errors = append(imh.Errors, v2.ErrorCodeManifestUnknown.WithMessage("OCI index found, but accept header does not support OCI indexes"))
 		return
+	}
+
+	if isManifestList {
+		logIfManifestListInvalid(imh, manifestList, "GET")
 	}
 
 	// Only rewrite manifests lists when they are being fetched by tag. If they
@@ -520,6 +525,12 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		log.Debug("Putting an OCI Manifest!")
 	} else {
 		log.Debug("Putting a Docker Manifest!")
+	}
+
+	manifestList, isManifestList := manifest.(*manifestlist.DeserializedManifestList)
+
+	if isManifestList {
+		logIfManifestListInvalid(imh, manifestList, "PUT")
 	}
 
 	var options []distribution.ManifestServiceOption
@@ -1223,4 +1234,29 @@ func (imh *manifestHandler) appendManifestDeleteError(err error) {
 	default:
 		imh.Errors = append(imh.Errors, errcode.FromUnknownError(err))
 	}
+}
+
+func logIfManifestListInvalid(ctx context.Context, ml *manifestlist.DeserializedManifestList, method string) {
+	if !mlcompat.ContainsBlobs(ml) {
+		return
+	}
+
+	var seenUnknownReferenceMediaTypes = make(map[string]struct{}, 0)
+	var unknownReferenceMediaTypes []string
+
+	for _, desc := range mlcompat.References(ml).Blobs {
+		seenUnknownReferenceMediaTypes[desc.MediaType] = struct{}{}
+	}
+
+	for mediaType := range seenUnknownReferenceMediaTypes {
+		unknownReferenceMediaTypes = append(unknownReferenceMediaTypes, mediaType)
+	}
+
+	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+		"method":                        method,
+		"media_type":                    ml.MediaType,
+		"likely_buildx_cache":           mlcompat.LikelyBuildxCache(ml),
+		"unknown_reference_media_types": strings.Join(unknownReferenceMediaTypes, ","),
+	})
+	log.Warn("invalid manifest list/index reference(s), please report this issue to GitLab at https://gitlab.com/gitlab-org/container-registry/-/issues/409")
 }

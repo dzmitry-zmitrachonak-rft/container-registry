@@ -13,6 +13,10 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// MediaTypeBuildxCacheConfig is the mediatype associated with buildx
+// cache config blobs. This should be unique to buildx.
+var MediaTypeBuildxCacheConfig = "application/vnd.buildkit.cacheconfig.v0"
+
 // SplitReferences contains two lists of manifest list references broken down
 // into either blobs or manifests. The result of appending these two lists
 // together should include all of the descriptors returned by
@@ -49,4 +53,23 @@ func References(ml *manifestlist.DeserializedManifestList) SplitReferences {
 	}
 
 	return SplitReferences{Manifests: manifests, Blobs: blobs}
+}
+
+// LikelyBuildxCache returns true if the manifest list is likely a buildx cache
+// manifest based on the unique buildx config mediatype.
+func LikelyBuildxCache(ml *manifestlist.DeserializedManifestList) bool {
+	blobs := References(ml).Blobs
+
+	for _, desc := range blobs {
+		if desc.MediaType == MediaTypeBuildxCacheConfig {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ContainsBlobs returns true if the manifest list contains any blobs.
+func ContainsBlobs(ml *manifestlist.DeserializedManifestList) bool {
+	return len(References(ml).Blobs) > 0
 }
