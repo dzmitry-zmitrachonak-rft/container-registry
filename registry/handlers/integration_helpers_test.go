@@ -12,9 +12,44 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
+	"github.com/docker/distribution/testutil"
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
+
+type blobArgs struct {
+	imageName   reference.Named
+	layerFile   io.ReadSeeker
+	layerDigest digest.Digest
+}
+
+func makeBlobArgs(t *testing.T) blobArgs {
+	layerFile, layerDigest, err := testutil.CreateRandomTarFile()
+	require.NoError(t, err)
+
+	args := blobArgs{
+		layerFile:   layerFile,
+		layerDigest: layerDigest,
+	}
+	args.imageName, err = reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	return args
+}
+
+func makeBlobArgsWithRepoName(t *testing.T, repoName string) blobArgs {
+	layerFile, layerDigest, err := testutil.CreateRandomTarFile()
+	require.NoError(t, err)
+
+	args := blobArgs{
+		layerFile:   layerFile,
+		layerDigest: layerDigest,
+	}
+	args.imageName, err = reference.WithName(repoName)
+	require.NoError(t, err)
+
+	return args
+}
 
 func asyncDo(f func()) chan struct{} {
 	done := make(chan struct{})
@@ -29,6 +64,16 @@ func createRepoWithBlob(t *testing.T, env *testEnv) (blobArgs, string) {
 	t.Helper()
 
 	args := makeBlobArgs(t)
+	uploadURLBase, _ := startPushLayer(t, env, args.imageName)
+	blobURL := pushLayer(t, env.builder, args.imageName, args.layerDigest, uploadURLBase, args.layerFile)
+
+	return args, blobURL
+}
+
+func createNamedRepoWithBlob(t *testing.T, env *testEnv, repoName string) (blobArgs, string) {
+	t.Helper()
+
+	args := makeBlobArgsWithRepoName(t, repoName)
 	uploadURLBase, _ := startPushLayer(t, env, args.imageName)
 	blobURL := pushLayer(t, env.builder, args.imageName, args.layerDigest, uploadURLBase, args.layerFile)
 
