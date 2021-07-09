@@ -249,9 +249,9 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 							referencedManifests.add(r.Digest)
 						}
 
-						// A manifest list with blob references. Do some extra logging here
-						// and provide the list of tags associated with this manifest.
-						if len(splitRef.Blobs) > 0 {
+						// Do some extra logging here for invalid manifest lists and provide
+						// the list of tags associated with this manifest.
+						if mlcompat.ContainsBlobs(manifestList) {
 							tags, err := cachedTagStore.Lookup(ctx, distribution.Descriptor{Digest: manifestDigest})
 							if err != nil {
 								return fmt.Errorf("retrieving tags for digest %v: %w", dgst, err)
