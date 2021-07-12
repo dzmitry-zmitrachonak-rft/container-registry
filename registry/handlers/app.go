@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/registry/handlers/internal/metrics"
+
 	"github.com/benbjohnson/clock"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
@@ -1083,8 +1085,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			"migrating_repository": migrateRepo,
 		}))
 
-		// Set temporary response header to denote the code path that a request has followed during migration
 		if app.Config.Migration.Enabled {
+			metrics.MigrationRoute(migrateRepo)
+
+			// Set temporary response header to denote the code path that a request has followed during migration
 			var path string
 			if migrateRepo {
 				path = "new"
