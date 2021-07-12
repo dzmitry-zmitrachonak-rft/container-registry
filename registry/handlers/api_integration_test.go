@@ -515,26 +515,6 @@ func TestURLPrefix(t *testing.T) {
 	})
 }
 
-type blobArgs struct {
-	imageName   reference.Named
-	layerFile   io.ReadSeeker
-	layerDigest digest.Digest
-}
-
-func makeBlobArgs(t *testing.T) blobArgs {
-	layerFile, layerDigest, err := testutil.CreateRandomTarFile()
-	if err != nil {
-		t.Fatalf("error creating random layer file: %v", err)
-	}
-
-	args := blobArgs{
-		layerFile:   layerFile,
-		layerDigest: layerDigest,
-	}
-	args.imageName, _ = reference.WithName("foo/bar")
-	return args
-}
-
 // TestBlobAPI conducts a full test of the of the blob api.
 func TestBlobAPI(t *testing.T) {
 	env1 := newTestEnv(t)
@@ -1273,6 +1253,103 @@ func TestBlobMount_Migration_FromOldToNewRepoWithMigrationRoot(t *testing.T) {
 	defer env2.Shutdown()
 
 	assertBlobPostMountResponse(t, env2, args.imageName.String(), toRepo, args.layerDigest, http.StatusAccepted)
+}
+
+func TestBlobMount_Migration_FromNewToOldRepoWithMigrationRoot(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	// Create a repository on the old code path and seed it with a layer.
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	env1.config.Database.Enabled = false
+
+	oldRepoArgs, _ := createNamedRepoWithBlob(t, env1, "old/repo")
+
+	// Create a repository on the new code path with migration enabled and a
+	// migration root directory. The filesystem should not find the source repo
+	// since it's under the new root and we will not attempt a blob mount.
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	newRepoArgs, _ := createNamedRepoWithBlob(t, env2, "new/repo")
+
+	assertBlobPostMountResponse(t, env1, newRepoArgs.imageName.String(), oldRepoArgs.imageName.String(), newRepoArgs.layerDigest, http.StatusAccepted)
+}
+
+func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	// Create a repository on the old code path and seed it with a layer.
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	env1.config.Database.Enabled = false
+
+	args1, _ := createNamedRepoWithBlob(t, env1, "old/repo-1")
+	args2, _ := createNamedRepoWithBlob(t, env1, "old/repo-2")
+
+	// Create a repository on the new code path to ensure that its presence does
+	// not effect the behavior of the old repositories.
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	createNamedRepoWithBlob(t, env2, "new/repo")
+
+	assertBlobPostMountResponse(t, env2, args1.imageName.String(), args2.imageName.String(), args1.layerDigest, http.StatusCreated)
+}
+
+func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	// Create a repository on the old code path and seed it with a layer to ensure
+	// that its presence does not effect the behavior of the new repositories.
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	env1.config.Database.Enabled = false
+
+	createNamedRepoWithBlob(t, env1, "old/repo")
+
+	// Create a repository on the new code path and seed it with a layer.
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	args, _ := createNamedRepoWithBlob(t, env2, "new/repo")
+
+	// Create another repository on the new code path. The filesystem should find
+	// the source repo and mount the blob.
+	assertBlobPostMountResponse(t, env2, args.imageName.String(), "bar/repo", args.layerDigest, http.StatusCreated)
 }
 
 func TestDeleteReadOnly(t *testing.T) {
