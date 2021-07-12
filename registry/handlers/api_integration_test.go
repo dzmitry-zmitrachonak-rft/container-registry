@@ -55,7 +55,6 @@ import (
 )
 
 func init() {
-	factory.Register("sharedinmemorydriver", &sharedInMemoryDriverFactory{make(map[string]*inmemory.Driver)})
 	factory.Register("schema1Preseededinmemorydriver", &schema1PreseededInMemoryDriverFactory{})
 }
 
@@ -88,12 +87,6 @@ func withMigrationEnabled(config *configuration.Configuration) {
 func withMigrationRootDirectory(path string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Migration.RootDirectory = path
-	}
-}
-
-func withSharedInMemoryDriver(name string) configOpt {
-	return func(config *configuration.Configuration) {
-		config.Storage["sharedinmemorydriver"] = configuration.Parameters{"name": name}
 	}
 }
 
@@ -408,31 +401,6 @@ func newConfig(opts ...configOpt) configuration.Configuration {
 	}
 
 	return *config
-}
-
-// sharedInMemoryDriverFactory implements the factory.StorageDriverFactory interface.
-type sharedInMemoryDriverFactory struct {
-	drivers map[string]*inmemory.Driver
-}
-
-// Create returns a shared instance of the inmemory storage driver by name,
-// or creates a new one if it does not exist.
-func (factory *sharedInMemoryDriverFactory) Create(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
-	n, ok := parameters["name"]
-	if !ok {
-		return nil, errors.New("sharedInMemoryDriverFactory: parameter 'name' must be specified")
-	}
-
-	name, ok := n.(string)
-	if !ok {
-		return nil, errors.New("sharedInMemoryDriverFactory: parameter 'name' must be a string")
-	}
-
-	if _, ok := factory.drivers[name]; !ok {
-		factory.drivers[name] = inmemory.New()
-	}
-
-	return factory.drivers[name], nil
 }
 
 var (
@@ -1353,7 +1321,14 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestDeleteReadOnly(t *testing.T) {
-	setupEnv := newTestEnv(t, withSharedInMemoryDriver(t.Name()))
+	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	setupEnv := newTestEnv(t, withFSDriver(rootDir))
 	defer setupEnv.Shutdown()
 
 	imageName, _ := reference.WithName("foo/bar")
@@ -1369,7 +1344,7 @@ func TestDeleteReadOnly(t *testing.T) {
 
 	// Reconfigure environment with withReadOnly enabled.
 	setupEnv.Shutdown()
-	env := newTestEnv(t, withSharedInMemoryDriver(t.Name()), withReadOnly)
+	env := newTestEnv(t, withFSDriver(rootDir), withReadOnly)
 	defer env.Shutdown()
 
 	layerURL, err := env.builder.BuildBlobURL(ref)
