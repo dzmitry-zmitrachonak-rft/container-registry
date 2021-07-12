@@ -329,7 +329,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			promclient.MustRegister(collector)
 		}
 
-		if config.Migration.DisableMirrorFS {
+		// In migration mode, we need to ensure that we never disable the FS
+		// mirroring for the registry which handles repositories on the old path.
+		if config.Migration.DisableMirrorFS && !config.Migration.Enabled {
 			options = append(options, storage.DisableMirrorFS)
 		}
 
@@ -514,7 +516,7 @@ func (app *App) shouldMigrate(ctx context.Context, repo distribution.Repository)
 
 	// this is used to bypass the JWT token validation, currently only used for testing purposes (defaults to false)
 	if app.Config.Migration.AuthEligibilityDisabled {
-	        log.Info("migration auth eligibility is disabled in registry config, serving new repository via old code path")
+		log.Info("migration auth eligibility is disabled in registry config, serving new repository via old code path")
 		return true, nil
 	}
 

@@ -2585,7 +2585,7 @@ func manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository(t *testing.
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestManifestAPI_Put_Schema2ManifestMigration(t *testing.T) {
+func TestManifestAPI_Migration_Schema2(t *testing.T) {
 	rootDir, err := ioutil.TempDir("", "test-manifest-api-")
 	require.NoError(t, err)
 
@@ -2645,24 +2645,41 @@ func TestManifestAPI_Put_Schema2ManifestMigration(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// Bring up an environment that uses database only metadata and the migration root.
-	env3 := newTestEnv(t, withFSDriver(migrationDir))
+	// Bring up an environment in migration mode with fs mirroring turned off,
+	// should only effect repositories on the new side, old repos must still
+	// write fs metadata.
+	env3 := newTestEnv(
+		t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		disableMirrorFS,
+	)
 	defer env3.Shutdown()
 
-	oldTagURL = buildManifestTagURL(t, env3, oldRepoPath, oldRepoTag)
-	newTagURL = buildManifestTagURL(t, env3, newRepoPath, newRepoTag)
+	// Push a new manifest to a new repo.
+	newRepoNoMirroringPath := "new-repo-no-mirroring"
+	newRepoNoMirroringTag := "schema2-new-no-mirroring"
 
-	// Ensure only the new repo is accessible in database metadata mode.
-	req, err = http.NewRequest("GET", oldTagURL, nil)
+	seedRandomSchema2Manifest(t, env3, newRepoNoMirroringPath, putByTag(newRepoNoMirroringTag))
+	newRepoNoMirroringTagURL := buildManifestTagURL(t, env3, newRepoNoMirroringPath, newRepoNoMirroringTag)
+
+	// Ensure that old repos can still be pushed to.
+	oldRepoNoMirroringTag := "old-repo-no-mirroring"
+	seedRandomSchema2Manifest(t, env3, oldRepoPath, putByTag(oldRepoNoMirroringTag))
+	oldRepoNoMirroringTagURL := buildManifestTagURL(t, env3, oldRepoPath, oldRepoNoMirroringTag)
+
+	// Ensure both repos are accessible in migration mode with mirroring disabled.
+	req, err = http.NewRequest("GET", oldRepoNoMirroringTagURL, nil)
 	require.NoError(t, err)
 
 	resp, err = http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	req, err = http.NewRequest("GET", newTagURL, nil)
+	req, err = http.NewRequest("GET", newRepoNoMirroringTagURL, nil)
 	require.NoError(t, err)
 
 	resp, err = http.DefaultClient.Do(req)
@@ -2671,26 +2688,86 @@ func TestManifestAPI_Put_Schema2ManifestMigration(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// Disable the database and read from the mirrored FS metadata.
-	env3.config.Database.Enabled = false
+	// Bring up an environment that uses database only metadata and the migration root.
+	env4 := newTestEnv(t, withFSDriver(migrationDir))
+	defer env4.Shutdown()
 
-	req, err = http.NewRequest("GET", oldTagURL, nil)
-	require.NoError(t, err)
+	// Rebuild URLS for new env.
+	oldTagURL = buildManifestTagURL(t, env4, oldRepoPath, oldRepoTag)
+	newTagURL = buildManifestTagURL(t, env4, newRepoPath, newRepoTag)
+	oldRepoNoMirroringTagURL = buildManifestTagURL(t, env4, oldRepoPath, oldRepoNoMirroringTag)
+	newRepoNoMirroringTagURL = buildManifestTagURL(t, env4, newRepoNoMirroringPath, newRepoNoMirroringTag)
 
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
+	var tests = []struct {
+		name            string
+		databaseEnabled bool
+		url             string
+		expectedStatus  int
+	}{
+		{
+			name:            "get old manifest from before migration database enabled",
+			databaseEnabled: true,
+			url:             oldTagURL,
+			expectedStatus:  http.StatusNotFound,
+		},
+		{
+			name:            "get old manifest from before migration database disabled",
+			databaseEnabled: false,
+			url:             oldTagURL,
+			expectedStatus:  http.StatusNotFound,
+		},
+		{
+			name:            "get old manifest from during migration database enabled",
+			databaseEnabled: true,
+			url:             oldRepoNoMirroringTagURL,
+			expectedStatus:  http.StatusNotFound,
+		},
+		{
+			name:            "get old manifest from during migration database disabled",
+			databaseEnabled: false,
+			url:             oldRepoNoMirroringTagURL,
+			expectedStatus:  http.StatusNotFound,
+		},
+		{
+			name:            "get new manifest database enabled",
+			databaseEnabled: true,
+			url:             newTagURL,
+			expectedStatus:  http.StatusOK,
+		},
+		{
+			name:            "get new manifest database disabled",
+			databaseEnabled: false,
+			url:             newTagURL,
+			expectedStatus:  http.StatusOK,
+		},
+		{
+			name:            "get new manifest no mirroring database enabled",
+			databaseEnabled: true,
+			url:             newRepoNoMirroringTagURL,
+			expectedStatus:  http.StatusOK,
+		},
+		{
+			name:            "get new manifest no mirroring database disabled",
+			databaseEnabled: false,
+			url:             newRepoNoMirroringTagURL,
+			expectedStatus:  http.StatusNotFound,
+		},
+	}
 
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env4.config.Database.Enabled = tt.databaseEnabled
 
-	req, err = http.NewRequest("GET", newTagURL, nil)
-	require.NoError(t, err)
+			req, err = http.NewRequest("GET", tt.url, nil)
+			require.NoError(t, err)
 
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
+			resp, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Equal(t, tt.expectedStatus, resp.StatusCode)
+		})
+	}
 }
 
 // The `Gitlab-Migration-Path` response header is set at the dispatcher level, and therefore transversal to all routes,
