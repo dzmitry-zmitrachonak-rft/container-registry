@@ -5796,3 +5796,32 @@ func TestProxyManifestGetByTag(t *testing.T) {
 		"Docker-Content-Digest": []string{newDigest.String()},
 	})
 }
+
+// In https://gitlab.com/gitlab-org/container-registry/-/issues/409 we have identified that currently it's possible to
+// upload lists/indexes with invalid references (to layers/configs). Attempting to read these through the manifests API
+// resulted in a 500 Internal Server Error. We have changed this in
+// https://gitlab.com/gitlab-org/container-registry/-/issues/411 to return a 404 Not Found error instead while the root
+// cause (allowing these invalid references to sneak in) is not addressed (#409).
+func TestManifestAPI_Get_Config(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	// disable the database so writes only go to the filesystem
+	env.config.Database.Enabled = false
+
+	// create repository with a manifest
+	repo, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repo.Name())
+
+	// fetch config through manifest endpoint
+	digestRef, err := reference.WithDigest(repo, deserializedManifest.Config.Digest)
+	require.NoError(t, err)
+
+	digestURL, err := env.builder.BuildManifestURL(digestRef)
+	require.NoError(t, err)
+
+	res, err := http.Get(digestURL)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
