@@ -58,33 +58,30 @@ See [release instructions](https://gitlab.com/gitlab-org/container-registry/-/tr
 
 ### 3. Update
 
-- [ ] Version bump in [CNG](https://gitlab.com/gitlab-org/build/CNG):
+1. [ ] Version bump in [CNG](https://gitlab.com/gitlab-org/build/CNG):
     - [ ] Update `GITLAB_CONTAINER_REGISTRY_VERSION` in [`ci_files/variables.yml`](https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile.build.ubi8`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile.build.ubi8)
-    - [ ] Label merge request with: `~/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
-- [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
-    - [ ] Create `bump-registry-version-vX-Y-Z-gitlab.yml` in [`changelogs/unreleased`](https://gitlab.com/gitlab-org/omnibus-gitlab/tree/master/changelogs/unreleased)
-    - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb)
-    - [ ] Label merge request with: `/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
-- [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts):
-    - [ ] Create `bump-registry-version-vX-Y-Z-gitlab.yml` in [`changelogs/unreleased`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/changelogs/unreleased)
-    - [ ] Update `tag` in [`charts/registry/values.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/charts/registry/values.yaml)
-    - [ ] Update `tag` in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/doc/charts/registry/index.md)
-    - [ ] Update `version` and `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml)
-    - [ ] Replace all mentions to the previous `vX.Y.Z-gitlab` release in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/blob/master/doc/charts/registry/index.md)
-    - [ ] Label merge request with: `/label ~backstage ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
-- [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com):
-    - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl#L75)
-    - [ ] Update `tag` in [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl#L6)
-    - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
+    - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review" ~"feature::maintenance"`
+1. [ ] Versions bumps for specific distribution paths:
+    - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
+        - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb) and use the `Changelog: changed` commit trailer in the commit message
+        - [ ] Label merge request with: `/label ~"Workflow::ready for review" ~"feature::maintenance"`
+    - [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts):
+        - [ ] Wait for the [Gitlab Dependency Bot](https://gitlab.com/gitlab-dependency-bot) to create a merge request for the new version of the registry
+        - [ ] Update `version` and `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml) and use the `Changelog: changed` commit trailer in the commit message
+        - [ ] Label merge request with: `/label ~"Workflow::ready for review"`
+    - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com):
+        - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl#L75)
+        - [ ] Update `tag` in [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl#L6)
+        - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
 
 <details>
 <summary><b>Instructions</b></summary>
 
 Bump the Container Registry version used in [CNG](https://gitlab.com/gitlab-org/build/CNG), [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab), [Charts](https://gitlab.com/gitlab-org/charts) and [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com).
 
-The CNG image is the pre-requisite for the remaining version bumps. Only CNG and K8s Workloads version bumps are required for a GitLab.com deployment. The deployment is then completed as documented [here](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/DEPLOYMENT.md). Charts and Omnibus version bumps are required for self-managed releases.
+The CNG image is the pre-requisite for the remaining version bumps which may be merged independently from each other. Only CNG and K8s Workloads version bumps are required for a GitLab.com deployment. The deployment is then completed as documented [here](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/DEPLOYMENT.md). Charts and Omnibus version bumps are required for self-managed releases.
 
 Create a merge request for each project. Mark parent tasks as completed once the corresponding merge requests are merged.
 
@@ -102,7 +99,11 @@ For consistency, please use the following template for these merge requests:
 
 ##### Commit Message
 
-`Bump Container Registry to vX.Y.Z-gitlab`
+```
+Bump Container Registry to vX.Y.Z-gitlab
+
+Changelog: changed
+```
 
 ##### Title
 
@@ -117,18 +118,6 @@ Repeat the version subsection for multiple versions. As an example, to bump to v
 [Changelog](https://gitlab.com/gitlab-org/container-registry/blob/release/X.Y-gitlab/CHANGELOG.md#vXYZ-gitlab-YYYY-MM-DD)
 
 Related to <!-- link to this release issue -->.
-```
-
-##### Changelog Entries
-
-Some projects require a changelog entry, please use the following template whenever necessary:
-
-```yml
----
-title: Bump Container Registry to vX.Y.Z-gitlab
-merge_request: # number (not the link) of the version bump merge request
-author:
-type: changed
 ```
 </details>
 
