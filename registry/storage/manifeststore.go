@@ -72,7 +72,8 @@ func (ms *manifestStore) Exists(ctx context.Context, dgst digest.Digest) (bool, 
 }
 
 func (ms *manifestStore) Get(ctx context.Context, dgst digest.Digest, options ...distribution.ManifestServiceOption) (distribution.Manifest, error) {
-	dcontext.GetLogger(ms.ctx).Debug("(*manifestStore).Get")
+	log := dcontext.GetLogger(ms.ctx)
+	log.Debug("(*manifestStore).Get")
 
 	// TODO(stevvooe): Need to check descriptor from above to ensure that the
 	// mediatype is as we expect for the manifest store.
@@ -121,9 +122,19 @@ func (ms *manifestStore) Get(ctx context.Context, dgst digest.Digest, options ..
 		default:
 			return nil, distribution.ErrManifestVerification{fmt.Errorf("unrecognized manifest content type %s", versioned.MediaType)}
 		}
+	default:
+		// This is not a valid manifest, and most likely an example of
+		// https://gitlab.com/gitlab-org/container-registry/-/issues/411. We can't block uploads of manifest
+		// lists/indexes with invalid references until we reach a conclusion on
+		// https://gitlab.com/gitlab-org/container-registry/-/issues/409. Meanwhile, we should not raise a 500 error if
+		// a user attempts to read a config/layer as a manifest. We should act as if it does not exist and return a
+		// 404 Not Found.
+		log.WithField("schema_version", versioned.SchemaVersion).Warn("unrecognized manifest schema version, ignoring manifest")
+		return nil, distribution.ErrManifestUnknownRevision{
+			Name:     ms.repository.Named().Name(),
+			Revision: dgst,
+		}
 	}
-
-	return nil, fmt.Errorf("unrecognized manifest schema version %d", versioned.SchemaVersion)
 }
 
 func (ms *manifestStore) Put(ctx context.Context, manifest distribution.Manifest, options ...distribution.ManifestServiceOption) (digest.Digest, error) {

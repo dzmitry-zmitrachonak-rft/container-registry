@@ -1,4 +1,9 @@
 ## [Unreleased]
+
+## [v3.5.2-gitlab] - 2021-07-13
+### Fixed
+- registry/api/v2: Attempting to read a config through the manifests endpoint will now return a not found error instead of an internal server error.
+
 ## [v3.5.1-gitlab] - 2021-07-09
 ### Removed
 - configuration: Remove proxy configuration migration section
