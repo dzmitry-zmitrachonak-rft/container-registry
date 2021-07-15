@@ -1079,12 +1079,6 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			}
 		}
 
-		context.Context = dcontext.WithLogger(context.Context, dcontext.GetLoggerWithFields(context.Context, map[interface{}]interface{}{
-			"use_database":         context.useDatabase,
-			"write_fs_metadata":    context.writeFSMetadata,
-			"migrating_repository": migrateRepo,
-		}))
-
 		if app.Config.Migration.Enabled {
 			metrics.MigrationRoute(migrateRepo)
 
@@ -1096,6 +1090,12 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				path = "old"
 			}
 			w.Header().Set("Gitlab-Migration-Path", path)
+
+			context.Context = dcontext.WithLogger(context.Context, dcontext.GetLoggerWithFields(context.Context, map[interface{}]interface{}{
+				"use_database":      context.useDatabase,
+				"write_fs_metadata": context.writeFSMetadata,
+				"migration_path":    path,
+			}))
 		}
 
 		dispatch(context, r).ServeHTTP(w, r)
