@@ -2,10 +2,16 @@ package errcode
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestErrorsManagement does a quick check of the Errors type to ensure that
@@ -179,5 +185,83 @@ func TestErrorsManagement(t *testing.T) {
 	}
 	if e2.Detail != `stuff2` {
 		t.Fatalf("e2 had wrong detail: %q", e2.Detail)
+	}
+}
+
+func TestFromUnknownError(t *testing.T) {
+	var tests = []struct {
+		name     string
+		err      error
+		expected int
+	}{
+		{
+			name: "write connection reset",
+			err: &net.OpError{
+				Op:  "write",
+				Net: "tcp",
+				Source: &net.TCPAddr{
+					IP:   net.IPv4(192, 168, 1, 127),
+					Port: 9001,
+				},
+				Addr: &net.TCPAddr{
+					IP:   net.IPv4(127, 0, 0, 1),
+					Port: 5001,
+				},
+				Err: os.NewSyscallError("write", syscall.ECONNRESET),
+			},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name: "read connection reset",
+			err: &net.OpError{
+				Op:  "write",
+				Net: "tcp",
+				Source: &net.TCPAddr{
+					IP:   net.IPv4(192, 168, 1, 127),
+					Port: 9001,
+				},
+				Addr: &net.TCPAddr{
+					IP:   net.IPv4(127, 0, 0, 1),
+					Port: 5001,
+				},
+				Err: os.NewSyscallError("read", syscall.ECONNRESET),
+			},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name: "unknown op error",
+			err: &net.OpError{
+				Op:  "read",
+				Net: "tcp",
+				Source: &net.TCPAddr{
+					IP:   net.IPv4(192, 168, 1, 127),
+					Port: 9001,
+				},
+				Addr: &net.TCPAddr{
+					IP:   net.IPv4(127, 0, 0, 1),
+					Port: 5001,
+				},
+				Err: net.UnknownNetworkError("tcp"),
+			},
+			expected: http.StatusServiceUnavailable,
+		},
+		{
+			name:     "already an errcode.Error",
+			err:      ErrorCodeUnauthorized.WithDetail("don't do that"),
+			expected: http.StatusUnauthorized,
+		},
+		{
+			name:     "unknown error",
+			err:      fmt.Errorf("division by zero"),
+			expected: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := FromUnknownError(tt.err)
+
+			require.Equal(t, tt.expected, err.Code.Descriptor().HTTPStatusCode)
+		})
 	}
 }

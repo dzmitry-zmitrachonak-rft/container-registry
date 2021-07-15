@@ -179,7 +179,7 @@ func (buh *blobUploadHandler) PatchBlobData(w http.ResponseWriter, r *http.Reque
 	// TODO(dmcgowan): support Content-Range header to seek and write range
 
 	if err := copyFullPayload(buh, w, r, buh.Upload, -1, "blob PATCH"); err != nil {
-		buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err.Error()))
+		buh.Errors = append(buh.Errors, errcode.FromUnknownError(err))
 		return
 	}
 
@@ -255,7 +255,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 	}
 
 	if err := copyFullPayload(buh, w, r, buh.Upload, -1, "blob PUT"); err != nil {
-		buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err.Error()))
+		buh.Errors = append(buh.Errors, errcode.FromUnknownError(err))
 		return
 	}
 
