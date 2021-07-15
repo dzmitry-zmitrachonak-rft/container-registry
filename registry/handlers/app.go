@@ -518,7 +518,7 @@ func (app *App) shouldMigrate(ctx context.Context, repo distribution.Repository)
 
 	// this is used to bypass the JWT token validation, currently only used for testing purposes (defaults to false)
 	if app.Config.Migration.AuthEligibilityDisabled {
-		log.Info("migration auth eligibility is disabled in registry config, serving new repository via old code path")
+		log.Info("migration auth eligibility is disabled in registry config, serving new repository via new code path")
 		return true, nil
 	}
 
