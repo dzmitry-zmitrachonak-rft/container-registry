@@ -17,10 +17,9 @@ var (
 	// ErrorCodeUnknown is a generic error that can be used as a last
 	// resort if there is no situation-specific error message that can be used
 	ErrorCodeUnknown = Register("errcode", ErrorDescriptor{
-		Value:   "UNKNOWN",
-		Message: "unknown error",
-		Description: `Generic error returned when the error does not have an
-			                                            API classification.`,
+		Value:          "UNKNOWN",
+		Message:        "unknown error",
+		Description:    "Generic error returned when the error does not have an API classification.",
 		HTTPStatusCode: http.StatusInternalServerError,
 	})
 
@@ -72,6 +71,18 @@ var (
 		Description: `Returned when a client attempts to contact a
 		service too many times`,
 		HTTPStatusCode: http.StatusTooManyRequests,
+	})
+
+	// ErrorCodeConnectionReset provides an error to report a client dropping the
+	// connection.
+	ErrorCodeConnectionReset = Register("errcode", ErrorDescriptor{
+		Value:       "CONNECTIONRESET",
+		Message:     "connection reset by peer",
+		Description: "Returned when the client closes the connection unexpectedly",
+		// 400 is the most fitting error code in the HTTP spec, 499 is used by
+		// nginx (and within this project as well), and is specific to this scenario,
+		// but it is preferable to stay within the spec.
+		HTTPStatusCode: http.StatusBadRequest,
 	})
 )
 

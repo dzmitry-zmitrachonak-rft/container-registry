@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
+	"syscall"
 )
 
 // ErrorCoder is the base interface for ErrorCode and Error allowing
@@ -274,16 +276,25 @@ func FromUnknownError(err error) Error {
 	if errors.As(err, &e) {
 		return e
 	}
+
 	// use 503 Service Unavailable for network timeout errors
 	var netError net.Error
 	if ok := errors.As(err, &netError); ok && netError.Timeout() {
 		return ErrorCodeUnavailable.WithDetail(err)
 	}
-	// use 503 Service Unavailable for network connection refused or unknown host errors
+
 	var netOpError *net.OpError
 	if errors.As(err, &netOpError) {
+		// use 400 Bad Request if the client drops the connection during the request
+		var syscallErr *os.SyscallError
+		if errors.As(err, &syscallErr) && syscallErr.Err == syscall.ECONNRESET {
+			return ErrorCodeConnectionReset.WithDetail(err)
+		}
+
+		// use 503 Service Unavailable for network connection refused or unknown host errors
 		return ErrorCodeUnavailable.WithDetail(err)
 	}
+
 	// otherwise, we're not sure what the error is or how to react, use 500 Internal Server Error
 	return ErrorCodeUnknown.WithDetail(err)
 }
