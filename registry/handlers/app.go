@@ -937,31 +937,31 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			}
 		}
 
-		context := app.context(w, r)
+		ctx := app.context(w, r)
 
-		if err := app.authorized(w, r, context); err != nil {
-			dcontext.GetLogger(context).Warnf("error authorizing context: %v", err)
+		if err := app.authorized(w, r, ctx); err != nil {
+			dcontext.GetLogger(ctx).Warnf("error authorizing context: %v", err)
 			return
 		}
 
 		// Add username to request logging
-		context.Context = dcontext.WithLogger(context.Context, dcontext.GetLogger(context.Context, auth.UserNameKey))
+		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey))
 		// sync up context on the request.
-		r = r.WithContext(context)
+		r = r.WithContext(ctx)
 
 		// Save whether we're migrating a repo or not for logging later.
 		var migrateRepo bool
 
 		if app.nameRequired(r) {
-			nameRef, err := reference.WithName(getName(context))
+			nameRef, err := reference.WithName(getName(ctx))
 			if err != nil {
-				dcontext.GetLogger(context).Errorf("error parsing reference from context: %v", err)
-				context.Errors = append(context.Errors, distribution.ErrRepositoryNameInvalid{
-					Name:   getName(context),
+				dcontext.GetLogger(ctx).Errorf("error parsing reference from context: %v", err)
+				ctx.Errors = append(ctx.Errors, distribution.ErrRepositoryNameInvalid{
+					Name:   getName(ctx),
 					Reason: err,
 				})
-				if err := errcode.ServeJSON(w, context.Errors); err != nil {
-					dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+				if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+					dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
 				}
 				return
 			}
@@ -969,38 +969,38 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			bp, ok := app.registry.Blobs().(distribution.BlobProvider)
 			if !ok {
 				err = fmt.Errorf("unable to convert BlobEnumerator into BlobProvider")
-				dcontext.GetLogger(context).Error(err)
-				context.Errors = append(context.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+				dcontext.GetLogger(ctx).Error(err)
+				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
-			context.blobProvider = bp
+			ctx.blobProvider = bp
 
-			repository, err := app.registry.Repository(context, nameRef)
+			repository, err := app.registry.Repository(ctx, nameRef)
 			if err != nil {
-				dcontext.GetLogger(context).Errorf("error resolving repository: %v", err)
+				dcontext.GetLogger(ctx).Errorf("error resolving repository: %v", err)
 
 				switch err := err.(type) {
 				case distribution.ErrRepositoryUnknown:
-					context.Errors = append(context.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
+					ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
 				case distribution.ErrRepositoryNameInvalid:
-					context.Errors = append(context.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
+					ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
 				case errcode.Error:
-					context.Errors = append(context.Errors, err)
+					ctx.Errors = append(ctx.Errors, err)
 				}
 
-				if err := errcode.ServeJSON(w, context.Errors); err != nil {
-					dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+				if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+					dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
 				}
 				return
 			}
 
-			migrateRepo, err = app.shouldMigrate(context, repository)
+			migrateRepo, err = app.shouldMigrate(ctx, repository)
 			if err != nil {
 				err = fmt.Errorf("determining whether repository is eligible for migration: %v", err)
-				dcontext.GetLogger(context).Error(err)
-				context.Errors = append(context.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+				dcontext.GetLogger(ctx).Error(err)
+				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
 
-			context.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
+			ctx.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
 
 			switch {
 			case migrateRepo:
@@ -1008,63 +1008,63 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				bp, ok := app.migrationRegistry.Blobs().(distribution.BlobProvider)
 				if !ok {
 					err = fmt.Errorf("unable to convert BlobEnumerator into BlobProvider")
-					dcontext.GetLogger(context).Error(err)
-					context.Errors = append(context.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+					dcontext.GetLogger(ctx).Error(err)
+					ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 				}
-				context.blobProvider = bp
+				ctx.blobProvider = bp
 
-				repository, err = app.migrationRegistry.Repository(context, nameRef)
+				repository, err = app.migrationRegistry.Repository(ctx, nameRef)
 				if err != nil {
-					dcontext.GetLogger(context).Errorf("error resolving repository: %v", err)
+					dcontext.GetLogger(ctx).Errorf("error resolving repository: %v", err)
 
 					switch err := err.(type) {
 					case distribution.ErrRepositoryUnknown:
-						context.Errors = append(context.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
+						ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
 					case distribution.ErrRepositoryNameInvalid:
-						context.Errors = append(context.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
+						ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
 					case errcode.Error:
-						context.Errors = append(context.Errors, err)
+						ctx.Errors = append(ctx.Errors, err)
 					}
 
-					if err = errcode.ServeJSON(w, context.Errors); err != nil {
-						dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+					if err = errcode.ServeJSON(w, ctx.Errors); err != nil {
+						dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
 					}
 					return
 				}
 
 				// We're writing the migrating repository to the database.
-				context.useDatabase = true
+				ctx.useDatabase = true
 			// We're not migrating and the database is enabled, read/write from the
 			// database except for writing blobs to common storage.
 			case !app.Config.Migration.Enabled && app.Config.Database.Enabled:
-				context.useDatabase = true
+				ctx.useDatabase = true
 			// We're either not migrating this repository, or we're not migrating at
 			// all and the database is not enabled. Either way, read/write from
 			// the filesystem alone.
 			case app.Config.Migration.Enabled && !migrateRepo,
 				!app.Config.Database.Enabled:
-				context.useDatabase = false
-				context.writeFSMetadata = true
+				ctx.useDatabase = false
+				ctx.writeFSMetadata = true
 			default:
 				// this should never happen as we pre-validate all possible combinations before starting, nevertheless
 				err = errors.New("invalid database and migration configuration")
-				dcontext.GetLogger(context).Error(err)
-				context.Errors = append(context.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+				dcontext.GetLogger(ctx).Error(err)
+				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
 
 			// assign and decorate the authorized repository with an event bridge.
-			context.Repository, context.RepositoryRemover = notifications.Listen(
+			ctx.Repository, ctx.RepositoryRemover = notifications.Listen(
 				repository,
-				context.App.repoRemover,
-				app.eventBridge(context, r))
+				ctx.App.repoRemover,
+				app.eventBridge(ctx, r))
 
-			context.Repository, err = applyRepoMiddleware(app, context.Repository, app.Config.Middleware["repository"])
+			ctx.Repository, err = applyRepoMiddleware(app, ctx.Repository, app.Config.Middleware["repository"])
 			if err != nil {
-				dcontext.GetLogger(context).Errorf("error initializing repository middleware: %v", err)
-				context.Errors = append(context.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
+				dcontext.GetLogger(ctx).Errorf("error initializing repository middleware: %v", err)
+				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 
-				if err := errcode.ServeJSON(w, context.Errors); err != nil {
-					dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+				if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+					dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
 				}
 				return
 			}
@@ -1073,9 +1073,9 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			// either either the filesystem or the database, even if we're configured
 			// for migration.
 			if app.Config.Database.Enabled {
-				context.useDatabase = true
+				ctx.useDatabase = true
 			} else {
-				context.useDatabase = false
+				ctx.useDatabase = false
 			}
 		}
 
@@ -1091,24 +1091,24 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			}
 			w.Header().Set("Gitlab-Migration-Path", path)
 
-			context.Context = dcontext.WithLogger(context.Context, dcontext.GetLoggerWithFields(context.Context, map[interface{}]interface{}{
-				"use_database":      context.useDatabase,
-				"write_fs_metadata": context.writeFSMetadata,
+			ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLoggerWithFields(ctx.Context, map[interface{}]interface{}{
+				"use_database":      ctx.useDatabase,
+				"write_fs_metadata": ctx.writeFSMetadata,
 				"migration_path":    path,
 			}))
 		}
 
-		dispatch(context, r).ServeHTTP(w, r)
+		dispatch(ctx, r).ServeHTTP(w, r)
 
 		// Automated error response handling here. Handlers may return their
 		// own errors if they need different behavior (such as range errors
 		// for layer upload).
-		if context.Errors.Len() > 0 {
-			if err := errcode.ServeJSON(w, context.Errors); err != nil {
-				dcontext.GetLogger(context).Errorf("error serving error json: %v (from %v)", err, context.Errors)
+		if ctx.Errors.Len() > 0 {
+			if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+				dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
 			}
 
-			app.logError(context, r, context.Errors)
+			app.logError(ctx, r, ctx.Errors)
 		}
 	})
 }
