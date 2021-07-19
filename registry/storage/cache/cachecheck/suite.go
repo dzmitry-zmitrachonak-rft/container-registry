@@ -2,6 +2,7 @@ package cachecheck
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -39,7 +40,7 @@ func checkBlobDescriptorCacheEmptyRepository(ctx context.Context, t *testing.T, 
 	if err := cache.SetDescriptor(ctx, "", distribution.Descriptor{
 		Digest:    "sha384:abc",
 		Size:      10,
-		MediaType: "application/octet-stream"}); err != digest.ErrDigestInvalidFormat {
+		MediaType: "application/octet-stream"}); !errors.Is(err, digest.ErrDigestInvalidFormat) {
 		t.Fatalf("expected error with invalid digest: %v", err)
 	}
 
@@ -50,7 +51,7 @@ func checkBlobDescriptorCacheEmptyRepository(ctx context.Context, t *testing.T, 
 		t.Fatalf("expected error setting value on invalid descriptor")
 	}
 
-	if _, err := cache.Stat(ctx, ""); err != digest.ErrDigestInvalidFormat {
+	if _, err := cache.Stat(ctx, ""); !errors.Is(err, digest.ErrDigestInvalidFormat) {
 		t.Fatalf("expected error checking for cache item with empty digest: %v", err)
 	}
 

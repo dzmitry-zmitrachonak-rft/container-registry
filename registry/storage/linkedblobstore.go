@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"path"
@@ -265,7 +266,7 @@ func (lbs *linkedBlobStore) Enumerate(ctx context.Context, ingestor func(distrib
 		d, err := lbs.blobStore.readlink(ctx, filePath)
 		if err != nil {
 			// ignore if the link file is empty or doesn't contain a valid checksum (the GC should erase the blobs during the sweep stage)
-			if err == digest.ErrDigestInvalidFormat {
+			if errors.Is(err, digest.ErrDigestInvalidFormat) {
 				dcontext.GetLoggerWithField(ctx, "path", filePath).Warnf("invalid link file, ignoring")
 				return nil
 			}
