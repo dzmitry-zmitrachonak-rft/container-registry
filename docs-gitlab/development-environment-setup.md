@@ -136,3 +136,5 @@ docker tag alpine:latest localhost:5000/alpine:latest
 docker push localhost:5000/alpine:latest
 docker pull localhost:5000/alpine:latest
 ```
+
+If you are using macOS, you may need to use `0.0.0.0` instead of `localhost`.
