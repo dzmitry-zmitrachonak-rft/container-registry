@@ -1080,13 +1080,13 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			metrics.MigrationRoute(mStatus.ShouldMigrate())
 
 			// Set temporary response header to denote the code path that a request has followed during migration
-			var path string
+			var path migration.CodePathVal
 			if mStatus.ShouldMigrate() {
-				path = "new"
+				path = migration.NewCodePath
 			} else {
-				path = "old"
+				path = migration.OldCodePath
 			}
-			w.Header().Set("Gitlab-Migration-Path", path)
+			w.Header().Set(migration.CodePathHeader, path.String())
 
 			log := dcontext.GetLoggerWithFields(ctx.Context, map[interface{}]interface{}{
 				"use_database":          ctx.useDatabase,

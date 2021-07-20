@@ -6,24 +6,57 @@ package migration
 
 import "context"
 
-// EligibilityKey is used to get the migration eligibility flag from a context.
-const EligibilityKey = "migration.eligible"
+const (
+	// EligibilityKey is used to get the migration eligibility flag from a context.
+	EligibilityKey = "migration.eligible"
+	// CodePathKey is used to get the migration code path from a context.
+	CodePathKey = "migration.path"
+	// CodePathHeader is used to set/get the migration code path HTTP response header.
+	CodePathHeader = "Gitlab-Migration-Path"
+
+	// UnknownCodePath is used when no code path was provided/found.
+	UnknownCodePath CodePathVal = iota
+	// OldCodePath is used to identify the old code path.
+	OldCodePath
+	// NewCodePath is used to identify the new code path.
+	NewCodePath
+)
+
+// CodePathVal is used to define the possible code path values.
+type CodePathVal int
+
+// String implements fmt.Stringer.
+func (v CodePathVal) String() string {
+	switch v {
+	case OldCodePath:
+		return "old"
+	case NewCodePath:
+		return "new"
+	default:
+		return ""
+	}
+}
 
 type migrationContext struct {
 	context.Context
 	eligible bool
+	path     CodePathVal
 }
 
 // Value implements context.Context.
 func (mc migrationContext) Value(key interface{}) interface{} {
-	if key == EligibilityKey {
+	switch key {
+	case EligibilityKey:
 		return mc.eligible
+	case CodePathKey:
+		return mc.path
+	default:
+		return mc.Context.Value(key)
 	}
-	return mc.Context.Value(key)
 }
 
-// WithMigrationEligibility returns a context with the migration eligibility info.
-func WithMigrationEligibility(ctx context.Context, eligible bool) context.Context {
+// WithEligibility returns a context with the migration eligibility info.
+func WithEligibility(ctx context.Context, eligible bool) context.Context {
 	return migrationContext{
 		Context:  ctx,
 		eligible: eligible,
@@ -44,6 +77,22 @@ func IsEligible(ctx context.Context) bool {
 		return v
 	}
 	return false
+}
+
+// WithCodePath returns a context with the migration code path info.
+func WithCodePath(ctx context.Context, path CodePathVal) context.Context {
+	return migrationContext{
+		Context: ctx,
+		path:    path,
+	}
+}
+
+// CodePath extracts the migration code path info from a context.
+func CodePath(ctx context.Context) CodePathVal {
+	if v, ok := ctx.Value(CodePathKey).(CodePathVal); ok {
+		return v
+	}
+	return UnknownCodePath
 }
 
 // Status enum for repository migration status.

@@ -344,7 +344,7 @@ func injectMigrationEligibility(ctx context.Context, requiredPerms []auth.Access
 	// locate migration flag sent from Rails, and wrap context
 	for _, a := range claims.Access {
 		if a.Name == targetRepo && a.MigrationEligible != nil {
-			return migration.WithMigrationEligibility(ctx, *a.MigrationEligible)
+			return migration.WithEligibility(ctx, *a.MigrationEligible)
 		}
 	}
 
