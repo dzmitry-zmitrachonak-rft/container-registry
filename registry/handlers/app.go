@@ -493,46 +493,40 @@ func distinctMigrationRootDirectory(config *configuration.Configuration) bool {
 	return false
 }
 
-func (app *App) shouldMigrate(ctx context.Context, repo distribution.Repository) (bool, error) {
+func (app *App) getMigrationStatus(ctx context.Context, repo distribution.Repository) (migration.Status, error) {
 	if !(app.Config.Database.Enabled && app.Config.Migration.Enabled) {
-		return false, nil
+		return migration.StatusMigrationDisabled, nil
 	}
 
 	validator, ok := repo.(storage.RepositoryValidator)
 	if !ok {
-		return false, errors.New("repository does not implement RepositoryValidator interface")
+		return migration.StatusError, errors.New("repository does not implement RepositoryValidator interface")
 	}
 
 	// check if repository exists in the old storage prefix, if not we should signal
 	// to use to the database and the migration storage prefix.
 	exists, err := validator.Exists(ctx)
 	if err != nil {
-		return false, fmt.Errorf("unable to determine if repository exists: %w", err)
+		return migration.StatusError, fmt.Errorf("unable to determine if repository exists: %w", err)
 	}
 
-	log := dcontext.GetLogger(ctx)
 	if exists {
-		log.Info("repository is old, serving via old code path")
-		return false, nil
+		return migration.StatusOldRepo, nil
 	}
 
 	// this is used to bypass the JWT token validation, currently only used for testing purposes (defaults to false)
 	if app.Config.Migration.AuthEligibilityDisabled {
-		log.Info("migration auth eligibility is disabled in registry config, serving new repository via new code path")
-		return true, nil
+		return migration.StatusAuthEligibilityDisabled, nil
 	}
 
 	// validate eligibility flag set by Rails to determine which code path this _new_ repository should follow
 	if !migration.HasEligibilityFlag(ctx) {
-		log.Info("migration eligibility not set, serving new repository via old code path")
-		return false, nil
+		return migration.StatusAuthEligibilityNotSet, nil
 	}
 	if !migration.IsEligible(ctx) {
-		log.Info("new repository flagged as not eligible for migration, serving via old code path")
-		return false, nil
+		return migration.StatusNotEligible, nil
 	}
-	log.Info("new repository flagged as eligible for migration, serving via new code path")
-	return true, nil
+	return migration.StatusEligible, nil
 }
 
 var (
@@ -949,8 +943,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		// sync up context on the request.
 		r = r.WithContext(ctx)
 
-		// Save whether we're migrating a repo or not for logging later.
-		var migrateRepo bool
+		// Save migration status for logging later.
+		var mStatus migration.Status
 
 		if app.nameRequired(r) {
 			nameRef, err := reference.WithName(getName(ctx))
@@ -993,7 +987,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
-			migrateRepo, err = app.shouldMigrate(ctx, repository)
+			mStatus, err = app.getMigrationStatus(ctx, repository)
 			if err != nil {
 				err = fmt.Errorf("determining whether repository is eligible for migration: %v", err)
 				dcontext.GetLogger(ctx).Error(err)
@@ -1001,6 +995,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			}
 
 			ctx.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
+			migrateRepo := mStatus.ShouldMigrate()
 
 			switch {
 			case migrateRepo:
@@ -1077,25 +1072,38 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			} else {
 				ctx.useDatabase = false
 			}
+
+			mStatus = migration.StatusNonRepositoryScopedRequest
 		}
 
 		if app.Config.Migration.Enabled {
-			metrics.MigrationRoute(migrateRepo)
+			metrics.MigrationRoute(mStatus.ShouldMigrate())
 
 			// Set temporary response header to denote the code path that a request has followed during migration
 			var path string
-			if migrateRepo {
+			if mStatus.ShouldMigrate() {
 				path = "new"
 			} else {
 				path = "old"
 			}
 			w.Header().Set("Gitlab-Migration-Path", path)
 
-			ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLoggerWithFields(ctx.Context, map[interface{}]interface{}{
-				"use_database":      ctx.useDatabase,
-				"write_fs_metadata": ctx.writeFSMetadata,
-				"migration_path":    path,
-			}))
+			log := dcontext.GetLoggerWithFields(ctx.Context, map[interface{}]interface{}{
+				"use_database":          ctx.useDatabase,
+				"write_fs_metadata":     ctx.writeFSMetadata,
+				"migration_path":        path,
+				"migration_status":      mStatus.String(),
+				"migration_description": mStatus.Description(),
+			})
+			ctx.Context = dcontext.WithLogger(ctx.Context, log)
+
+			// In migration mode, we should log each request at least once. This will
+			// allow us to match the access log entries with the extra migration
+			// fields contained in the app log.
+			log.WithFields(logrus.Fields{
+				"method": r.Method,
+				"path":   r.URL.Path,
+			}).Info("serving request in migration mode")
 		}
 
 		dispatch(ctx, r).ServeHTTP(w, r)
