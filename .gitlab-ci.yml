@@ -172,7 +172,7 @@ database:structure-sql:
   image: golang:${GO_VERSION}-buster
   parallel:
     matrix:
-      - GO_VERSION: [ "1.15", "1.16" ]
+      - GO_VERSION: [ "1.16" ]
 
 coverage:
   extends: .go-version-matrix
