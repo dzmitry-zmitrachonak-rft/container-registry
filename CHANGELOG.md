@@ -1,6 +1,7 @@
 ## [Unreleased]
 ### Changed
 - registry/api/v2: Return 400 - Bad Request when client closes the connection, rather than returning 500 - Internal Server Error
+- registry/storage: Upgrade Amazon S3 SDK to v1.40.3
 
 ## [v3.5.2-gitlab] - 2021-07-13
 ### Fixed
