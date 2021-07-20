@@ -45,3 +45,73 @@ func IsEligible(ctx context.Context) bool {
 	}
 	return false
 }
+
+// Status enum for repository migration status.
+type Status int
+
+// Ineligible statuses.
+const (
+	StatusUnknown Status = iota // Always first to catch uninitialized values.
+	StatusMigrationDisabled
+	StatusError
+	StatusOldRepo
+	StatusAuthEligibilityNotSet
+	StatusNotEligible
+	StatusNonRepositoryScopedRequest
+)
+
+const eligibilityCutoff = 1000
+
+// Eligible statuses.
+const (
+	StatusEligible = iota + eligibilityCutoff
+	StatusAuthEligibilityDisabled
+)
+
+func (m Status) String() string {
+	msg := map[Status]string{
+		StatusUnknown:                    "Unknown",
+		StatusMigrationDisabled:          "MigrationDisabled",
+		StatusError:                      "Error",
+		StatusOldRepo:                    "OldRepo",
+		StatusAuthEligibilityNotSet:      "AuthEligibilityNotSet",
+		StatusNotEligible:                "NotEligible",
+		StatusNonRepositoryScopedRequest: "NonRepositoryScopedRequest",
+		StatusEligible:                   "Eligible",
+		StatusAuthEligibilityDisabled:    "AuthEligibilityDisabled",
+	}
+
+	s, ok := msg[m]
+	if !ok {
+		return msg[StatusUnknown]
+	}
+
+	return s
+}
+
+// Description returns a human readable description of the migration status.
+func (m Status) Description() string {
+	msg := map[Status]string{
+		StatusUnknown:                    "unknown migration status",
+		StatusMigrationDisabled:          "migration mode is disabled in registry config",
+		StatusError:                      "error determining migration status",
+		StatusOldRepo:                    "repository is old, serving via old code path",
+		StatusAuthEligibilityNotSet:      "migration eligibility not set, serving new repository via old code path",
+		StatusNotEligible:                "new repository flagged as not eligible for migration, serving via old code path",
+		StatusNonRepositoryScopedRequest: "request is not scoped to single repository",
+		StatusEligible:                   "new repository flagged as eligible for migration, serving via new code path",
+		StatusAuthEligibilityDisabled:    "migration auth eligibility is disabled in registry config, serving new repository via new code path",
+	}
+
+	s, ok := msg[m]
+	if !ok {
+		return msg[StatusUnknown]
+	}
+
+	return s
+}
+
+// ShouldMigrate determines if a repository should be served via the new code path.
+func (m Status) ShouldMigrate() bool {
+	return m >= eligibilityCutoff
+}
