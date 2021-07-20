@@ -1095,7 +1095,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				"migration_status":      mStatus.String(),
 				"migration_description": mStatus.Description(),
 			})
-			ctx.Context = dcontext.WithLogger(ctx.Context, log)
+			ctx.Context = dcontext.WithLogger(migration.WithCodePath(ctx.Context, path), log)
 
 			// In migration mode, we should log each request at least once. This will
 			// allow us to match the access log entries with the extra migration
