@@ -641,6 +641,10 @@ func (imh *manifestHandler) appendPutError(err error) {
 		imh.Errors = append(imh.Errors, v2.ErrorCodeManifestInvalid.WithDetail("manifest type unsupported"))
 		return
 	}
+	if errors.Is(err, digest.ErrDigestInvalidFormat) {
+		imh.Errors = append(imh.Errors, v2.ErrorCodeDigestInvalid.WithDetail(err))
+		return
+	}
 
 	switch err := err.(type) {
 	case distribution.ErrManifestVerification:
@@ -653,7 +657,7 @@ func (imh *manifestHandler) appendPutError(err error) {
 			case distribution.ErrManifestUnverified:
 				imh.Errors = append(imh.Errors, v2.ErrorCodeManifestUnverified)
 			default:
-				if verificationError == digest.ErrDigestInvalidFormat {
+				if errors.Is(verificationError, digest.ErrDigestInvalidFormat) {
 					imh.Errors = append(imh.Errors, v2.ErrorCodeDigestInvalid)
 				} else {
 					imh.Errors = append(imh.Errors, errcode.FromUnknownError(verificationError))
