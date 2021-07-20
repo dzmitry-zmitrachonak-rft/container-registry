@@ -44,13 +44,14 @@ import (
 
 	dcontext "github.com/docker/distribution/context"
 	prometheus "github.com/docker/distribution/metrics"
+	"github.com/docker/distribution/registry/internal/migration"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/go-metrics"
 )
 
 var (
 	// storageAction is the metrics of blob related operations
-	storageAction = prometheus.StorageNamespace.NewLabeledTimer("action", "The number of seconds that the storage action takes", "driver", "action")
+	storageAction = prometheus.StorageNamespace.NewLabeledTimer("action", "The number of seconds that the storage action takes", "driver", "action", "migration_path")
 )
 
 func init() {
@@ -101,7 +102,7 @@ func (base *Base) GetContent(ctx context.Context, path string) ([]byte, error) {
 
 	start := time.Now()
 	b, e := base.StorageDriver.GetContent(ctx, path)
-	storageAction.WithValues(base.Name(), "GetContent").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "GetContent", migration.CodePath(ctx).String()).UpdateSince(start)
 	return b, base.setDriverName(e)
 }
 
@@ -116,7 +117,7 @@ func (base *Base) PutContent(ctx context.Context, path string, content []byte) e
 
 	start := time.Now()
 	err := base.setDriverName(base.StorageDriver.PutContent(ctx, path, content))
-	storageAction.WithValues(base.Name(), "PutContent").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "PutContent", migration.CodePath(ctx).String()).UpdateSince(start)
 	return err
 }
 
@@ -161,7 +162,7 @@ func (base *Base) Stat(ctx context.Context, path string) (storagedriver.FileInfo
 
 	start := time.Now()
 	fi, e := base.StorageDriver.Stat(ctx, path)
-	storageAction.WithValues(base.Name(), "Stat").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "Stat", migration.CodePath(ctx).String()).UpdateSince(start)
 	return fi, base.setDriverName(e)
 }
 
@@ -176,7 +177,7 @@ func (base *Base) List(ctx context.Context, path string) ([]string, error) {
 
 	start := time.Now()
 	str, e := base.StorageDriver.List(ctx, path)
-	storageAction.WithValues(base.Name(), "List").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "List", migration.CodePath(ctx).String()).UpdateSince(start)
 	return str, base.setDriverName(e)
 }
 
@@ -193,7 +194,7 @@ func (base *Base) Move(ctx context.Context, sourcePath string, destPath string) 
 
 	start := time.Now()
 	err := base.setDriverName(base.StorageDriver.Move(ctx, sourcePath, destPath))
-	storageAction.WithValues(base.Name(), "Move").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "Move", migration.CodePath(ctx).String()).UpdateSince(start)
 	return err
 }
 
@@ -208,7 +209,7 @@ func (base *Base) Delete(ctx context.Context, path string) error {
 
 	start := time.Now()
 	err := base.setDriverName(base.StorageDriver.Delete(ctx, path))
-	storageAction.WithValues(base.Name(), "Delete").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "Delete", migration.CodePath(ctx).String()).UpdateSince(start)
 	return err
 }
 
@@ -223,7 +224,7 @@ func (base *Base) URLFor(ctx context.Context, path string, options map[string]in
 
 	start := time.Now()
 	str, e := base.StorageDriver.URLFor(ctx, path, options)
-	storageAction.WithValues(base.Name(), "URLFor").UpdateSince(start)
+	storageAction.WithValues(base.Name(), "URLFor", migration.CodePath(ctx).String()).UpdateSince(start)
 	return str, base.setDriverName(e)
 }
 
