@@ -27,6 +27,7 @@ import (
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
+	"github.com/docker/distribution/registry/storage/driver/parse"
 	"github.com/sirupsen/logrus"
 )
 
@@ -124,22 +125,14 @@ func parseParameters(parameters map[string]interface{}) (*DriverParameters, erro
 		return nil, fmt.Errorf("No bucket parameter provided")
 	}
 
-	internalBool := false
-	internal, ok := parameters["internal"]
-	if ok {
-		internalBool, ok = internal.(bool)
-		if !ok {
-			return nil, fmt.Errorf("The internal parameter should be a boolean")
-		}
+	internalBool, err := parse.Bool(parameters, "internal", false)
+	if err != nil {
+		return nil, err
 	}
 
-	encryptBool := false
-	encrypt, ok := parameters["encrypt"]
-	if ok {
-		encryptBool, ok = encrypt.(bool)
-		if !ok {
-			return nil, fmt.Errorf("The encrypt parameter should be a boolean")
-		}
+	encryptBool, err := parse.Bool(parameters, "encrypt", false)
+	if err != nil {
+		return nil, err
 	}
 
 	encryptionKeyID, ok := parameters["encryptionkeyid"]
@@ -147,13 +140,9 @@ func parseParameters(parameters map[string]interface{}) (*DriverParameters, erro
 		encryptionKeyID = ""
 	}
 
-	secureBool := true
-	secure, ok := parameters["secure"]
-	if ok {
-		secureBool, ok = secure.(bool)
-		if !ok {
-			return nil, fmt.Errorf("The secure parameter should be a boolean")
-		}
+	secureBool, err := parse.Bool(parameters, "secure", true)
+	if err != nil {
+		return nil, err
 	}
 
 	chunkSize := int64(defaultChunkSize)

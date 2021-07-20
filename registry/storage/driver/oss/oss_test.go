@@ -182,7 +182,6 @@ func Test_parseParameters_Bool(t *testing.T) {
 		t.Run(tn, func(t *testing.T) {
 			opts := dtestutil.BoolOpts{
 				Defaultt:          tt.defaultt,
-				NilReturnsError:   true,
 				ParamName:         tt.paramName,
 				DriverParamName:   tt.driverParamName,
 				OriginalParams:    tt.parameters,

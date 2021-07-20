@@ -39,6 +39,7 @@ import (
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
+	"github.com/docker/distribution/registry/storage/driver/parse"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -223,22 +224,9 @@ func parseParameters(parameters map[string]interface{}) (*driverParameters, erro
 		return nil, fmt.Errorf("storage client error: %s", err)
 	}
 
-	var parallelWalkBool bool
-
-	parallelWalk := parameters["parallelwalk"]
-	switch parallelWalk := parallelWalk.(type) {
-	case string:
-		b, err := strconv.ParseBool(parallelWalk)
-		if err != nil {
-			return nil, fmt.Errorf("the parallelwalk parameter should be a boolean")
-		}
-		parallelWalkBool = b
-	case bool:
-		parallelWalkBool = parallelWalk
-	case nil:
-		// do nothing
-	default:
-		return nil, fmt.Errorf("the parallelwalk parameter should be a boolean")
+	parallelWalkBool, err := parse.Bool(parameters, "parallelwalk", false)
+	if err != nil {
+		return nil, err
 	}
 
 	return &driverParameters{
