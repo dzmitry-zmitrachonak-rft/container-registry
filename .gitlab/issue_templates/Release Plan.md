@@ -62,19 +62,19 @@ See [release instructions](https://gitlab.com/gitlab-org/container-registry/-/tr
     - [ ] Update `GITLAB_CONTAINER_REGISTRY_VERSION` in [`ci_files/variables.yml`](https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile.build.ubi8`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile.build.ubi8)
-    - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review" ~"feature::maintenance"`
+    - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review" ~"feature::maintenance"`
 1. [ ] Versions bumps for specific distribution paths:
     - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
         - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb) and use the `Changelog: changed` commit trailer in the commit message
-        - [ ] Label merge request with: `/label ~"Workflow::ready for review" ~"feature::maintenance"`
+        - [ ] Label merge request with: `/label ~"workflow::ready for review" ~"feature::maintenance"`
     - [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts):
         - [ ] Wait for the [Gitlab Dependency Bot](https://gitlab.com/gitlab-dependency-bot) to create a merge request for the new version of the registry
         - [ ] Update `version` and `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml) and use the `Changelog: changed` commit trailer in the commit message
-        - [ ] Label merge request with: `/label ~"Workflow::ready for review"`
+        - [ ] Label merge request with: `/label ~"workflow::ready for review"`
     - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com):
         - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl#L75)
         - [ ] Update `tag` in [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl#L6)
-        - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"Workflow::ready for review"`
+        - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review"`
 
 <details>
 <summary><b>Instructions</b></summary>
