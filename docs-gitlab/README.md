@@ -169,6 +169,10 @@ go through, especially if feedback is received.
 
 ## Contributing
 
+Commit messages must be formatted following the
+[Conventional Commits 1.0](https://www.conventionalcommits.org/en/v1.0.0/)
+specification.
+
 Merge requests which make change that will impact users of this project should
 have an accompanying [changelog](../CHANGELOG.md) entry in the same merge
 request. These entries should be added under the `[Unreleased]` header. The
