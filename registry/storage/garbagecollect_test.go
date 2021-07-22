@@ -467,6 +467,63 @@ func TestGarbageCollectManifestListReferences(t *testing.T) {
 	}
 }
 
+func TestGarbageCollectManifestListReferenceDeleted(t *testing.T) {
+	ctx := context.Background()
+	inmemoryDriver := inmemory.New()
+
+	registry := createRegistry(t, inmemoryDriver)
+	repo := makeRepository(t, registry, "testgarbagecollectmanifestlistreferencedeleted")
+
+	// Create a manifest list and delete the first manifest.
+	ml := testutil.UploadRandomImageList(t, registry, repo)
+
+	deletedManifest := ml.Images[0]
+
+	err := repo.Tags(ctx).Tag(ctx, "manifestlist-latest", distribution.Descriptor{Digest: ml.ManifestDigest})
+	require.NoError(t, err)
+
+	manifestService, err := repo.Manifests(ctx)
+	require.NoError(t, err)
+
+	blobstatter := registry.BlobStatter()
+
+	err = manifestService.Delete(ctx, deletedManifest.ManifestDigest)
+	require.NoError(t, err)
+
+	// Run garbage collection.
+	err = MarkAndSweep(context.Background(), inmemoryDriver, registry, GCOpts{
+		DryRun:         false,
+		RemoveUntagged: true,
+	})
+	require.NoError(t, err)
+
+	for _, img := range ml.Images {
+		// Deleted manifest and its layers should be removed.
+		if img.ManifestDigest == deletedManifest.ManifestDigest {
+			ok, err := manifestService.Exists(ctx, img.ManifestDigest)
+			require.NoError(t, err)
+			require.False(t, ok)
+
+			for l := range img.Layers {
+				_, err := blobstatter.Stat(ctx, l)
+				require.True(t, errors.Is(err, distribution.ErrBlobUnknown))
+			}
+
+			continue
+		}
+
+		// The rest of the manifests and their layers should be preserved.
+		ok, err := manifestService.Exists(ctx, img.ManifestDigest)
+		require.NoError(t, err)
+		require.True(t, ok)
+
+		for l := range img.Layers {
+			_, err := blobstatter.Stat(ctx, l)
+			require.NoError(t, err)
+		}
+	}
+}
+
 func TestGarbageCollectNotConformantBuildxCacheReferences(t *testing.T) {
 	ctx := context.Background()
 	inmemoryDriver := inmemory.New()
