@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -348,6 +349,12 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 				manifest, err := manifestService.Get(ctx, d)
 				if err != nil {
+					// If the manifest is not present, then we should continue,
+					// allowing its layers to be garbage collected.
+					errUnknownRev := &distribution.ErrManifestUnknownRevision{}
+					if errors.As(err, errUnknownRev) {
+						return nil
+					}
 					return fmt.Errorf("retrieving manifest for digest %v: %w", d, err)
 				}
 

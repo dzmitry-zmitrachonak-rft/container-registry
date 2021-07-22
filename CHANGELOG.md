@@ -1,4 +1,7 @@
 ## [Unreleased]
+### Fixed
+- registry/storage: Offline garbage collection will continue if it cannot find a manifest referenced by a manifest list.
+
 ## [v3.6.0-gitlab] - 2021-07-20
 ### Changed
 - registry/api/v2: Return 400 - Bad Request when client closes the connection, rather than returning 500 - Internal Server Error
