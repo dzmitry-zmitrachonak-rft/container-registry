@@ -17,8 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/distribution/registry/handlers/internal/metrics"
-
 	"github.com/benbjohnson/clock"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
@@ -35,6 +33,8 @@ import (
 	"github.com/docker/distribution/registry/datastore/migrations"
 	"github.com/docker/distribution/registry/gc"
 	"github.com/docker/distribution/registry/gc/worker"
+	"github.com/docker/distribution/registry/handlers/internal/metrics"
+	metricskit "github.com/docker/distribution/registry/handlers/internal/metrics/labkit"
 	"github.com/docker/distribution/registry/internal"
 	"github.com/docker/distribution/registry/internal/migration"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
@@ -54,7 +54,6 @@ import (
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/labkit/errortracking"
-	metricskit "gitlab.com/gitlab-org/labkit/metrics"
 	"gitlab.com/gitlab-org/labkit/metrics/sqlmetrics"
 )
 
@@ -754,7 +753,7 @@ func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
 
 var routeMetricsMiddleware = metricskit.NewHandlerFactory(
 	metricskit.WithNamespace(prometheus.NamespacePrefix),
-	metricskit.WithLabels("route"),
+	metricskit.WithLabels("route", "migration_path"),
 	// Keeping the same buckets used before LabKit, as defined in
 	// https://github.com/docker/go-metrics/blob/b619b3592b65de4f087d9f16863a7e6ff905973c/handler.go#L31:L32
 	metricskit.WithRequestDurationBuckets([]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 60}),
