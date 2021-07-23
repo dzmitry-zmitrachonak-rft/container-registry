@@ -1,4 +1,9 @@
 ## [Unreleased]
+
+## [v3.6.1-gitlab] - 2021-07-23
+### Changed
+- registry/storage: Upgrade the GCS SDK to v1.16.0
+
 ### Fixed
 - registry/storage: Offline garbage collection will continue if it cannot find a manifest referenced by a manifest list.
 
