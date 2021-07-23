@@ -3,7 +3,8 @@ module github.com/docker/distribution
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.12.0
+	cloud.google.com/go v0.88.0 // indirect
+	cloud.google.com/go/storage v1.16.0
 	github.com/Azure/azure-sdk-for-go v54.1.0+incompatible
 	github.com/Azure/go-autorest v10.8.1+incompatible // indirect
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
@@ -16,7 +17,7 @@ require (
 	github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1
 	github.com/getsentry/sentry-go v0.10.0
 	github.com/go-redis/redis/v8 v8.11.0
-	github.com/golang/mock v1.5.0
+	github.com/golang/mock v1.6.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -41,12 +42,12 @@ require (
 	github.com/stretchr/testify v1.7.0
 	gitlab.com/gitlab-org/labkit v1.5.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/net v0.0.0-20210716203947-853a461950ff // indirect
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	golang.org/x/tools v0.1.5 // indirect
-	google.golang.org/api v0.50.0
+	google.golang.org/api v0.51.0
+	google.golang.org/genproto v0.0.0-20210722135532-667f2b7c528f // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
