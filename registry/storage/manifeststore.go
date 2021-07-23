@@ -90,6 +90,14 @@ func (ms *manifestStore) Get(ctx context.Context, dgst digest.Digest, options ..
 		return nil, err
 	}
 
+	// Guard against retrieving empty content from the storage backend.
+	if len(content) == 0 {
+		return nil, distribution.ErrManifestEmpty{
+			Name:   ms.repository.Named().Name(),
+			Digest: dgst,
+		}
+	}
+
 	var versioned manifest.Versioned
 	if err = json.Unmarshal(content, &versioned); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal manifest payload: %w", err)

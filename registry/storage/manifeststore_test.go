@@ -20,6 +20,7 @@ import (
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/stretchr/testify/require"
 )
 
 type manifestStoreTestEnv struct {
@@ -541,6 +542,42 @@ func testOCIManifestStorage(t *testing.T, testname string, includeMediaTypes boo
 	if payloadMediaType != v1.MediaTypeImageIndex {
 		t.Fatalf("%s: unexpected MediaType for index payload, %s", testname, payloadMediaType)
 	}
+}
+
+// Storing empty manifests are not an expected behavior of the registry, but
+// but they may still be encountered on the storage backend due to a previous
+// bug, corrupted data, or the backend's data being modified directly.
+func TestEmptyManifestContent(t *testing.T) {
+	repoRef, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	env := newManifestStoreTestEnv(t, repoRef, "thetag")
+
+	// Create an tag an schema2 manifest.
+	img, err := testutil.UploadRandomSchema2Image(env.repository)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tagStore := env.repository.Tags(ctx)
+	tagStore.Tag(ctx, env.tag, distribution.Descriptor{Digest: img.ManifestDigest})
+
+	// Wipe the content of the manifest in common blob storage, but leave
+	// the metadata references.
+	blobPath, err := pathFor(blobDataPathSpec{digest: img.ManifestDigest})
+	env.driver.PutContent(ctx, blobPath, []byte{})
+
+	manifestService, err := env.repository.Manifests(ctx)
+	require.NoError(t, err)
+
+	// This function still returns true, nil, even with empty manifest content.
+	ok, err := manifestService.Exists(ctx, img.ManifestDigest)
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	expectedErr := &distribution.ErrManifestEmpty{Name: repoRef.Name(), Digest: img.ManifestDigest}
+	_, err = manifestService.Get(ctx, img.ManifestDigest)
+	require.Error(t, err)
+	require.EqualError(t, err, expectedErr.Error())
 }
 
 // TestLinkPathFuncs ensures that the link path functions behavior are locked

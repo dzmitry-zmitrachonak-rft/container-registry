@@ -76,6 +76,16 @@ func (err ErrManifestUnknownRevision) Error() string {
 	return fmt.Sprintf("unknown manifest name=%s revision=%s", err.Name, err.Revision)
 }
 
+// ErrManifestEmpty is returned when a manifest blob is empty on the storage backend.
+type ErrManifestEmpty struct {
+	Name   string
+	Digest digest.Digest
+}
+
+func (err ErrManifestEmpty) Error() string {
+	return fmt.Sprintf("manifest content missing from storage backend name=%s digest=%s", err.Name, err.Digest)
+}
+
 // ErrManifestUnverified is returned when the registry is unable to verify
 // the manifest.
 type ErrManifestUnverified struct{}
