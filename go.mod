@@ -13,7 +13,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/denverdino/aliyungo v0.0.0-20181224103910-6df11717a253
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
-	github.com/docker/go-metrics v0.0.0-20180209012529-399ea8c73916
+	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1
 	github.com/getsentry/sentry-go v0.10.0
 	github.com/go-redis/redis/v8 v8.11.0
@@ -33,8 +33,10 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.0
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/common v0.29.0 // indirect
+	github.com/prometheus/procfs v0.7.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rubenv/sql-migrate v0.0.0-20200616145509-8d140a17f351
 	github.com/sirupsen/logrus v1.8.1
