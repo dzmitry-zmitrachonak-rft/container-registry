@@ -75,6 +75,7 @@ See [release instructions](https://gitlab.com/gitlab-org/container-registry/-/tr
         - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl#L75)
         - [ ] Update `tag` in [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl#L6)
         - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review"`
+        - [ ] Assign to a reviewer
 
 <details>
 <summary><b>Instructions</b></summary>
