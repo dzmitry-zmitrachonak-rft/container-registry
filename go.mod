@@ -47,7 +47,7 @@ require (
 	golang.org/x/net v0.0.0-20210716203947-853a461950ff // indirect
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.51.0
 	google.golang.org/genproto v0.0.0-20210722135532-667f2b7c528f // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
