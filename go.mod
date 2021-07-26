@@ -14,7 +14,7 @@ require (
 	github.com/denverdino/aliyungo v0.0.0-20181224103910-6df11717a253
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/go-metrics v0.0.1
-	github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/go-redis/redis/v8 v8.11.0
 	github.com/golang/mock v1.6.0
