@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go v1.40.3
 	github.com/benbjohnson/clock v1.1.0
 	github.com/cenkalti/backoff/v4 v4.1.1
-	github.com/denverdino/aliyungo v0.0.0-20181224103910-6df11717a253
+	github.com/denverdino/aliyungo v0.0.0-20210518071019-eb3bbb144d8a
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
