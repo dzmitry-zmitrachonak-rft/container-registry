@@ -11,6 +11,7 @@ import (
 	alioss "github.com/denverdino/aliyungo/oss"
 	"github.com/docker/distribution/context"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 	"gopkg.in/check.v1"
 )
@@ -98,11 +99,7 @@ func TestEmptyRootList(t *testing.T) {
 		t.Skip(skipCheck())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
+	validRoot := dtestutil.TempRoot(t)
 
 	rootedDriver, err := ossDriverConstructor(validRoot)
 	if err != nil {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/docker/distribution/context"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 )
 
@@ -238,11 +239,7 @@ func TestEmptyRootList(t *testing.T) {
 		t.Skip(skipS3())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
+	validRoot := dtestutil.TempRoot(t)
 
 	rootedDriver, err := s3DriverConstructor(validRoot, s3.StorageClassStandard)
 	if err != nil {
@@ -288,11 +285,7 @@ func TestStorageClass(t *testing.T) {
 		t.Skip(skipS3())
 	}
 
-	rootDir, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(rootDir)
+	rootDir := dtestutil.TempRoot(t)
 
 	standardDriver, err := s3DriverConstructor(rootDir, s3.StorageClassStandard)
 	if err != nil {
@@ -707,11 +700,7 @@ func TestBackoffDoesNotRetryNonRequestErrors(t *testing.T) {
 func newTempDirDriver(t *testing.T) *Driver {
 	t.Helper()
 
-	rootDir, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.Remove(rootDir)
-	})
+	rootDir := dtestutil.TempRoot(t)
 
 	d, err := s3DriverConstructor(rootDir, s3.StorageClassStandard)
 	require.NoError(t, err)

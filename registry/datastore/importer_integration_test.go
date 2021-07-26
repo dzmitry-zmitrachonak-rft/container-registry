@@ -109,7 +109,7 @@ func newTempDirDriver(t *testing.T) (*filesystem.Driver, func()) {
 	})
 	require.NoError(t, err)
 
-	return d, func() { os.Remove(rootDir) }
+	return d, func() { os.RemoveAll(rootDir) }
 }
 
 // Dump each table as JSON and compare the output against reference snapshots (.golden files)
