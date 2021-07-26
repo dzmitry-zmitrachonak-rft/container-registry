@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 	"github.com/stretchr/testify/require"
 	. "gopkg.in/check.v1"
@@ -111,8 +112,7 @@ func TestFromParametersImpl(t *testing.T) {
 
 // TestDeleteFilesEmptyParentDir checks that DeleteFiles removes parent directories if empty.
 func TestDeleteFilesEmptyParentDir(t *testing.T) {
-	d, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	d := newTempDirDriver(t)
 
 	parentDir := "/testdir"
 	fp := path.Join(parentDir, "testfile")
@@ -135,8 +135,7 @@ func TestDeleteFilesEmptyParentDir(t *testing.T) {
 
 // TestDeleteFilesNonEmptyParentDir checks that DeleteFiles does not remove parent directories if not empty.
 func TestDeleteFilesNonEmptyParentDir(t *testing.T) {
-	d, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	d := newTempDirDriver(t)
 
 	parentDir := "/testdir"
 	fp := path.Join(parentDir, "testfile")
@@ -164,8 +163,7 @@ func TestDeleteFilesNonEmptyParentDir(t *testing.T) {
 // TestDeleteFilesNonExistingParentDir checks that DeleteFiles is idempotent and doesn't return an error if a parent dir
 // of a not found file doesn't exist as well.
 func TestDeleteFilesNonExistingParentDir(t *testing.T) {
-	d, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	d := newTempDirDriver(t)
 
 	fp := path.Join("/non-existing-dir", "non-existing-file")
 	count, err := d.DeleteFiles(context.Background(), []string{fp})
@@ -178,11 +176,9 @@ func TestDeleteFilesNonExistingParentDir(t *testing.T) {
 }
 
 func TestTransferTo(t *testing.T) {
-	srcDriver, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	srcDriver := newTempDirDriver(t)
 
-	destDriver, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	destDriver := newTempDirDriver(t)
 
 	b := make([]byte, 10)
 	rand.Read(b)
@@ -209,11 +205,9 @@ func TestTransferTo(t *testing.T) {
 }
 
 func TestTransferToExistingDest(t *testing.T) {
-	srcDriver, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	srcDriver := newTempDirDriver(t)
 
-	destDriver, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	destDriver := newTempDirDriver(t)
 
 	srcContent := make([]byte, 10)
 	rand.Read(srcContent)
@@ -242,9 +236,7 @@ func TestTransferToExistingDest(t *testing.T) {
 }
 
 func TestTransferToSameRootDir(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
-	defer os.Remove(rootDir)
+	rootDir := dtestutil.TempRoot(t)
 
 	srcDriver, err := FromParameters(map[string]interface{}{
 		"rootdirectory": rootDir,
@@ -272,16 +264,15 @@ func TestTransferToSameRootDir(t *testing.T) {
 		"unable to begin transfer: srcDriver and destDriver must not have the same root directory")
 }
 
-func newTempDirDriver(t *testing.T) (*Driver, func()) {
+func newTempDirDriver(t *testing.T) *Driver {
 	t.Helper()
 
-	rootDir, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
+	rootDir := dtestutil.TempRoot(t)
 
 	d, err := FromParameters(map[string]interface{}{
 		"rootdirectory": rootDir,
 	})
 	require.NoError(t, err)
 
-	return d, func() { os.Remove(rootDir) }
+	return d
 }

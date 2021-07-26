@@ -24,6 +24,7 @@ import (
 
 	dcontext "github.com/docker/distribution/context"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 )
 
@@ -152,16 +153,7 @@ func TestCommitEmpty(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
-
-	driver, err := gcsDriverConstructor(validRoot)
-	if err != nil {
-		t.Fatalf("unexpected error creating rooted driver: %v", err)
-	}
+	driver := newTempDirDriver(t)
 
 	filename := "/test"
 	ctx := dcontext.Background()
@@ -205,16 +197,7 @@ func TestCommit(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
-
-	driver, err := gcsDriverConstructor(validRoot)
-	if err != nil {
-		t.Fatalf("unexpected error creating rooted driver: %v", err)
-	}
+	driver := newTempDirDriver(t)
 
 	filename := "/test"
 	ctx := dcontext.Background()
@@ -298,16 +281,7 @@ func TestEmptyRootList(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
-
-	rootedDriver, err := gcsDriverConstructor(validRoot)
-	if err != nil {
-		t.Fatalf("unexpected error creating rooted driver: %v", err)
-	}
+	rootedDriver := newTempDirDriver(t)
 
 	emptyRootDriver, err := gcsDriverConstructor("")
 	if err != nil {
@@ -353,16 +327,7 @@ func TestSubpathList(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
-
-	rootedDriver, err := gcsDriverConstructor(validRoot)
-	if err != nil {
-		t.Fatalf("unexpected error creating rooted driver: %v", err)
-	}
+	rootedDriver := newTempDirDriver(t)
 
 	filenames := []string{
 		"/test/test1.txt",
@@ -374,7 +339,7 @@ func TestSubpathList(t *testing.T) {
 	ctx := dcontext.Background()
 
 	for _, filename := range filenames {
-		err = rootedDriver.PutContent(ctx, filename, contents)
+		err := rootedDriver.PutContent(ctx, filename, contents)
 		if err != nil {
 			t.Fatalf("unexpected error creating content: %v", err)
 		}
@@ -389,6 +354,8 @@ func TestSubpathList(t *testing.T) {
 	}()
 
 	keys, err := rootedDriver.List(ctx, "/test")
+	require.NoError(t, err)
+
 	expected := []string{"/test/test1.txt", "/test/test2.txt", "/test/subpath"}
 	sort.Strings(expected)
 	sort.Strings(keys)
@@ -404,21 +371,12 @@ func TestMoveDirectory(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	if err != nil {
-		t.Fatalf("unexpected error creating temporary directory: %v", err)
-	}
-	defer os.Remove(validRoot)
-
-	driver, err := gcsDriverConstructor(validRoot)
-	if err != nil {
-		t.Fatalf("unexpected error creating rooted driver: %v", err)
-	}
+	driver := newTempDirDriver(t)
 
 	ctx := dcontext.Background()
 	contents := []byte("contents")
 	// Create a regular file.
-	err = driver.PutContent(ctx, "/parent/dir/foo", contents)
+	err := driver.PutContent(ctx, "/parent/dir/foo", contents)
 	if err != nil {
 		t.Fatalf("unexpected error creating content: %v", err)
 	}
@@ -444,9 +402,7 @@ func TestTransferTo(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
-	defer os.Remove(validRoot)
+	validRoot := dtestutil.TempRoot(t)
 
 	srcDriver, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
@@ -494,12 +450,7 @@ func TestTransferToSameBucket(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
-	defer os.Remove(validRoot)
-
-	srcDriver, err := gcsDriverConstructor(validRoot)
-	require.NoError(t, err)
+	srcDriver := newTempDirDriver(t)
 
 	b := make([]byte, 10)
 	rand.Read(b)
@@ -508,7 +459,7 @@ func TestTransferToSameBucket(t *testing.T) {
 	path := "/same/bucket/data/path"
 
 	// Write content to source.
-	err = srcDriver.PutContent(ctx, path, b)
+	err := srcDriver.PutContent(ctx, path, b)
 	require.NoError(t, err)
 	_, err = srcDriver.Stat(ctx, path)
 	require.NoError(t, err)
@@ -527,9 +478,7 @@ func TestTransferToInvalidPath(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
-	defer os.Remove(validRoot)
+	validRoot := dtestutil.TempRoot(t)
 
 	srcDriver, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
@@ -570,9 +519,7 @@ func TestTransferToExistingDest(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot, err := ioutil.TempDir("", "driver-")
-	require.NoError(t, err)
-	defer os.Remove(validRoot)
+	validRoot := dtestutil.TempRoot(t)
 
 	srcDriver, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
@@ -604,4 +551,15 @@ func TestTransferToExistingDest(t *testing.T) {
 	c, err := destDriver.GetContent(ctx, path)
 	require.NoError(t, err)
 	require.EqualValues(t, srcContent, c)
+}
+
+func newTempDirDriver(tb testing.TB) storagedriver.StorageDriver {
+	tb.Helper()
+
+	root := dtestutil.TempRoot(tb)
+
+	d, err := gcsDriverConstructor(root)
+	require.NoError(tb, err)
+
+	return d
 }
