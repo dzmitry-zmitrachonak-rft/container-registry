@@ -57,6 +57,14 @@ func init() {
 }
 
 type azureDriverFactory struct{}
+type driverParameters struct {
+	accountName          string
+	accountKey           string
+	container            string
+	realm                string
+	root                 string
+	trimLegacyRootPrefix bool
+}
 
 func (factory *azureDriverFactory) Create(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
 	return FromParameters(parameters)
@@ -64,6 +72,15 @@ func (factory *azureDriverFactory) Create(parameters map[string]interface{}) (st
 
 // FromParameters constructs a new Driver with a given parameters map.
 func FromParameters(parameters map[string]interface{}) (*Driver, error) {
+	params, err := parseParameters(parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	return New(params)
+}
+
+func parseParameters(parameters map[string]interface{}) (*driverParameters, error) {
 	accountName, ok := parameters[paramAccountName]
 	if !ok || fmt.Sprint(accountName) == "" {
 		return nil, fmt.Errorf("no %s parameter provided", paramAccountName)
@@ -90,21 +107,27 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 	}
 
 	trimLegacyRootPrefixStr, ok := parameters[paramTrimLegacyRootPrefix]
-	if !ok || fmt.Sprint(trimLegacyRootPrefixStr) == "" {
+	if !ok || trimLegacyRootPrefixStr == nil {
 		trimLegacyRootPrefixStr = "false"
 	}
 	trimlegacyrootprefix, err := strconv.ParseBool(fmt.Sprint(trimLegacyRootPrefixStr))
 	if err != nil {
 		return nil, fmt.Errorf("the trimlegacyrootprefix parameter should be a boolean")
 	}
-	legacyPath := !trimlegacyrootprefix
 
-	return New(fmt.Sprint(accountName), fmt.Sprint(accountKey), fmt.Sprint(container), fmt.Sprint(realm), fmt.Sprint(root), legacyPath)
+	return &driverParameters{
+		accountName:          fmt.Sprint(accountName),
+		accountKey:           fmt.Sprint(accountKey),
+		container:            fmt.Sprint(container),
+		realm:                fmt.Sprint(realm),
+		root:                 fmt.Sprint(root),
+		trimLegacyRootPrefix: trimlegacyrootprefix,
+	}, nil
 }
 
 // New constructs a new Driver with the given Azure Storage Account credentials
-func New(accountName, accountKey, container, realm, rootDirectory string, legacyPath bool) (*Driver, error) {
-	api, err := azure.NewClient(accountName, accountKey, realm, azure.DefaultAPIVersion, true)
+func New(params *driverParameters) (*Driver, error) {
+	api, err := azure.NewClient(params.accountName, params.accountKey, params.realm, azure.DefaultAPIVersion, true)
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +135,12 @@ func New(accountName, accountKey, container, realm, rootDirectory string, legacy
 	blobClient := api.GetBlobService()
 
 	// Create registry container
-	containerRef := blobClient.GetContainerReference(container)
+	containerRef := blobClient.GetContainerReference(params.container)
 	if _, err = containerRef.CreateIfNotExists(nil); err != nil {
 		return nil, err
 	}
 
-	rootDirectory = strings.Trim(rootDirectory, "/")
+	rootDirectory := strings.Trim(params.root, "/")
 	if rootDirectory != "" {
 		rootDirectory += "/"
 	}
@@ -125,8 +148,8 @@ func New(accountName, accountKey, container, realm, rootDirectory string, legacy
 	d := &driver{
 		client:        blobClient,
 		rootDirectory: rootDirectory,
-		legacyPath:    legacyPath,
-		container:     container,
+		legacyPath:    !params.trimLegacyRootPrefix,
+		container:     params.container,
 	}
 
 	return &Driver{baseEmbed: baseEmbed{Base: base.Base{StorageDriver: d}}}, nil

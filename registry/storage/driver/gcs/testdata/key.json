@@ -1,0 +1,8 @@
+{
+  "private_key_id": "268f54e43a1af97cfc71731688434f45aca15c8b",
+  "private_key": "super secret key",
+  "client_email": "gopher@developer.gserviceaccount.com",
+  "client_id": "gopher.apps.googleusercontent.com",
+  "token_uri": "https://accounts.google.com/o/gophers/token",
+  "type": "service_account"
+}

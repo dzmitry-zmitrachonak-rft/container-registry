@@ -124,6 +124,15 @@ type baseEmbed struct {
 // Required parameters:
 // - bucket
 func FromParameters(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
+	params, err := parseParameters(parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	return New(params)
+}
+
+func parseParameters(parameters map[string]interface{}) (*driverParameters, error) {
 	bucket, ok := parameters["bucket"]
 	if !ok || fmt.Sprint(bucket) == "" {
 		return nil, fmt.Errorf("No bucket parameter provided")
@@ -232,7 +241,7 @@ func FromParameters(parameters map[string]interface{}) (storagedriver.StorageDri
 		return nil, fmt.Errorf("the parallelwalk parameter should be a boolean")
 	}
 
-	params := driverParameters{
+	return &driverParameters{
 		bucket:         fmt.Sprint(bucket),
 		rootDirectory:  fmt.Sprint(rootDirectory),
 		email:          jwtConf.Email,
@@ -242,13 +251,11 @@ func FromParameters(parameters map[string]interface{}) (storagedriver.StorageDri
 		chunkSize:      chunkSize,
 		maxConcurrency: maxConcurrency,
 		parallelWalk:   parallelWalkBool,
-	}
-
-	return New(params)
+	}, nil
 }
 
 // New constructs a new driver
-func New(params driverParameters) (storagedriver.StorageDriver, error) {
+func New(params *driverParameters) (storagedriver.StorageDriver, error) {
 	rootDirectory := strings.Trim(params.rootDirectory, "/")
 	if rootDirectory != "" {
 		rootDirectory += "/"
