@@ -169,9 +169,36 @@ go through, especially if feedback is received.
 
 ## Contributing
 
-Commit messages must be formatted following the
+### Commit Messages
+
+Commit messages must:
+
+- Be formatted following the
 [Conventional Commits 1.0](https://www.conventionalcommits.org/en/v1.0.0/)
-specification.
+specification;
+
+- Be all lower case, except for acronyms and source code identifiers;
+
+- Have the affected package full path in the scope portion, whenever applicable;
+
+- Include the module name and the target version if upgrading or adding a
+dependency.
+
+#### Examples
+
+```
+chore: upgrade cloud.google.com/go/storage to v1.16.0
+```
+
+```
+fix(handlers): handle manifest not found errors gracefully
+```
+
+```
+perf(registry/storage/driver/gcs): improve blob upload performance
+```
+
+### Changelog
 
 Merge requests which make change that will impact users of this project should
 have an accompanying [changelog](../CHANGELOG.md) entry in the same merge
