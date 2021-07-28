@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/registry/api/errcode"
 )
 
 // closeResources closes all the provided resources after running the target
@@ -51,8 +51,8 @@ func copyFullPayload(ctx context.Context, responseWriter http.ResponseWriter, r 
 				"error":         err,
 				"copied":        copied,
 				"contentLength": r.ContentLength,
-			}, "error", "copied", "contentLength").Error("client disconnected during " + action)
-			return errors.New("client disconnected")
+			}, "error", "copied", "contentLength").Warn("client disconnected during " + action)
+			return errcode.ErrorCodeConnectionReset.WithDetail("client disconnected")
 		default:
 		}
 	}
