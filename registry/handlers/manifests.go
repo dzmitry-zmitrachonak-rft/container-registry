@@ -274,6 +274,23 @@ func (imh *manifestHandler) newManifestGetter(req *http.Request) (manifestGetter
 	return newFSManifestGetter(imh, req)
 }
 
+func (imh *manifestHandler) newManifestWriter() (manifestWriter, error) {
+	if imh.useDatabase && !imh.writeFSMetadata {
+		return &dbManifestWriter{}, nil
+	}
+
+	fsWriter, err := newFSManifestWriter(imh)
+	if err != nil {
+		return nil, err
+	}
+
+	if !imh.useDatabase && imh.writeFSMetadata {
+		return fsWriter, nil
+	}
+
+	return &mirroringManifestWriter{fs: fsWriter, db: &dbManifestWriter{}}, nil
+}
+
 type manifestGetter interface {
 	GetByTag(context.Context, string) (distribution.Manifest, digest.Digest, error)
 	GetByDigest(context.Context, digest.Digest) (distribution.Manifest, error)
@@ -411,6 +428,103 @@ func (g *fsManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 	return g.ms.Get(ctx, dgst)
 }
 
+type manifestWriter interface {
+	Put(*manifestHandler, distribution.Manifest) error
+	Tag(*manifestHandler, distribution.Manifest, string, distribution.Descriptor) error
+}
+
+type fsManifestWriter struct {
+	ms      distribution.ManifestService
+	ts      distribution.TagService
+	options []distribution.ManifestServiceOption
+}
+
+func newFSManifestWriter(imh *manifestHandler) (*fsManifestWriter, error) {
+	manifestService, err := imh.Repository.Manifests(imh)
+	if err != nil {
+		return nil, err
+	}
+
+	var options []distribution.ManifestServiceOption
+	if imh.Tag != "" {
+		options = append(options, distribution.WithTag(imh.Tag))
+	}
+
+	return &fsManifestWriter{
+		ts:      imh.Repository.Tags(imh),
+		ms:      manifestService,
+		options: options,
+	}, nil
+}
+
+func (p *fsManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest) error {
+	_, err := p.ms.Put(imh, mfst, p.options...)
+
+	return err
+}
+
+func (p *fsManifestWriter) Tag(imh *manifestHandler, _ distribution.Manifest, tag string, desc distribution.Descriptor) error {
+	return p.ts.Tag(imh, tag, desc)
+}
+
+type dbManifestWriter struct{}
+
+func (p *dbManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest) error {
+	_, payload, err := mfst.Payload()
+	if err != nil {
+		return err
+	}
+
+	return dbPutManifest(imh, mfst, payload)
+}
+
+func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest, tag string, _ distribution.Descriptor) error {
+	repoName := imh.Repository.Named().Name()
+	if err := dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
+		if errors.Is(err, datastore.ErrManifestNotFound) {
+			// If online GC was already reviewing the manifest that we want to tag, and that manifest had no
+			// tags before the review start, the API is unable to stop the GC from deleting the manifest (as
+			// the GC already acquired the lock on the corresponding queue row). This means that once the API
+			// is unblocked and tries to create the tag, a foreign key violation error will occur (because we're
+			// trying to create a tag for a manifest that no longer exists) and lead to this specific error.
+			// This should be extremely rare, if it ever occurs, but if it does, we should recreate the manifest
+			// and tag it, instead of returning a "manifest not found response" to clients. It's expected that
+			// this route handles the creation of a manifest if it doesn't exist already.
+			if err = p.Put(imh, mfst); err != nil {
+				return fmt.Errorf("failed to recreate manifest in database: %w", err)
+			}
+			if err = dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
+				return fmt.Errorf("failed to create tag in database after manifest recreate: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create tag in database: %w", err)
+		}
+	}
+
+	return nil
+}
+
+type mirroringManifestWriter struct {
+	fs *fsManifestWriter
+	db *dbManifestWriter
+}
+
+func (p *mirroringManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest) error {
+	if err := p.fs.Put(imh, mfst); err != nil {
+		return err
+	}
+
+	return p.db.Put(imh, mfst)
+}
+
+func (p *mirroringManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest, tag string, desc distribution.Descriptor) error {
+	if err := p.fs.Tag(imh, mfst, tag, desc); err != nil {
+		return err
+	}
+
+	return p.db.Tag(imh, mfst, tag, desc)
+}
+
 func dbPayloadToManifest(payload []byte, mediaType string, schemaVersion int) (distribution.Manifest, error) {
 	if schemaVersion == 1 {
 		return nil, distribution.ErrSchemaV1Unsupported
@@ -486,11 +600,6 @@ func etagMatch(r *http.Request, etag string) bool {
 func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) {
 	log := dcontext.GetLogger(imh)
 	log.Debug("PutImageManifest")
-	manifests, err := imh.Repository.Manifests(imh)
-	if err != nil {
-		imh.Errors = append(imh.Errors, err)
-		return
-	}
 
 	var jsonBuf bytes.Buffer
 	if err := copyFullPayload(imh, w, r, &jsonBuf, maxManifestBodySize, "image manifest PUT"); err != nil {
@@ -533,71 +642,27 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		logIfManifestListInvalid(imh, manifestList, "PUT")
 	}
 
-	var options []distribution.ManifestServiceOption
-	if imh.Tag != "" {
-		options = append(options, distribution.WithTag(imh.Tag))
-	}
-
 	if err := imh.applyResourcePolicy(manifest); err != nil {
 		imh.Errors = append(imh.Errors, err)
 		return
 	}
 
-	if imh.writeFSMetadata {
-		_, err = manifests.Put(imh, manifest, options...)
-		if err != nil {
-			imh.appendPutError(err)
-			return
-		}
+	manifestWriter, err := imh.newManifestWriter()
+	if err != nil {
+		imh.Errors = append(imh.Errors, err)
+		return
 	}
 
-	if imh.useDatabase {
-		if err := dbPutManifest(imh, manifest, jsonBuf.Bytes()); err != nil {
-			imh.appendPutError(err)
-			return
-		}
+	if err = manifestWriter.Put(imh, manifest); err != nil {
+		imh.appendPutError(err)
+		return
 	}
 
 	// Tag this manifest
 	if imh.Tag != "" {
-		if imh.writeFSMetadata {
-			tags := imh.Repository.Tags(imh)
-			err = tags.Tag(imh, imh.Tag, desc)
-			if err != nil {
-				imh.Errors = append(imh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
-				return
-			}
-		}
-
-		// Associate tag with manifest in database.
-		if imh.useDatabase {
-			repoName := imh.Repository.Named().Name()
-			if err := dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
-				if errors.Is(err, datastore.ErrManifestNotFound) {
-					// If online GC was already reviewing the manifest that we want to tag, and that manifest had no
-					// tags before the review start, the API is unable to stop the GC from deleting the manifest (as
-					// the GC already acquired the lock on the corresponding queue row). This means that once the API
-					// is unblocked and tries to create the tag, a foreign key violation error will occur (because we're
-					// trying to create a tag for a manifest that no longer exists) and lead to this specific error.
-					// This should be extremely rare, if it ever occurs, but if it does, we should recreate the manifest
-					// and tag it, instead of returning a "manifest not found response" to clients. It's expected that
-					// this route handles the creation of a manifest if it doesn't exist already.
-					if err := dbPutManifest(imh, manifest, jsonBuf.Bytes()); err != nil {
-						e := fmt.Errorf("failed to recreate manifest in database: %w", err)
-						imh.appendPutError(e)
-						return
-					}
-					if err := dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
-						e := fmt.Errorf("failed to create tag in database after manifest recreate: %w", err)
-						imh.Errors = append(imh.Errors, errcode.FromUnknownError(e))
-						return
-					}
-				} else {
-					e := fmt.Errorf("failed to create tag in database: %w", err)
-					imh.Errors = append(imh.Errors, errcode.FromUnknownError(e))
-					return
-				}
-			}
+		if err = manifestWriter.Tag(imh, manifest, imh.Tag, desc); err != nil {
+			imh.appendPutError(err)
+			return
 		}
 	}
 
