@@ -107,7 +107,7 @@ func init() {
 	}
 
 	gcsDriverConstructor = func(rootDirectory string) (storagedriver.StorageDriver, error) {
-		parameters := driverParameters{
+		parameters := &driverParameters{
 			bucket:         bucket,
 			rootDirectory:  root,
 			email:          email,
@@ -127,7 +127,7 @@ func init() {
 			return nil, errors.New("REGISTRY_STORAGE_GCS_TARGET_BUCKET must be set")
 		}
 
-		parameters := driverParameters{
+		parameters := &driverParameters{
 			bucket:         migrationBucket,
 			rootDirectory:  root,
 			email:          email,
@@ -551,6 +551,28 @@ func TestTransferToExistingDest(t *testing.T) {
 	c, err := destDriver.GetContent(ctx, path)
 	require.NoError(t, err)
 	require.EqualValues(t, srcContent, c)
+}
+
+func Test_parseParameters_Bool(t *testing.T) {
+	p := map[string]interface{}{
+		"bucket":  "bucket",
+		"keyfile": "testdata/key.json",
+	}
+
+	testFn := func(params map[string]interface{}) (interface{}, error) {
+		return parseParameters(params)
+	}
+
+	opts := dtestutil.BoolOpts{
+		Defaultt:          false,
+		NilReturnsError:   false,
+		ParamName:         "parallelwalk",
+		DriverParamName:   "parallelWalk",
+		OriginalParams:    p,
+		ParseParametersFn: testFn,
+	}
+
+	dtestutil.TestBoolValue(t, opts)
 }
 
 func newTempDirDriver(tb testing.TB) storagedriver.StorageDriver {

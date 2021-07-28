@@ -64,7 +64,7 @@ func init() {
 			}
 		}
 
-		parameters := DriverParameters{
+		parameters := &DriverParameters{
 			AccessKeyID:     accessKey,
 			AccessKeySecret: secretKey,
 			Bucket:          bucket,
@@ -137,5 +137,59 @@ func TestEmptyRootList(t *testing.T) {
 		if !storagedriver.PathRegexp.MatchString(path) {
 			t.Fatalf("unexpected string in path: %q != %q", path, storagedriver.PathRegexp)
 		}
+	}
+}
+
+func Test_parseParameters_Bool(t *testing.T) {
+	p := map[string]interface{}{
+		"accesskeyid":     "accesskeyid",
+		"accesskeysecret": "accesskeysecret",
+		"region":          "region",
+		"bucket":          "bucket",
+	}
+
+	testFn := func(params map[string]interface{}) (interface{}, error) {
+		return parseParameters(params)
+	}
+
+	tcs := map[string]struct {
+		parameters      map[string]interface{}
+		paramName       string
+		driverParamName string
+		defaultt        bool
+	}{
+		"internal": {
+			parameters:      p,
+			paramName:       "internal",
+			driverParamName: "Internal",
+			defaultt:        false,
+		},
+		"encrypt": {
+			parameters:      p,
+			paramName:       "encrypt",
+			driverParamName: "Encrypt",
+			defaultt:        false,
+		},
+		"secure": {
+			parameters:      p,
+			paramName:       "secure",
+			driverParamName: "Secure",
+			defaultt:        true,
+		},
+	}
+
+	for tn, tt := range tcs {
+		t.Run(tn, func(t *testing.T) {
+			opts := dtestutil.BoolOpts{
+				Defaultt:          tt.defaultt,
+				NilReturnsError:   true,
+				ParamName:         tt.paramName,
+				DriverParamName:   tt.driverParamName,
+				OriginalParams:    tt.parameters,
+				ParseParametersFn: testFn,
+			}
+
+			dtestutil.TestBoolValue(t, opts)
+		})
 	}
 }

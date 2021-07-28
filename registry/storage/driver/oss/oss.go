@@ -89,12 +89,20 @@ type Driver struct {
 
 // FromParameters constructs a new Driver with a given parameters map
 // Required parameters:
-// - accesskey
-// - secretkey
+// - accesskeyid
+// - accesskeysecret
 // - region
 // - bucket
-// - encrypt
 func FromParameters(parameters map[string]interface{}) (*Driver, error) {
+	params, err := parseParameters(parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	return New(params)
+}
+
+func parseParameters(parameters map[string]interface{}) (*DriverParameters, error) {
 	// Providing no values for these is valid in case the user is authenticating
 
 	accessKey, ok := parameters["accesskeyid"]
@@ -181,7 +189,7 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 		endpoint = ""
 	}
 
-	params := DriverParameters{
+	return &DriverParameters{
 		AccessKeyID:     fmt.Sprint(accessKey),
 		AccessKeySecret: fmt.Sprint(secretKey),
 		Bucket:          fmt.Sprint(bucket),
@@ -193,14 +201,12 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 		Internal:        internalBool,
 		Endpoint:        fmt.Sprint(endpoint),
 		EncryptionKeyID: fmt.Sprint(encryptionKeyID),
-	}
-
-	return New(params)
+	}, nil
 }
 
 // New constructs a new Driver with the given Aliyun credentials, region, encryption flag, and
 // bucketName
-func New(params DriverParameters) (*Driver, error) {
+func New(params *DriverParameters) (*Driver, error) {
 
 	client := oss.NewOSSClient(params.Region, params.Internal, params.AccessKeyID, params.AccessKeySecret, params.Secure)
 	client.SetEndpoint(params.Endpoint)

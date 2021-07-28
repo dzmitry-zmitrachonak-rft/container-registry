@@ -239,6 +239,15 @@ func parseLogLevelParam(param interface{}) aws.LogLevelType {
 // - bucket
 // - encrypt
 func FromParameters(parameters map[string]interface{}) (*Driver, error) {
+	params, err := parseParameters(parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	return New(params)
+}
+
+func parseParameters(parameters map[string]interface{}) (*DriverParameters, error) {
 	// Providing no values for these is valid in case the user is authenticating
 	// with an IAM on an ec2 instance (in which case the instance credentials will
 	// be summoned when GetAuth is called)
@@ -490,7 +499,7 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 
 	logLevel := parseLogLevelParam(parameters["loglevel"])
 
-	params := DriverParameters{
+	return &DriverParameters{
 		fmt.Sprint(accessKey),
 		fmt.Sprint(secretKey),
 		fmt.Sprint(bucket),
@@ -514,9 +523,7 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 		maxRetries,
 		parallelWalkBool,
 		logLevel,
-	}
-
-	return New(params)
+	}, nil
 }
 
 // getParameterAsInt64 converts parameters[name] to an int64 value (using
@@ -550,7 +557,7 @@ func getParameterAsInt64(parameters map[string]interface{}, name string, default
 
 // New constructs a new Driver with the given AWS credentials, region, encryption flag, and
 // bucketName
-func New(params DriverParameters) (*Driver, error) {
+func New(params *DriverParameters) (*Driver, error) {
 	if !params.V4Auth &&
 		(params.RegionEndpoint == "" ||
 			strings.Contains(params.RegionEndpoint, "s3.amazonaws.com")) {

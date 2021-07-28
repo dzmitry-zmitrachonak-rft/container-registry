@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 	"github.com/stretchr/testify/require"
 	. "gopkg.in/check.v1"
@@ -58,7 +59,16 @@ func init() {
 	defer os.Remove(root)
 
 	azureDriverConstructor := func() (storagedriver.StorageDriver, error) {
-		return New(accountName, accountKey, container, realm, root, false)
+		params := &driverParameters{
+			accountName:          accountName,
+			accountKey:           accountKey,
+			container:            container,
+			realm:                realm,
+			root:                 root,
+			trimLegacyRootPrefix: true,
+		}
+
+		return New(params)
 	}
 
 	// Skip Azure storage driver tests if environment variable parameters are not provided
@@ -224,7 +234,17 @@ func TestStatRootPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d, err := New(accountName, accountKey, container, realm, tt.rootDirectory, tt.legacyPath)
+			params := &driverParameters{
+				accountName: accountName,
+				accountKey:  accountKey,
+				container:   container,
+				realm:       realm,
+				root:        tt.rootDirectory,
+				// trimLegacyRootPrefix is negated during driver init inside `New`
+				trimLegacyRootPrefix: !tt.legacyPath,
+			}
+
+			d, err := New(params)
 			require.NoError(t, err)
 
 			// Health checks stat "/" and expect either a not found error or a directory.
@@ -234,4 +254,27 @@ func TestStatRootPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_parseParameters_Bool(t *testing.T) {
+	p := map[string]interface{}{
+		"accountname": "accountName",
+		"accountkey":  "accountKey",
+		"container":   "container",
+	}
+
+	testFn := func(params map[string]interface{}) (interface{}, error) {
+		return parseParameters(params)
+	}
+
+	opts := dtestutil.BoolOpts{
+		Defaultt:          false,
+		NilReturnsError:   false,
+		ParamName:         paramTrimLegacyRootPrefix,
+		DriverParamName:   "trimLegacyRootPrefix",
+		OriginalParams:    p,
+		ParseParametersFn: testFn,
+	}
+
+	dtestutil.TestBoolValue(t, opts)
 }

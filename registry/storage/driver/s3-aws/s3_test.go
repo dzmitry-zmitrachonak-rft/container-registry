@@ -124,7 +124,7 @@ func init() {
 
 		logLevelType := parseLogLevelParam(logLevel)
 
-		parameters := DriverParameters{
+		parameters := &DriverParameters{
 			accessKey,
 			secretKey,
 			bucket,
@@ -164,6 +164,88 @@ func init() {
 	testsuites.RegisterSuite(func() (storagedriver.StorageDriver, error) {
 		return s3DriverConstructor(root, s3.StorageClassStandard)
 	}, skipS3)
+}
+
+func Test_parseParameters_Bool(t *testing.T) {
+	p := map[string]interface{}{
+		"region": "us-west-2",
+		"bucket": "test",
+		"v4auth": "true",
+	}
+
+	testFn := func(params map[string]interface{}) (interface{}, error) {
+		return parseParameters(params)
+	}
+
+	tcs := map[string]struct {
+		parameters      map[string]interface{}
+		paramName       string
+		driverParamName string
+		defaultt        bool
+	}{
+		"secure": {
+			parameters:      p,
+			paramName:       "secure",
+			driverParamName: "Secure",
+			defaultt:        true,
+		},
+		"encrypt": {
+			parameters:      p,
+			paramName:       "encrypt",
+			driverParamName: "Encrypt",
+			defaultt:        false,
+		},
+		"pathstyle_without_region_endpoint": {
+			parameters:      p,
+			paramName:       "pathstyle",
+			driverParamName: "PathStyle",
+			defaultt:        false,
+		},
+		"pathstyle_with_region_endpoint": {
+			parameters: func() map[string]interface{} {
+				pp := dtestutil.CopyMap(p)
+				pp["regionendpoint"] = "region/endpoint"
+
+				return pp
+			}(),
+			paramName:       "pathstyle",
+			driverParamName: "PathStyle",
+			defaultt:        true,
+		},
+		"skipverify": {
+			parameters:      p,
+			paramName:       "skipverify",
+			driverParamName: "SkipVerify",
+			defaultt:        false,
+		},
+		"v4auth": {
+			parameters:      p,
+			paramName:       "v4auth",
+			driverParamName: "V4Auth",
+			defaultt:        true,
+		},
+		"parallelwalk": {
+			parameters:      p,
+			paramName:       "parallelwalk",
+			driverParamName: "ParallelWalk",
+			defaultt:        false,
+		},
+	}
+
+	for tn, tt := range tcs {
+		t.Run(tn, func(t *testing.T) {
+			opts := dtestutil.BoolOpts{
+				Defaultt:          tt.defaultt,
+				NilReturnsError:   false,
+				ParamName:         tt.paramName,
+				DriverParamName:   tt.driverParamName,
+				OriginalParams:    tt.parameters,
+				ParseParametersFn: testFn,
+			}
+
+			dtestutil.TestBoolValue(t, opts)
+		})
+	}
 }
 
 func TestFromParameters(t *testing.T) {
