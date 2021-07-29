@@ -867,8 +867,6 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 	if err != nil {
 		return err
 	}
-	// TODO: update the config blob media_type here, it was set to "application/octet-stream" during the upload
-	// 		 but now we know its concrete type (cfgDesc.MediaType).
 
 	dbManifest, err := repositoryStore.FindManifestByDigest(imh.Context, dbRepo, imh.Digest)
 	if err != nil {
@@ -894,7 +892,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 			Digest:        imh.Digest,
 			Payload:       payload,
 			Configuration: &models.Configuration{
-				MediaType: dbCfgBlob.MediaType,
+				MediaType: cfgDesc.MediaType,
 				Digest:    dbCfgBlob.Digest,
 				Payload:   cfgPayload,
 			},
@@ -913,10 +911,6 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 			if err != nil {
 				return err
 			}
-
-			// TODO: update the layer blob media_type here, it was set to "application/octet-stream" during the upload
-			// 		 but now we know its concrete type (reqLayer.MediaType).
-
 			if err := mStore.AssociateLayerBlob(imh.Context, dbManifest, dbBlob); err != nil {
 				return err
 			}
