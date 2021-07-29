@@ -71,10 +71,8 @@ The files and modifications (if any) included in this package are described belo
     < func labels(code, method bool, reqMethod string, status int) prometheus.Labels {
     ---
     > func labels(code, method bool, reqMethod string, status int, migrationPath string) prometheus.Labels {
-    304a326,328
-    >       if migrationPath != "" {
-    >               labels["migration_path"] = migrationPath
-    >       }
+    304a326
+    >       labels["migration_path"] = migrationPath
     ```
 
 - `NOTICE`: Copied from [https://github.com/prometheus/client_golang/blob/v1.10.0/NOTICE](https://github.com/prometheus/client_golang/blob/v1.10.0/NOTICE) for compliance reasons. Unmodified.
