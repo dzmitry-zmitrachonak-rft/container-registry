@@ -1,4 +1,32 @@
-## [Unreleased]
+## [3.6.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.6.1-gitlab...v3.6.2-gitlab) (2021-07-29)
+
+### Bug Fixes
+
+* **handlers:** always add the migration_path label to HTTP metrics ([b152880](https://gitlab.com/gitlab-org/container-registry/commit/b1528807556dee9c92541256dc6688ded1a4979e))
+* **handlers:** reduce noise from client disconnected errors during uploads ([61478d7](https://gitlab.com/gitlab-org/container-registry/commit/61478d74aa512c16bf1ff74282e3a23ee86566ea))
+* **handlers:** set correct config media type when saving manifest on DB ([00f2c95](https://gitlab.com/gitlab-org/container-registry/commit/00f2c95901d59f36d781e98feaa9e30a0912686f))
+* **storage:** return ErrManifestEmpty when zero-lenth manifest content is encountered ([1ad342b](https://gitlab.com/gitlab-org/container-registry/commit/1ad342becb5f7e2f93e1600c9842e99b7efa474a))
+
+### Performance Improvements
+
+* **handlers:** only read config from storage if manifest does not exist in DB ([8851793](https://gitlab.com/gitlab-org/container-registry/commit/8851793f2b06b1a15e908c897c32cae8ac318b36))
+
+### Build System
+
+* upgrade aliyungo dependency ([2d44f17](https://gitlab.com/gitlab-org/container-registry/commit/2d44f176f396013a27ecccf6367d1aefe5ce11a2))
+* upgrade aws-sdk-go dependency to 1.40.7 ([e48843c](https://gitlab.com/gitlab-org/container-registry/commit/e48843c6716ce0c2ba9bd1bc6f3a43bde40ee8ef))
+* upgrade backoff/v4 dependency to 4.1.1 ([abcb620](https://gitlab.com/gitlab-org/container-registry/commit/abcb6205f55f44ab18c0c5953fd2d3bbdcf8b41d))
+* upgrade clock dependency to 1.1.0 ([15c8463](https://gitlab.com/gitlab-org/container-registry/commit/15c8463a45fb9465d06e440a04c214b9ff1949e6))
+* upgrade cobra dependency to 1.2.1 ([fed057e](https://gitlab.com/gitlab-org/container-registry/commit/fed057e3a713da4027ff13862f82d038207e3a29))
+* upgrade docker/libtrust dependency ([16adbf0](https://gitlab.com/gitlab-org/container-registry/commit/16adbf06d575ffe7a062654cfa8a3e0676ca170c))
+* upgrade go-metrics dependency to 0.0.1 ([3b4eae0](https://gitlab.com/gitlab-org/container-registry/commit/3b4eae06c28990c068869ec64b2401310c80a487))
+* upgrade golang.org/x/time dependency ([15b708c](https://gitlab.com/gitlab-org/container-registry/commit/15b708c07fe427460530664edcc6f2c05fc18177))
+* upgrade labkit dependency to 1.6.0 ([d56a536](https://gitlab.com/gitlab-org/container-registry/commit/d56a5364eaab13afda721512093475c65ab77a92))
+* upgrade opencontainer image-spec dependency to 1.0.1 ([c750921](https://gitlab.com/gitlab-org/container-registry/commit/c7509218195bcafd7492c3af1ec077860eb0ba6b))
+* upgrade pgconn dependency to 1.10.0 ([756cf1b](https://gitlab.com/gitlab-org/container-registry/commit/756cf1b7c3ed38893bc3d29d0b489e1d3d3b1cb8))
+* upgrade pgx/v4 dependency to 4.13.0 ([b3ed0df](https://gitlab.com/gitlab-org/container-registry/commit/b3ed0df30bda917aee9adc4021d3601e0a2edf0d))
+* upgrade sentry-go dependency to 0.11.0 ([b1ec39f](https://gitlab.com/gitlab-org/container-registry/commit/b1ec39f9769ce608032b3bcd82254a72615944c3))
+* upgrade sql-migrate dependency ([d00429e](https://gitlab.com/gitlab-org/container-registry/commit/d00429e453faadef4d57fa3965506da82cdf612a))
 
 ## [v3.6.1-gitlab] - 2021-07-23
 ### Changed
