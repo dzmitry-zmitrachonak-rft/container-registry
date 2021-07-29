@@ -323,9 +323,7 @@ func labels(code, method bool, reqMethod string, status int, migrationPath strin
 	if method {
 		labels["method"] = sanitizeMethod(reqMethod)
 	}
-	if migrationPath != "" {
-		labels["migration_path"] = migrationPath
-	}
+	labels["migration_path"] = migrationPath
 
 	return labels
 }

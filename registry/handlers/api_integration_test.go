@@ -51,7 +51,9 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/labkit/metrics/sqlmetrics"
 )
 
 func init() {
@@ -116,6 +118,13 @@ func withDBConnectTimeout(d time.Duration) configOpt {
 func withDBPoolMaxOpen(n int) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Database.Pool.MaxOpen = n
+	}
+}
+
+func withPrometheusMetrics() configOpt {
+	return func(config *configuration.Configuration) {
+		config.HTTP.Debug.Addr = ":"
+		config.HTTP.Debug.Prometheus.Enabled = true
 	}
 }
 
@@ -5322,6 +5331,14 @@ func (t *testEnv) Shutdown() {
 		// Needed for idempotency, so that shutdowns may be defer'd without worry.
 		t.config.Database.Enabled = false
 	}
+
+	// The Prometheus DBStatsCollector is registered within handlers.NewApp (it is the only place we can do so).
+	// Therefore, if metrics are enabled, we must unregister this collector it when the env is shutdown. Otherwise,
+	// prometheus.MustRegister will panic on a subsequent test with metrics enabled.
+	if t.config.HTTP.Debug.Prometheus.Enabled {
+		collector := sqlmetrics.NewDBStatsCollector(t.config.Database.DBName, t.db)
+		prometheus.Unregister(collector)
+	}
 }
 
 func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *http.Response {
@@ -5824,4 +5841,32 @@ func TestManifestAPI_Get_Config(t *testing.T) {
 	res, err := http.Get(digestURL)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
+func testPrometheusMetricsCollectionDoesNotPanic(t *testing.T, env *testEnv) {
+	t.Helper()
+
+	// we can test this with any HTTP request
+	catalogURL, err := env.builder.BuildCatalogURL()
+	require.NoError(t, err)
+
+	resp, err := http.Get(catalogURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func Test_PrometheusMetricsCollectionDoesNotPanic(t *testing.T) {
+	env := newTestEnv(t, withPrometheusMetrics())
+	defer env.Shutdown()
+
+	testPrometheusMetricsCollectionDoesNotPanic(t, env)
+}
+
+func Test_PrometheusMetricsCollectionDoesNotPanic_InMigrationMode(t *testing.T) {
+	env := newTestEnv(t, withPrometheusMetrics(), withMigrationEnabled)
+	defer env.Shutdown()
+
+	testPrometheusMetricsCollectionDoesNotPanic(t, env)
 }
