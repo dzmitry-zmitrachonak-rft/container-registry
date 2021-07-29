@@ -26,7 +26,6 @@ func TempRoot(tb testing.TB) string {
 
 type BoolOpts struct {
 	Defaultt          bool
-	NilReturnsError   bool
 	ParamName         string
 	DriverParamName   string
 	OriginalParams    map[string]interface{}
@@ -58,11 +57,9 @@ func TestBoolValue(t *testing.T, opts BoolOpts) {
 
 	params[opts.ParamName] = nil
 	driverParams, err = opts.ParseParametersFn(params)
-	require.Equal(t, err != nil, opts.NilReturnsError, err)
+	require.NoError(t, err, "nil does not return: %v", err)
 
-	if !opts.NilReturnsError {
-		AssertBoolParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "param is nil")
-	}
+	AssertBoolParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "param is nil")
 
 	params[opts.ParamName] = ""
 	driverParams, err = opts.ParseParametersFn(params)

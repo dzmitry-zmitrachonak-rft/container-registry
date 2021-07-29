@@ -47,6 +47,7 @@ import (
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
+	"github.com/docker/distribution/registry/storage/driver/parse"
 	"github.com/docker/distribution/version"
 )
 
@@ -285,76 +286,24 @@ func parseParameters(parameters map[string]interface{}) (*DriverParameters, erro
 		err := errors.New("no bucket parameter provided")
 		result = multierror.Append(result, err)
 	}
-	encryptBool := false
-	encrypt := parameters["encrypt"]
-	switch encrypt := encrypt.(type) {
-	case string:
-		b, err := strconv.ParseBool(encrypt)
-		if err != nil {
-			err := errors.New("the encrypt parameter should be a boolean")
-			result = multierror.Append(result, err)
-		}
-		encryptBool = b
-	case bool:
-		encryptBool = encrypt
-	case nil:
-		// do nothing
-	default:
-		err := errors.New("the encrypt parameter should be a boolean")
+	//encryptBool := false
+	encryptBool, err := parse.Bool(parameters, "encrypt", false)
+	if err != nil {
 		result = multierror.Append(result, err)
 	}
-	secureBool := true
-	secure := parameters["secure"]
-	switch secure := secure.(type) {
-	case string:
-		b, err := strconv.ParseBool(secure)
-		if err != nil {
-			err := errors.New("the secure parameter should be a boolean")
-			result = multierror.Append(result, err)
-		}
-		secureBool = b
-	case bool:
-		secureBool = secure
-	case nil:
-		// do nothing
-	default:
-		err := errors.New("the secure parameter should be a boolean")
+
+	secureBool, err := parse.Bool(parameters, "secure", true)
+	if err != nil {
 		result = multierror.Append(result, err)
 	}
-	skipVerifyBool := false
-	skipVerify := parameters["skipverify"]
-	switch skipVerify := skipVerify.(type) {
-	case string:
-		b, err := strconv.ParseBool(skipVerify)
-		if err != nil {
-			err := errors.New("the skipVerify parameter should be a boolean")
-			result = multierror.Append(result, err)
-		}
-		skipVerifyBool = b
-	case bool:
-		skipVerifyBool = skipVerify
-	case nil:
-		// do nothing
-	default:
-		err := errors.New("the skipVerify parameter should be a boolean")
+
+	skipVerifyBool, err := parse.Bool(parameters, "skipverify", false)
+	if err != nil {
 		result = multierror.Append(result, err)
 	}
-	v4Bool := true
-	v4auth := parameters["v4auth"]
-	switch v4auth := v4auth.(type) {
-	case string:
-		b, err := strconv.ParseBool(v4auth)
-		if err != nil {
-			err := errors.New("the v4auth parameter should be a boolean")
-			result = multierror.Append(result, err)
-		}
-		v4Bool = b
-	case bool:
-		v4Bool = v4auth
-	case nil:
-		// do nothing
-	default:
-		err := errors.New("the v4auth parameter should be a boolean")
+
+	v4Bool, err := parse.Bool(parameters, "v4auth", true)
+	if err != nil {
 		result = multierror.Append(result, err)
 	}
 
@@ -433,48 +382,16 @@ func parseParameters(parameters map[string]interface{}) (*DriverParameters, erro
 		objectACL = objectACLString
 	}
 
-	pathStyleBool := false
+	// If regionEndpoint is set, default to forcing pathstyle to preserve legacy behavior.
+	defaultPathStyle := regionEndpoint != ""
 
-	// If regionEndpoint is set, default to forcining pathstyle to preserve legacy behavior.
-	if regionEndpoint != "" {
-		pathStyleBool = true
-	}
-
-	pathStyle := parameters["pathstyle"]
-	switch pathStyle := pathStyle.(type) {
-	case string:
-		b, err := strconv.ParseBool(pathStyle)
-		if err != nil {
-			err := errors.New("the pathstyle parameter should be a boolean")
-			result = multierror.Append(result, err)
-		}
-		pathStyleBool = b
-	case bool:
-		pathStyleBool = pathStyle
-	case nil:
-		// do nothing
-	default:
-		err := errors.New("the pathstyle parameter should be a boolean")
+	pathStyleBool, err := parse.Bool(parameters, "pathstyle", defaultPathStyle)
+	if err != nil {
 		result = multierror.Append(result, err)
 	}
 
-	var parallelWalkBool bool
-
-	parallelWalk := parameters["parallelwalk"]
-	switch parallelWalk := parallelWalk.(type) {
-	case string:
-		b, err := strconv.ParseBool(parallelWalk)
-		if err != nil {
-			err := errors.New("the parallelwalk parameter should be a boolean")
-			result = multierror.Append(result, err)
-		}
-		parallelWalkBool = b
-	case bool:
-		parallelWalkBool = parallelWalk
-	case nil:
-		// do nothing
-	default:
-		err := errors.New("the parallelwalk parameter should be a boolean")
+	parallelWalkBool, err := parse.Bool(parameters, "parallelwalk", false)
+	if err != nil {
 		result = multierror.Append(result, err)
 	}
 

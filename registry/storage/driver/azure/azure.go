@@ -10,13 +10,13 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
+	"github.com/docker/distribution/registry/storage/driver/parse"
 
 	azure "github.com/Azure/azure-sdk-for-go/storage"
 )
@@ -106,13 +106,9 @@ func parseParameters(parameters map[string]interface{}) (*driverParameters, erro
 		root = ""
 	}
 
-	trimLegacyRootPrefixStr, ok := parameters[paramTrimLegacyRootPrefix]
-	if !ok || trimLegacyRootPrefixStr == nil {
-		trimLegacyRootPrefixStr = "false"
-	}
-	trimlegacyrootprefix, err := strconv.ParseBool(fmt.Sprint(trimLegacyRootPrefixStr))
+	trimLegacyRootPrefix, err := parse.Bool(parameters, paramTrimLegacyRootPrefix, false)
 	if err != nil {
-		return nil, fmt.Errorf("the trimlegacyrootprefix parameter should be a boolean")
+		return nil, err
 	}
 
 	return &driverParameters{
@@ -121,7 +117,7 @@ func parseParameters(parameters map[string]interface{}) (*driverParameters, erro
 		container:            fmt.Sprint(container),
 		realm:                fmt.Sprint(realm),
 		root:                 fmt.Sprint(root),
-		trimLegacyRootPrefix: trimlegacyrootprefix,
+		trimLegacyRootPrefix: trimLegacyRootPrefix,
 	}, nil
 }
 

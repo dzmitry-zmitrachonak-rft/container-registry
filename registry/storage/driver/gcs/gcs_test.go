@@ -565,7 +565,6 @@ func Test_parseParameters_Bool(t *testing.T) {
 
 	opts := dtestutil.BoolOpts{
 		Defaultt:          false,
-		NilReturnsError:   false,
 		ParamName:         "parallelwalk",
 		DriverParamName:   "parallelWalk",
 		OriginalParams:    p,
