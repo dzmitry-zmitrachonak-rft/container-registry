@@ -182,16 +182,20 @@ specification;
 - Have the affected package full path in the scope portion, whenever applicable;
 
 - Include the module name and the target version if upgrading or adding a
-dependency.
+dependency;
+
+- End with ` (<issue reference>)` if the commit is fixing an issue.
+
+Please see [this](https://github.com/angular/angular/blob/8ce1ac603a9936784225c28f5526226d208eeb27/CONTRIBUTING.md) for additional information about the supported commit types.
 
 #### Examples
 
 ```
-chore: upgrade cloud.google.com/go/storage to v1.16.0
+build: upgrade cloud.google.com/go/storage to v1.16.0
 ```
 
 ```
-fix(handlers): handle manifest not found errors gracefully
+fix(handlers): handle manifest not found errors gracefully (#12345)
 ```
 
 ```
