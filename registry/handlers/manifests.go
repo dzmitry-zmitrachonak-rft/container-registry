@@ -870,21 +870,21 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 	// TODO: update the config blob media_type here, it was set to "application/octet-stream" during the upload
 	// 		 but now we know its concrete type (cfgDesc.MediaType).
 
-	// Since filesystem writes may be optional, We cannot be sure that the
-	// repository scoped filesystem blob service will have a link to the
-	// configuration blob; however, since we check for repository scoped access
-	// via the database above, we may retrieve the blob directly common storage.
-	cfgPayload, err := imh.blobProvider.Get(imh, dbCfgBlob.Digest)
-	if err != nil {
-		return err
-	}
-
 	dbManifest, err := repositoryStore.FindManifestByDigest(imh.Context, dbRepo, imh.Digest)
 	if err != nil {
 		return err
 	}
 	if dbManifest == nil {
 		log.Debug("manifest not found in database")
+
+		// Since filesystem writes may be optional, We cannot be sure that the
+		// repository scoped filesystem blob service will have a link to the
+		// configuration blob; however, since we check for repository scoped access
+		// via the database above, we may retrieve the blob directly common storage.
+		cfgPayload, err := imh.blobProvider.Get(imh, dbCfgBlob.Digest)
+		if err != nil {
+			return err
+		}
 
 		m := &models.Manifest{
 			NamespaceID:   dbRepo.NamespaceID,
