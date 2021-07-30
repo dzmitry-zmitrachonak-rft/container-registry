@@ -3561,6 +3561,58 @@ func TestManifestAPI_Put_OCIFilesystemFallbackLayersNotInDatabase(t *testing.T) 
 	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 }
 
+func TestManifestAPI_Put_DatabaseEnabled_InvalidConfigMediaType(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	if !env.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	tagName := "latest"
+	repoPath := "cache"
+	unknownMediaType := "application/vnd.foo.container.image.v1+json"
+
+	// Create and push config
+	cfgPayload := `{"foo":"bar"}`
+	cfgDesc := distribution.Descriptor{
+		MediaType: unknownMediaType,
+		Digest:    digest.FromString(cfgPayload),
+		Size:      int64(len(cfgPayload)),
+	}
+	assertBlobPutResponse(t, env, repoPath, cfgDesc.Digest, strings.NewReader(cfgPayload), 201)
+
+	// Create and push 1 random layer
+	rs, dgst := createRandomSmallLayer()
+	assertBlobPutResponse(t, env, repoPath, dgst, rs, 201)
+	layerDesc := distribution.Descriptor{
+		MediaType: v1.MediaTypeImageLayerGzip,
+		Digest:    dgst,
+		Size:      rand.Int63(),
+	}
+
+	m := ocischema.Manifest{
+		Versioned: ocischema.SchemaVersion,
+		Config:    cfgDesc,
+		Layers:    []distribution.Descriptor{layerDesc},
+	}
+
+	dm, err := ocischema.FromStruct(m)
+	require.NoError(t, err)
+
+	// Push index
+	u := buildManifestTagURL(t, env, repoPath, tagName)
+	resp := putManifest(t, "", u, v1.MediaTypeImageManifest, dm.Manifest)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	errs, _, _ := checkBodyHasErrorCodes(t, "", resp, v2.ErrorCodeManifestInvalid)
+	require.Len(t, errs, 1)
+	errc, ok := errs[0].(errcode.Error)
+	require.True(t, ok)
+	require.Equal(t, datastore.ErrUnknownMediaType{MediaType: unknownMediaType}.Error(), errc.Detail)
+}
+
 func manifest_Get_OCI_NonMatchingEtag(t *testing.T, opts ...configOpt) {
 	env := newTestEnv(t, opts...)
 	defer env.Shutdown()

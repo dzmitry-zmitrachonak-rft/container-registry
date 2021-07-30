@@ -15,3 +15,14 @@ var (
 	// ErrManifestReferencedInList is returned when attempting to delete a manifest referenced in at least one list.
 	ErrManifestReferencedInList = errors.New("manifest referenced by manifest list")
 )
+
+// ErrUnknownMediaType is returned when attempting to save a manifest containing references with unknown media types.
+type ErrUnknownMediaType struct {
+	// MediaType is the offending media type
+	MediaType string
+}
+
+// Error implements error.
+func (err ErrUnknownMediaType) Error() string {
+	return fmt.Sprintf("unknown media type: %s", err.MediaType)
+}
