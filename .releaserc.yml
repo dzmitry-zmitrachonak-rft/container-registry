@@ -1,0 +1,16 @@
+repositoryUrl: 'git@gitlab.com:gitlab-org/container-registry.git'
+tagFormat: 'v${version}-gitlab'
+branches:
+  - master
+plugins:
+  - - '@semantic-release/commit-analyzer':
+    - preset: conventionalcommits
+  - '@semantic-release/release-notes-generator'
+  - '@semantic-release/changelog'
+  - - '@semantic-release/git'
+    - assets:
+        - CHANGELOG.md
+      message: |-
+        chore(release): ${nextRelease.version}
+
+        ${nextRelease.notes}

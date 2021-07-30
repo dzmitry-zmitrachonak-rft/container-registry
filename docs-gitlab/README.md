@@ -167,6 +167,17 @@ Registry is released, this issue should have a due date set to one week before
 the milestone. This should allow enough time for the related merge requests to
 go through, especially if feedback is received.
 
+We use [semantic-release](https://semantic-release.gitbook.io/semantic-release/)
+to generate changelog entries, release commits and new git tags. A new release
+is created by the project maintainers, using the `make release` command,
+invoked from their local development machine. A `make release-dry-run` command
+is available to anyone and allows previewing the next release.
+
+**Note:** If you are a maintainer and this is the first time you are generating a
+release, you must invoke the `make dev-tools` command to install the required
+dependencies. This requires having [Node.js](https://nodejs.org/en/) and
+[npm](https://docs.npmjs.com/cli/) installed locally.
+
 ## Contributing
 
 ### Commit Messages
@@ -201,14 +212,6 @@ fix(handlers): handle manifest not found errors gracefully (#12345)
 ```
 perf(registry/storage/driver/gcs): improve blob upload performance
 ```
-
-### Changelog
-
-Merge requests which make change that will impact users of this project should
-have an accompanying [changelog](../CHANGELOG.md) entry in the same merge
-request. These entries should be added under the `[Unreleased]` header. The
-changelog follows the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-specification.
 
 ### Golang Version Support
 
