@@ -259,7 +259,7 @@ func (d *driver) Writer(ctx context.Context, path string, append bool) (storaged
 		} else {
 			err = blobRef.Delete(nil)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("deleting existing blob before write: %w", err)
 			}
 		}
 	} else {
@@ -377,7 +377,7 @@ func (d *driver) Delete(ctx context.Context, path string) error {
 	// Not a blob, see if path is a virtual container with blobs
 	blobs, err := d.listBlobs(d.pathToDirKey(path))
 	if err != nil {
-		return err
+		return fmt.Errorf("listing blobs in virtual container before deletion: %w", err)
 	}
 
 	for _, b := range blobs {
