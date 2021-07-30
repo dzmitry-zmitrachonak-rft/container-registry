@@ -42,7 +42,7 @@ BINARIES=$(addprefix bin/,$(COMMANDS))
 TESTFLAGS ?= -v $(TESTFLAGS_RACE)
 TESTFLAGS_PARALLEL ?= 8
 
-.PHONY: all build binaries check clean test test-race test-full integration coverage
+.PHONY: all build binaries check clean test test-race test-full integration coverage dev-tools release-dry-run release
 .DEFAULT: all
 
 all: binaries
@@ -107,3 +107,30 @@ db-new-migration:
 
 db-structure-dump:
 	@./script/dev/db-structure-dump
+
+dev-tools:
+	@npm install -g \
+		@commitlint/cli@13 \
+		@commitlint/config-conventional@13 \
+		semantic-release@17 \
+		@semantic-release/commit-analyzer@8 \
+		@semantic-release/release-notes-generator@9 \
+		@semantic-release/changelog@5 \
+		@semantic-release/git@9
+
+# https://github.com/semantic-release/git#environment-variables
+export GIT_AUTHOR_NAME="$(shell git config user.name)"
+export GIT_AUTHOR_EMAIL=$(shell git config user.email)
+export GIT_COMMITTER_NAME="$(shell git config user.name)"
+export GIT_COMMITTER_EMAIL=$(shell git config user.email)
+
+release-prep:
+	@git checkout master
+	@git pull origin master
+
+release-dry-run: release-prep
+	@npx semantic-release --no-ci --dry-run
+
+release: release-prep
+	@echo "This will generate and push a changelog update and a new tag, are you sure? [y/N] " && read ans && [ $${ans:-N} = y ]
+	@npx semantic-release --no-ci
