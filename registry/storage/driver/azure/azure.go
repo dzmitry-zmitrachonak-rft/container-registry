@@ -13,12 +13,11 @@ import (
 	"strings"
 	"time"
 
+	azure "github.com/Azure/azure-sdk-for-go/storage"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
-	"github.com/docker/distribution/registry/storage/driver/parse"
-
-	azure "github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/docker/distribution/registry/storage/driver/internal/parse"
 )
 
 const driverName = "azure"

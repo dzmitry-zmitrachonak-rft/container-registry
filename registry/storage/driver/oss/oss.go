@@ -27,7 +27,7 @@ import (
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
-	"github.com/docker/distribution/registry/storage/driver/parse"
+	"github.com/docker/distribution/registry/storage/driver/internal/parse"
 	"github.com/sirupsen/logrus"
 )
 

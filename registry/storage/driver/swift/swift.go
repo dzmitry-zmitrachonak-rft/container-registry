@@ -32,13 +32,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-	"github.com/ncw/swift"
-
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	"github.com/docker/distribution/version"
+	"github.com/mitchellh/mapstructure"
+	"github.com/ncw/swift"
 )
 
 const driverName = "swift"
