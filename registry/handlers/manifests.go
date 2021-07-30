@@ -884,11 +884,18 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 			return err
 		}
 
+		// Media type can be either Docker (`application/vnd.docker.distribution.manifest.v2+json`) or OCI (empty).
+		// We need to make it explicit if empty, otherwise we're not able to distinguish between media types.
+		mediaType := versioned.MediaType
+		if mediaType == "" {
+			mediaType = v1.MediaTypeImageManifest
+		}
+
 		m := &models.Manifest{
 			NamespaceID:   dbRepo.NamespaceID,
 			RepositoryID:  dbRepo.ID,
 			SchemaVersion: versioned.SchemaVersion,
-			MediaType:     versioned.MediaType,
+			MediaType:     mediaType,
 			Digest:        imh.Digest,
 			Payload:       payload,
 			Configuration: &models.Configuration{
