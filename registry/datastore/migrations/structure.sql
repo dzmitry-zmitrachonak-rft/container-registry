@@ -4012,7 +4012,8 @@ CREATE TABLE public.manifests (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 )
 PARTITION BY HASH (top_level_namespace_id);
 
@@ -4027,7 +4028,8 @@ CREATE TABLE partitions.manifests_p_0 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_0
@@ -4044,7 +4046,8 @@ CREATE TABLE partitions.manifests_p_1 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_1
@@ -4061,7 +4064,8 @@ CREATE TABLE partitions.manifests_p_10 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_10
@@ -4078,7 +4082,8 @@ CREATE TABLE partitions.manifests_p_11 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_11
@@ -4095,7 +4100,8 @@ CREATE TABLE partitions.manifests_p_12 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_12
@@ -4112,7 +4118,8 @@ CREATE TABLE partitions.manifests_p_13 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_13
@@ -4129,7 +4136,8 @@ CREATE TABLE partitions.manifests_p_14 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_14
@@ -4146,7 +4154,8 @@ CREATE TABLE partitions.manifests_p_15 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_15
@@ -4163,7 +4172,8 @@ CREATE TABLE partitions.manifests_p_16 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_16
@@ -4180,7 +4190,8 @@ CREATE TABLE partitions.manifests_p_17 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_17
@@ -4197,7 +4208,8 @@ CREATE TABLE partitions.manifests_p_18 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_18
@@ -4214,7 +4226,8 @@ CREATE TABLE partitions.manifests_p_19 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_19
@@ -4231,7 +4244,8 @@ CREATE TABLE partitions.manifests_p_2 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_2
@@ -4248,7 +4262,8 @@ CREATE TABLE partitions.manifests_p_20 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_20
@@ -4265,7 +4280,8 @@ CREATE TABLE partitions.manifests_p_21 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_21
@@ -4282,7 +4298,8 @@ CREATE TABLE partitions.manifests_p_22 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_22
@@ -4299,7 +4316,8 @@ CREATE TABLE partitions.manifests_p_23 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_23
@@ -4316,7 +4334,8 @@ CREATE TABLE partitions.manifests_p_24 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_24
@@ -4333,7 +4352,8 @@ CREATE TABLE partitions.manifests_p_25 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_25
@@ -4350,7 +4370,8 @@ CREATE TABLE partitions.manifests_p_26 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_26
@@ -4367,7 +4388,8 @@ CREATE TABLE partitions.manifests_p_27 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_27
@@ -4384,7 +4406,8 @@ CREATE TABLE partitions.manifests_p_28 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_28
@@ -4401,7 +4424,8 @@ CREATE TABLE partitions.manifests_p_29 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_29
@@ -4418,7 +4442,8 @@ CREATE TABLE partitions.manifests_p_3 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_3
@@ -4435,7 +4460,8 @@ CREATE TABLE partitions.manifests_p_30 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_30
@@ -4452,7 +4478,8 @@ CREATE TABLE partitions.manifests_p_31 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_31
@@ -4469,7 +4496,8 @@ CREATE TABLE partitions.manifests_p_32 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_32
@@ -4486,7 +4514,8 @@ CREATE TABLE partitions.manifests_p_33 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_33
@@ -4503,7 +4532,8 @@ CREATE TABLE partitions.manifests_p_34 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_34
@@ -4520,7 +4550,8 @@ CREATE TABLE partitions.manifests_p_35 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_35
@@ -4537,7 +4568,8 @@ CREATE TABLE partitions.manifests_p_36 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_36
@@ -4554,7 +4586,8 @@ CREATE TABLE partitions.manifests_p_37 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_37
@@ -4571,7 +4604,8 @@ CREATE TABLE partitions.manifests_p_38 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_38
@@ -4588,7 +4622,8 @@ CREATE TABLE partitions.manifests_p_39 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_39
@@ -4605,7 +4640,8 @@ CREATE TABLE partitions.manifests_p_4 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_4
@@ -4622,7 +4658,8 @@ CREATE TABLE partitions.manifests_p_40 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_40
@@ -4639,7 +4676,8 @@ CREATE TABLE partitions.manifests_p_41 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_41
@@ -4656,7 +4694,8 @@ CREATE TABLE partitions.manifests_p_42 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_42
@@ -4673,7 +4712,8 @@ CREATE TABLE partitions.manifests_p_43 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_43
@@ -4690,7 +4730,8 @@ CREATE TABLE partitions.manifests_p_44 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_44
@@ -4707,7 +4748,8 @@ CREATE TABLE partitions.manifests_p_45 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_45
@@ -4724,7 +4766,8 @@ CREATE TABLE partitions.manifests_p_46 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_46
@@ -4741,7 +4784,8 @@ CREATE TABLE partitions.manifests_p_47 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_47
@@ -4758,7 +4802,8 @@ CREATE TABLE partitions.manifests_p_48 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_48
@@ -4775,7 +4820,8 @@ CREATE TABLE partitions.manifests_p_49 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_49
@@ -4792,7 +4838,8 @@ CREATE TABLE partitions.manifests_p_5 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_5
@@ -4809,7 +4856,8 @@ CREATE TABLE partitions.manifests_p_50 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_50
@@ -4826,7 +4874,8 @@ CREATE TABLE partitions.manifests_p_51 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_51
@@ -4843,7 +4892,8 @@ CREATE TABLE partitions.manifests_p_52 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_52
@@ -4860,7 +4910,8 @@ CREATE TABLE partitions.manifests_p_53 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_53
@@ -4877,7 +4928,8 @@ CREATE TABLE partitions.manifests_p_54 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_54
@@ -4894,7 +4946,8 @@ CREATE TABLE partitions.manifests_p_55 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_55
@@ -4911,7 +4964,8 @@ CREATE TABLE partitions.manifests_p_56 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_56
@@ -4928,7 +4982,8 @@ CREATE TABLE partitions.manifests_p_57 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_57
@@ -4945,7 +5000,8 @@ CREATE TABLE partitions.manifests_p_58 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_58
@@ -4962,7 +5018,8 @@ CREATE TABLE partitions.manifests_p_59 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_59
@@ -4979,7 +5036,8 @@ CREATE TABLE partitions.manifests_p_6 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_6
@@ -4996,7 +5054,8 @@ CREATE TABLE partitions.manifests_p_60 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_60
@@ -5013,7 +5072,8 @@ CREATE TABLE partitions.manifests_p_61 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_61
@@ -5030,7 +5090,8 @@ CREATE TABLE partitions.manifests_p_62 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_62
@@ -5047,7 +5108,8 @@ CREATE TABLE partitions.manifests_p_63 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_63
@@ -5064,7 +5126,8 @@ CREATE TABLE partitions.manifests_p_7 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_7
@@ -5081,7 +5144,8 @@ CREATE TABLE partitions.manifests_p_8 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_8
@@ -5098,7 +5162,8 @@ CREATE TABLE partitions.manifests_p_9 (
     configuration_payload bytea,
     configuration_blob_digest bytea,
     digest bytea NOT NULL,
-    payload bytea NOT NULL
+    payload bytea NOT NULL,
+    non_conformant boolean DEFAULT FALSE
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_9

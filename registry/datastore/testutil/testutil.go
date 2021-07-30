@@ -132,7 +132,8 @@ func (t table) DumpAsJSON(ctx context.Context, db datastore.Queryer) ([]byte, er
 					media_type_id,
 					configuration_media_type_id,
 					convert_from(configuration_payload, 'UTF8')::json AS configuration_payload,
-					encode(configuration_blob_digest, 'hex') as configuration_blob_digest
+					encode(configuration_blob_digest, 'hex') as configuration_blob_digest,
+					non_conformant
 				FROM %s
 			) t;`
 		query = fmt.Sprintf(s, t)

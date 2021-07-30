@@ -162,6 +162,7 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 			mtc.media_type as configuration_media_type,
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
+			m.non_conformant,
 			m.created_at
 		FROM
 			manifests AS m

@@ -29,6 +29,7 @@ import (
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
+	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
@@ -2592,6 +2593,88 @@ func manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository(t *testing.
 	resp := putManifest(t, "putting manifest whose config is not present in the repository", manifestDigestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+// TestManifestAPI_Put_BuildkitIndex tests that the API will accept pushes and pulls of Buildkit cache image index.
+// Related to https://gitlab.com/gitlab-org/container-registry/-/issues/407.
+func TestManifestAPI_BuildkitIndex(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	tagName := "latest"
+	repoPath := "cache"
+
+	// Create and push config
+	cfgPayload := `{"layers":[{"blob":"sha256:136482bf81d1fa351b424ebb8c7e34d15f2c5ed3fc0b66b544b8312bda3d52d9","parent":-1},{"blob":"sha256:cc28e5fb26aec14963e8cf2987c137b84755a031068ea9284631a308dc087b35"}],"records":[{"digest":"sha256:16a28dbbe0151c1ab102d9414f78aa338627df3ce3c450905cd36d41b3e3d08e"},{"digest":"sha256:ef9770ef24f7942c1ccbbcac2235d9c0fbafc80d3af78ca0b483886adeac8960"}]}`
+	cfgDesc := distribution.Descriptor{
+		MediaType: mlcompat.MediaTypeBuildxCacheConfig,
+		Digest:    digest.FromString(cfgPayload),
+		Size:      int64(len(cfgPayload)),
+	}
+	assertBlobPutResponse(t, env, repoPath, cfgDesc.Digest, strings.NewReader(cfgPayload), 201)
+
+	// Create and push 2 random layers
+	layers := make([]distribution.Descriptor, 2)
+	for i := range layers {
+		rs, dgst := createRandomSmallLayer()
+		assertBlobPutResponse(t, env, repoPath, dgst, rs, 201)
+
+		layers[i] = distribution.Descriptor{
+			MediaType: v1.MediaTypeImageLayerGzip,
+			Digest:    dgst,
+			Size:      rand.Int63(),
+			Annotations: map[string]string{
+				"buildkit/createdat":         time.Now().String(),
+				"containerd.io/uncompressed": digest.FromString(strconv.Itoa(i)).String(),
+			},
+		}
+	}
+
+	idx := &manifestlist.ManifestList{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     v1.MediaTypeImageIndex,
+		},
+		Manifests: []manifestlist.ManifestDescriptor{
+			{Descriptor: layers[0]},
+			{Descriptor: layers[1]},
+			{Descriptor: cfgDesc},
+		},
+	}
+
+	didx, err := manifestlist.FromDescriptorsWithMediaType(idx.Manifests, v1.MediaTypeImageIndex)
+	require.NoError(t, err)
+	_, payload, err := didx.Payload()
+	require.NoError(t, err)
+	dgst := digest.FromBytes(payload)
+
+	// Push index
+	assertManifestPutByTagResponse(t, env, repoPath, didx, v1.MediaTypeImageIndex, tagName, 201)
+
+	// Get index
+	u := buildManifestTagURL(t, env, repoPath, tagName)
+	req, err := http.NewRequest("GET", u, nil)
+	require.NoError(t, err)
+
+	req.Header.Set("Accept", v1.MediaTypeImageIndex)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+	var respIdx *manifestlist.DeserializedManifestList
+	dec := json.NewDecoder(resp.Body)
+	err = dec.Decode(&respIdx)
+	require.NoError(t, err)
+
+	require.EqualValues(t, didx, respIdx)
+
+	// Stat each one of its references
+	for _, d := range didx.References() {
+		assertBlobHeadResponse(t, env, repoPath, d.Digest, 200)
+	}
 }
 
 func TestManifestAPI_Migration_Schema2(t *testing.T) {
