@@ -611,7 +611,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 	mediaType := r.Header.Get("Content-Type")
 	manifest, desc, err := distribution.UnmarshalManifest(mediaType, jsonBuf.Bytes())
 	if err != nil {
-		imh.Errors = append(imh.Errors, v2.ErrorCodeManifestInvalid.WithDetail(err))
+		imh.Errors = append(imh.Errors, v2.ErrorCodeManifestInvalid.WithDetail(err.Error()))
 		return
 	}
 
