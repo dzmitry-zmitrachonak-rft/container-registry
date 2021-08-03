@@ -47,14 +47,6 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Unable to register manifest: %s", err))
 	}
-	err = distribution.RegisterManifestSchema("", schema1Func)
-	if err != nil {
-		panic(fmt.Sprintf("Unable to register manifest: %s", err))
-	}
-	err = distribution.RegisterManifestSchema("application/json", schema1Func)
-	if err != nil {
-		panic(fmt.Sprintf("Unable to register manifest: %s", err))
-	}
 }
 
 // FSLayer is a container struct for BlobSums defined in an image manifest
