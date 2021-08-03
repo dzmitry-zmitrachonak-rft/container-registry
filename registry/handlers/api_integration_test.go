@@ -4195,6 +4195,163 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 	}
 }
 
+func TestManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombinations(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	unknownMediaType := "application/vnd.foo.manifest.list.v1+json"
+
+	tt := []struct {
+		Name              string
+		PayloadMediaType  string
+		ContentTypeHeader string
+		ExpectedStatus    int
+		ExpectedErrCode   *errcode.ErrorCode
+		ExpectedErrDetail string
+	}{
+		{
+			Name:              "schema 2 in payload and content type",
+			PayloadMediaType:  manifestlist.MediaTypeManifestList,
+			ContentTypeHeader: manifestlist.MediaTypeManifestList,
+			ExpectedStatus:    http.StatusCreated,
+		},
+		{
+			Name:              "schema 2 in payload and no content type",
+			PayloadMediaType:  manifestlist.MediaTypeManifestList,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: "missing signature key",
+		},
+		{
+			Name:              "none in payload and schema 2 in content type",
+			ContentTypeHeader: manifestlist.MediaTypeManifestList,
+			ExpectedStatus:    http.StatusCreated,
+		},
+		{
+			Name:              "oci in payload and content type",
+			PayloadMediaType:  v1.MediaTypeImageIndex,
+			ContentTypeHeader: v1.MediaTypeImageIndex,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: fmt.Sprintf("if present, mediaType in image index should be '%s' not '%s'", v1.MediaTypeImageIndex, manifestlist.MediaTypeManifestList),
+		},
+		{
+			Name:              "oci in payload and no content type",
+			PayloadMediaType:  v1.MediaTypeImageIndex,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: "missing signature key",
+		},
+		{
+			Name:              "none in payload and oci in content type",
+			ContentTypeHeader: v1.MediaTypeImageIndex,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: fmt.Sprintf("if present, mediaType in image index should be '%s' not '%s'", v1.MediaTypeImageIndex, manifestlist.MediaTypeManifestList),
+		},
+		{
+			Name:              "none in payload and content type",
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: "missing signature key",
+		},
+		{
+			Name:              "schema 2 in payload and oci in content type",
+			PayloadMediaType:  manifestlist.MediaTypeManifestList,
+			ContentTypeHeader: v1.MediaTypeImageIndex,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: fmt.Sprintf("if present, mediaType in image index should be '%s' not '%s'", v1.MediaTypeImageIndex, manifestlist.MediaTypeManifestList),
+		},
+		{
+			Name:              "oci in payload and schema 2 in content type",
+			PayloadMediaType:  v1.MediaTypeImageIndex,
+			ContentTypeHeader: manifestlist.MediaTypeManifestList,
+			ExpectedStatus:    http.StatusCreated,
+		},
+		{
+			Name:              "unknown in payload and schema 2 in content type",
+			PayloadMediaType:  unknownMediaType,
+			ContentTypeHeader: manifestlist.MediaTypeManifestList,
+			ExpectedStatus:    http.StatusCreated,
+		},
+		{
+			Name:              "unknown in payload and oci in content type",
+			PayloadMediaType:  unknownMediaType,
+			ContentTypeHeader: v1.MediaTypeImageIndex,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: fmt.Sprintf("if present, mediaType in image index should be '%s' not '%s'", v1.MediaTypeImageIndex, manifestlist.MediaTypeManifestList),
+		},
+		{
+			Name:              "unknown in payload and content type",
+			PayloadMediaType:  unknownMediaType,
+			ContentTypeHeader: unknownMediaType,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: "missing signature key",
+		},
+		{
+			Name:              "unknown in payload and no content type",
+			PayloadMediaType:  unknownMediaType,
+			ExpectedStatus:    http.StatusBadRequest,
+			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
+			ExpectedErrDetail: "missing signature key",
+		},
+	}
+
+	repoRef, err := reference.WithName("foo")
+	require.NoError(t, err)
+
+	// push random manifest
+	dm := seedRandomSchema2Manifest(t, env, repoRef.Name(), putByDigest)
+
+	_, payload, err := dm.Payload()
+	require.NoError(t, err)
+	dgst := digest.FromBytes(payload)
+
+	for _, test := range tt {
+		t.Run(test.Name, func(t *testing.T) {
+			// build and push manifest list
+			ml := &manifestlist.ManifestList{
+				Versioned: manifest.Versioned{
+					SchemaVersion: 2,
+					MediaType:     test.PayloadMediaType,
+				},
+				Manifests: []manifestlist.ManifestDescriptor{
+					{
+						Descriptor: distribution.Descriptor{
+							Digest:    dgst,
+							MediaType: dm.MediaType,
+						},
+						Platform: manifestlist.PlatformSpec{
+							Architecture: "amd64",
+							OS:           "linux",
+						},
+					},
+				},
+			}
+
+			dml, err := manifestlist.FromDescriptors(ml.Manifests)
+			require.NoError(t, err)
+
+			manifestDigestURL := buildManifestDigestURL(t, env, repoRef.Name(), dml)
+			resp := putManifest(t, "", manifestDigestURL, test.ContentTypeHeader, dml)
+			defer resp.Body.Close()
+
+			require.Equal(t, test.ExpectedStatus, resp.StatusCode)
+
+			if test.ExpectedErrCode != nil {
+				errs, _, _ := checkBodyHasErrorCodes(t, "", resp, v2.ErrorCodeManifestInvalid)
+				require.Len(t, errs, 1)
+				errc, ok := errs[0].(errcode.Error)
+				require.True(t, ok)
+				require.Equal(t, test.ExpectedErrDetail, errc.Detail)
+			}
+		})
+	}
+}
+
 func buildManifestTagURL(t *testing.T, env *testEnv, repoPath, tagName string) string {
 	t.Helper()
 
