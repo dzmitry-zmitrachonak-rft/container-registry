@@ -4057,18 +4057,16 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 			ExpectedStatus:    http.StatusCreated,
 		},
 		{
-			Name:              "schema 2 in payload and no content type",
-			PayloadMediaType:  schema2.MediaTypeManifest,
-			ExpectedStatus:    http.StatusBadRequest,
-			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			Name:             "schema 2 in payload and no content type",
+			PayloadMediaType: schema2.MediaTypeManifest,
+			ExpectedStatus:   http.StatusCreated,
 		},
 		{
 			Name:              "none in payload and schema 2 in content type",
 			ContentTypeHeader: schema2.MediaTypeManifest,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not ''", schema2.MediaTypeManifest),
+			ExpectedErrDetail: "no mediaType in manifest",
 		},
 		{
 			Name:              "oci in payload and content type",
@@ -4081,7 +4079,7 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 			PayloadMediaType:  v1.MediaTypeImageManifest,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, v1.MediaTypeImageManifest),
 		},
 		{
 			Name:              "none in payload and oci in content type",
@@ -4092,7 +4090,7 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 			Name:              "none in payload and content type",
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: "no mediaType in manifest",
 		},
 		{
 			Name:              "schema 2 in payload and oci in content type",
@@ -4132,14 +4130,14 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 			ContentTypeHeader: unknownMediaType,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, unknownMediaType),
 		},
 		{
 			Name:              "unknown in payload and no content type",
 			PayloadMediaType:  unknownMediaType,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, unknownMediaType),
 		},
 	}
 
@@ -4220,7 +4218,7 @@ func TestManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombi
 			PayloadMediaType:  manifestlist.MediaTypeManifestList,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, manifestlist.MediaTypeManifestList),
 		},
 		{
 			Name:              "none in payload and schema 2 in content type",
@@ -4240,7 +4238,7 @@ func TestManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombi
 			PayloadMediaType:  v1.MediaTypeImageIndex,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, manifestlist.MediaTypeManifestList),
 		},
 		{
 			Name:              "none in payload and oci in content type",
@@ -4253,7 +4251,7 @@ func TestManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombi
 			Name:              "none in payload and content type",
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, manifestlist.MediaTypeManifestList),
 		},
 		{
 			Name:              "schema 2 in payload and oci in content type",
@@ -4289,14 +4287,14 @@ func TestManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombi
 			ContentTypeHeader: unknownMediaType,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, manifestlist.MediaTypeManifestList),
 		},
 		{
 			Name:              "unknown in payload and no content type",
 			PayloadMediaType:  unknownMediaType,
 			ExpectedStatus:    http.StatusBadRequest,
 			ExpectedErrCode:   &v2.ErrorCodeManifestInvalid,
-			ExpectedErrDetail: "missing signature key",
+			ExpectedErrDetail: fmt.Sprintf("mediaType in manifest should be '%s' not '%s'", schema2.MediaTypeManifest, manifestlist.MediaTypeManifestList),
 		},
 	}
 

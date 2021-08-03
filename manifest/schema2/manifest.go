@@ -57,6 +57,14 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Unable to register manifest: %s", err))
 	}
+	err = distribution.RegisterManifestSchema("", schema2Func)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to register manifest: %s", err))
+	}
+	err = distribution.RegisterManifestSchema("application/json", schema2Func)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to register manifest: %s", err))
+	}
 }
 
 // Manifest defines a schema2 manifest.
@@ -114,6 +122,10 @@ func (m *DeserializedManifest) UnmarshalJSON(b []byte) error {
 	var manifest Manifest
 	if err := json.Unmarshal(m.canonical, &manifest); err != nil {
 		return err
+	}
+
+	if manifest.MediaType == "" {
+		return errors.New("no mediaType in manifest")
 	}
 
 	if manifest.MediaType != MediaTypeManifest {

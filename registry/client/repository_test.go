@@ -771,16 +771,11 @@ func TestV1ManifestFetch(t *testing.T) {
 	}
 
 	manifest, err = ms.Get(ctx, dgst, distribution.WithTag("badcontenttype"))
-	if err != nil {
-		t.Fatal(err)
+	if err == nil {
+		t.Fatal("expected error, got none")
 	}
-	v1manifest, ok = manifest.(*schema1.SignedManifest)
-	if !ok {
-		t.Fatalf("Unexpected manifest type from Get: %T", manifest)
-	}
-
-	if err = checkEqualManifest(v1manifest, m1); err != nil {
-		t.Fatal(err)
+	if err.Error() != "no mediaType in manifest" {
+		t.Fatalf("expected error %q, got %q", "no mediaType in manifest", err.Error())
 	}
 }
 
