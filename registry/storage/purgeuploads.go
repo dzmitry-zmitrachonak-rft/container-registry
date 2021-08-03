@@ -104,7 +104,7 @@ func getOutstandingUploads(ctx context.Context, driver storageDriver.StorageDriv
 	err = driver.WalkParallel(ctx, root, func(fileInfo storageDriver.FileInfo) error {
 		filePath := fileInfo.Path()
 		_, file := path.Split(filePath)
-		if strings.HasPrefix(file, "_") && fileInfo.IsDir() && file != "_uploads" {
+		if (strings.HasPrefix(file, "_") || strings.HasPrefix(file, "hashstates")) && fileInfo.IsDir() && file != "_uploads" {
 			// Reserved directory
 			return storageDriver.ErrSkipDir
 		}
@@ -126,6 +126,7 @@ func getOutstandingUploads(ctx context.Context, driver storageDriver.StorageDriv
 				ud.startedAt = t
 			} else {
 				errCh <- fmt.Errorf("%s: %s", filePath, err)
+				return nil
 			}
 		}
 
