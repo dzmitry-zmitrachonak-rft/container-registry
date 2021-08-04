@@ -1090,7 +1090,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			log := dcontext.GetLoggerWithFields(ctx.Context, map[interface{}]interface{}{
 				"use_database":          ctx.useDatabase,
 				"write_fs_metadata":     ctx.writeFSMetadata,
-				"migration_path":        path,
+				"migration_path":        path.String(),
 				"migration_status":      mStatus.String(),
 				"migration_description": mStatus.Description(),
 			})
