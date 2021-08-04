@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/storage/driver"
+	"github.com/docker/distribution/registry/storage/internal/metrics"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -40,7 +41,8 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 		case nil:
 			// Redirect to storage URL.
 			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
-			return err
+			metrics.BlobDownload(true, desc.Size)
+			return nil
 
 		case driver.ErrUnsupportedMethod:
 			// Fallback to serving the content directly.
@@ -74,5 +76,7 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 	}
 
 	http.ServeContent(w, r, desc.Digest.String(), time.Time{}, br)
+	metrics.BlobDownload(false, desc.Size)
+
 	return nil
 }
