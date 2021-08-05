@@ -241,7 +241,7 @@ func mapMediaType(ctx context.Context, db Queryer, mediaType string) (int, error
 	row := db.QueryRowContext(ctx, q, mediaType)
 	if err := row.Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, fmt.Errorf("unknown media type %q", mediaType)
+			return 0, ErrUnknownMediaType{MediaType: mediaType}
 		}
 		return 0, fmt.Errorf("unable to map media type: %w", err)
 	}
@@ -264,7 +264,7 @@ func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	}
 	mediaTypeID, err := mapMediaType(ctx, s.db, m.MediaType)
 	if err != nil {
-		return err
+		return fmt.Errorf("mapping manifest media type: %w", err)
 	}
 
 	var configDgst sql.NullString
@@ -279,7 +279,7 @@ func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 		configDgst.String = dgst.String()
 		id, err := mapMediaType(ctx, s.db, m.Configuration.MediaType)
 		if err != nil {
-			return err
+			return fmt.Errorf("mapping config media type: %w", err)
 		}
 		configMediaTypeID.Valid = true
 		configMediaTypeID.Int32 = int32(id)

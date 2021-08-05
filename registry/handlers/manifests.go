@@ -475,7 +475,12 @@ func (p *dbManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest)
 		return err
 	}
 
-	return dbPutManifest(imh, mfst, payload)
+	err = dbPutManifest(imh, mfst, payload)
+	var mtErr datastore.ErrUnknownMediaType
+	if errors.As(err, &mtErr) {
+		return v2.ErrorCodeManifestInvalid.WithDetail(mtErr.Error())
+	}
+	return err
 }
 
 func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest, tag string, _ distribution.Descriptor) error {
