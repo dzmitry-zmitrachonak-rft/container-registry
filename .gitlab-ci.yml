@@ -59,7 +59,7 @@ commitlint:
     - apk add --no-cache git
     - npm install -g @commitlint/cli @commitlint/config-conventional
   script:
-    - npx commitlint --from ${CI_MERGE_REQUEST_TARGET_BRANCH_SHA} --to HEAD --verbose
+    - npx commitlint --from ${CI_MERGE_REQUEST_DIFF_BASE_SHA} --to HEAD --verbose
   rules:
     - if: $CI_MERGE_REQUEST_IID
 
