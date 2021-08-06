@@ -1,3 +1,28 @@
+# [3.7.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.6.2-gitlab...v3.7.0-gitlab) (2021-08-06)
+
+
+### Bug Fixes
+
+* **auth/token:** fix migration eligibility validation for read requests ([6576897](https://gitlab.com/gitlab-org/container-registry/commit/657689735237b769b95eeb5b91e466675578473d))
+* **handlers:** handle Buildkit index as an OCI manifest when using the database ([556ab04](https://gitlab.com/gitlab-org/container-registry/commit/556ab04690b8962bfc2aa386fefb0bd3a3a12d06))
+* use MR diff SHA in commitlint job ([f66bccb](https://gitlab.com/gitlab-org/container-registry/commit/f66bccb9ef2449833f3eaa7327a0519c2776f42b))
+* **handlers:** default to the schema 2 parser instead of schema 1 for manifest uploads ([0c62ea4](https://gitlab.com/gitlab-org/container-registry/commit/0c62ea47f801716ec3ee62eb7a37af2fd4b73115))
+* **handlers:** display error details when invalid media types are detected during a manifest push ([f750297](https://gitlab.com/gitlab-org/container-registry/commit/f750297224ecd1f7549af484ef5a380caaf8aef4))
+* **handlers:** fallback to OCI media type for manifests with no payload media type ([854f3ad](https://gitlab.com/gitlab-org/container-registry/commit/854f3adc937cd089e04926c1a4212249a17de84b))
+* **handlers:** migration_path label should be logged as string ([524a614](https://gitlab.com/gitlab-org/container-registry/commit/524a6141201f15ada63bcfeae5d74375e0d7f558))
+* **handlers:** return 400 Bad Request when saving a manifest with unknown media types on the DB ([0a39980](https://gitlab.com/gitlab-org/container-registry/commit/0a39980a0a6d08d040487a025746f5bed8e9c7de))
+* **storage/driver/azure:** give deeply nested errors more context ([3388e1d](https://gitlab.com/gitlab-org/container-registry/commit/3388e1dc8ce1ae122e1069fa546ef165c1c13c52))
+
+
+### Features
+
+* **storage:** instrument blob download size and redirect option ([f091ff9](https://gitlab.com/gitlab-org/container-registry/commit/f091ff99dd5b9cf51c52964174dcfbe65f93c43a))
+
+
+### Performance Improvements
+
+* **storage:** do not descend into hashstates directors during upload purge ([b46d563](https://gitlab.com/gitlab-org/container-registry/commit/b46d56383df4a4814c9f2ef9a5612db27fd66ae9))
+
 ## [3.6.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.6.1-gitlab...v3.6.2-gitlab) (2021-07-29)
 
 ### Bug Fixes
