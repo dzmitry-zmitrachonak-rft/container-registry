@@ -32,8 +32,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -480,29 +478,20 @@ func New(params *DriverParameters) (*Driver, error) {
 	}
 
 	awsConfig := aws.NewConfig().WithLogLevel(params.LogLevel)
-	sess, err := session.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("creating a new session: %w", err)
+	if params.AccessKey != "" && params.SecretKey != "" {
+		creds := credentials.NewStaticCredentials(
+			params.AccessKey,
+			params.SecretKey,
+			params.SessionToken,
+		)
+		awsConfig.WithCredentials(creds)
 	}
-	creds := credentials.NewChainCredentials([]credentials.Provider{
-		&credentials.StaticProvider{
-			Value: credentials.Value{
-				AccessKeyID:     params.AccessKey,
-				SecretAccessKey: params.SecretKey,
-				SessionToken:    params.SessionToken,
-			},
-		},
-		&credentials.EnvProvider{},
-		&credentials.SharedCredentialsProvider{},
-		&ec2rolecreds.EC2RoleProvider{Client: ec2metadata.New(sess)},
-	})
 
 	if params.RegionEndpoint != "" {
 		awsConfig.WithEndpoint(params.RegionEndpoint)
 	}
 
 	awsConfig.WithS3ForcePathStyle(params.PathStyle)
-	awsConfig.WithCredentials(creds)
 	awsConfig.WithRegion(params.Region)
 	awsConfig.WithDisableSSL(!params.Secure)
 
@@ -514,7 +503,7 @@ func New(params *DriverParameters) (*Driver, error) {
 		})
 	}
 
-	sess, err = session.NewSession(awsConfig)
+	sess, err := session.NewSession(awsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("creating a new session with aws config: %w", err)
 	}
