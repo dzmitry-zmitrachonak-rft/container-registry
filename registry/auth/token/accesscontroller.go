@@ -289,9 +289,12 @@ func (ac *accessController) Authorized(ctx context.Context, accessItems ...auth.
 	return auth.WithUser(ctx, auth.UserInfo{Name: token.Claims.Subject}), nil
 }
 
-// Note: Usually, there is only one repository involved in each request, but for cross-repository
-// blob mounts, there will be two. For example, when mounting a blob from A to B, the JWT token
-// will look like this:
+// In this function we determine the target repository and then parse its eligibility flag from
+// the JWT token (if any) at `access[name=<target repo>].migration_eligible`.
+//
+// Usually, there is only one repository involved in each request, but for cross-repository blob
+// mounts, there will be two. For example, when mounting a blob from A to B, the JWT token will
+// look like this:
 // {
 //  "access": [
 //    {
@@ -317,28 +320,23 @@ func (ac *accessController) Authorized(ctx context.Context, accessItems ...auth.
 // In the example above, we don't really care about access for A. We only care about B, as that is
 // the target (and potentially new) repository.
 //
-// In this function we determine the target repository by identifying the one whose _required_
-// actions includes push. We don't do this by looking at the token (which is generated outside the
+// We determine the target repository not by looking at the token (which is generated outside the
 // registry) but rather at `requiredPerms`, which are assembled by us and define the _required_
 // permissions to perform a given request (regardless of the claims present in the token, which
-// ideally will match). Because of this, we know there can only be zero or one access object whose
-// action is `push`, and that's our target repository.
+// ideally will match).
 //
-// If the request does not require `push` permissions then we don't need to worry about it and can
-// return early. However, if it does, we need to parse the eligibility flag from the JWT token
-// at `access[name=<target repo>].migration_eligible`.
+// In summary, if this is a simple POST/PUT, there will be a single access object with the `push`
+// action, and that's our target repository. If this is a cross repository blob mount, there will
+// be one access object with `pull` and another with `push`. The target repository is the one with
+// `push`. If this is a HEAD/GET/DELETE, there is a single access object and that points to our
+// target repository.
 func injectMigrationEligibility(ctx context.Context, requiredPerms []auth.Access, claims *ClaimSet) context.Context {
-	// determine if request requires `push` action, and if so identify the target repository name
 	var targetRepo string
 	for _, a := range requiredPerms {
+		targetRepo = a.Name
 		if a.Action == "push" {
-			targetRepo = a.Name
 			break
 		}
-	}
-	// if not, skip, as new repositories can only be created with a request that requires `push` permissions
-	if targetRepo == "" {
-		return ctx
 	}
 
 	// locate migration flag sent from Rails, and wrap context

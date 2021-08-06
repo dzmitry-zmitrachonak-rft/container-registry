@@ -554,7 +554,12 @@ func TestAccessController_Migration_ReadRequest(t *testing.T) {
 			}}
 			authCtx := newTestMigrationAuthContext(t, ctx, req, actions, access)
 
-			require.False(t, migration.HasEligibilityFlag(authCtx))
+			if test.flag != nil {
+				require.True(t, migration.HasEligibilityFlag(authCtx))
+				require.Equal(t, *test.flag, migration.IsEligible(authCtx))
+			} else {
+				require.False(t, migration.HasEligibilityFlag(authCtx))
+			}
 
 			// ensure user info was not affected and is still accessible
 			userInfo, ok := authCtx.Value(auth.UserKey).(auth.UserInfo)
@@ -575,6 +580,53 @@ func TestAccessController_Migration_WriteRequest(t *testing.T) {
 			Name: "myrepo",
 		},
 		Action: "push",
+	}
+
+	trueVal := true
+	falseVal := false
+	tt := []migrationTest{
+		{name: "no flag", flag: nil},
+		{name: "false flag", flag: &falseVal},
+		{name: "true flag", flag: &trueVal},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			actions := []*ResourceActions{{
+				Type:              access.Type,
+				Name:              access.Name,
+				Actions:           []string{access.Action},
+				MigrationEligible: test.flag,
+			}}
+
+			authCtx := newTestMigrationAuthContext(t, ctx, req, actions, access)
+
+			if test.flag != nil {
+				require.True(t, migration.HasEligibilityFlag(authCtx))
+				require.Equal(t, *test.flag, migration.IsEligible(authCtx))
+			} else {
+				require.False(t, migration.HasEligibilityFlag(authCtx))
+			}
+
+			// ensure user info was not affected and is still accessible
+			userInfo, ok := authCtx.Value(auth.UserKey).(auth.UserInfo)
+			require.True(t, ok)
+			require.Equal(t, "foo", userInfo.Name)
+		})
+	}
+}
+
+func TestAccessController_Migration_DeleteRequest(t *testing.T) {
+	req, err := http.NewRequest("DELETE", "https://registry.gitlab.com/v2/myrepo/tags/reference/latest", nil)
+	require.NoError(t, err)
+	ctx := dcontext.WithRequest(dcontext.Background(), req)
+
+	access := auth.Access{
+		Resource: auth.Resource{
+			Type: "repository",
+			Name: "myrepo",
+		},
+		Action: "delete",
 	}
 
 	trueVal := true
