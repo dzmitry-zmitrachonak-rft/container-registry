@@ -1,13 +1,17 @@
 // Package compat provides compatibility support for manifest lists containing
 // blobs, such as buildx cache manifests using OCI Image Indexes. Since
 // manifest lists should not include blob references, this package serves to
-// seperate the code for backwards compatibility from the code which assumes
+// separate the code for backwards compatibility from the code which assumes
 // manifest lists that conform to spec.
 package compat
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -72,4 +76,42 @@ func LikelyBuildxCache(ml *manifestlist.DeserializedManifestList) bool {
 // ContainsBlobs returns true if the manifest list contains any blobs.
 func ContainsBlobs(ml *manifestlist.DeserializedManifestList) bool {
 	return len(References(ml).Blobs) > 0
+}
+
+// OCIManifestFromBuildkitIndex transforms a Buildkit cache index into an OCI manifest for compatibility purposes.
+func OCIManifestFromBuildkitIndex(ml *manifestlist.DeserializedManifestList) (*ocischema.DeserializedManifest, error) {
+	refs := References(ml)
+	if len(refs.Manifests) > 0 {
+		return nil, errors.New("buildkit index has unexpected manifest references")
+	}
+
+	// set "config" and "layer" references apart
+	var cfg *distribution.Descriptor
+	var layers []distribution.Descriptor
+	for _, ref := range refs.Blobs {
+		if ref.MediaType == MediaTypeBuildxCacheConfig {
+			cfg = &ref
+		} else {
+			layers = append(layers, ref)
+		}
+	}
+
+	// make sure they were found
+	if cfg == nil {
+		return nil, errors.New("buildkit index has no config reference")
+	}
+	if len(layers) == 0 {
+		return nil, errors.New("buildkit index has no layer references")
+	}
+
+	m, err := ocischema.FromStruct(ocischema.Manifest{
+		Versioned: ocischema.SchemaVersion,
+		Config:    *cfg,
+		Layers:    layers,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("building manifest from buildkit index: %w", err)
+	}
+
+	return m, nil
 }

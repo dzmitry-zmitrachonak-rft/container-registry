@@ -54,6 +54,7 @@ type Manifest struct {
 	Digest        digest.Digest
 	Payload       Payload
 	Configuration *Configuration
+	NonConformant bool
 	CreatedAt     time.Time
 }
 

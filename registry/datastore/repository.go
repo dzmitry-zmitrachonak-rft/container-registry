@@ -536,6 +536,7 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 			mtc.media_type as configuration_media_type,
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
+			m.non_conformant,
 			m.created_at
 		FROM
 			manifests AS m
@@ -568,6 +569,7 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 			mtc.media_type as configuration_media_type,
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
+			m.non_conformant,
 			m.created_at
 		FROM
 			manifests AS m
@@ -601,6 +603,7 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 			mtc.media_type as configuration_media_type,
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
+			m.non_conformant,
 			m.created_at
 		FROM
 			manifests AS m

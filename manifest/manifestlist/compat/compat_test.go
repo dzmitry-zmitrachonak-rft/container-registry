@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -306,5 +308,115 @@ func TestContainsBlobs(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, tt.expected, ContainsBlobs(ml))
+	}
+}
+
+func TestOCIManifestFromBuildkitIndex(t *testing.T) {
+	cfg := distribution.Descriptor{
+		MediaType: MediaTypeBuildxCacheConfig,
+		Size:      4233,
+		Digest:    digest.FromString("Cache Config"),
+	}
+	layer1 := distribution.Descriptor{
+		MediaType: v1.MediaTypeImageLayer,
+		Size:      792343,
+		Digest:    digest.FromString("OCI Layer 1"),
+	}
+	layer2 := distribution.Descriptor{
+		MediaType: v1.MediaTypeImageLayer,
+		Size:      35324234,
+		Digest:    digest.FromString("OCI Layer 2"),
+	}
+
+	tests := []struct {
+		name         string
+		arg          *manifestlist.DeserializedManifestList
+		wantManifest *ocischema.Manifest
+		wantErr      bool
+	}{
+		{
+			name: "success",
+			arg: &manifestlist.DeserializedManifestList{
+				ManifestList: manifestlist.ManifestList{
+					Versioned: manifest.Versioned{
+						SchemaVersion: 2,
+						MediaType:     v1.MediaTypeImageIndex,
+					},
+					Manifests: []manifestlist.ManifestDescriptor{
+						{Descriptor: layer1},
+						{Descriptor: layer2},
+						{Descriptor: cfg},
+					},
+				},
+			},
+			wantManifest: &ocischema.Manifest{
+				Versioned: ocischema.SchemaVersion,
+				Config:    cfg,
+				Layers:    []distribution.Descriptor{layer1, layer2},
+			},
+		},
+		{
+			name: "no references",
+			arg: &manifestlist.DeserializedManifestList{
+				ManifestList: manifestlist.ManifestList{
+					Versioned: manifest.Versioned{
+						SchemaVersion: 2,
+						MediaType:     v1.MediaTypeImageIndex,
+					},
+					Manifests: []manifestlist.ManifestDescriptor{},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "no config",
+			arg: &manifestlist.DeserializedManifestList{
+				ManifestList: manifestlist.ManifestList{
+					Versioned: manifest.Versioned{
+						SchemaVersion: 2,
+						MediaType:     v1.MediaTypeImageIndex,
+					},
+					Manifests: []manifestlist.ManifestDescriptor{
+						{Descriptor: layer1},
+						{Descriptor: layer2},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "no layers",
+			arg: &manifestlist.DeserializedManifestList{
+				ManifestList: manifestlist.ManifestList{
+					Versioned: manifest.Versioned{
+						SchemaVersion: 2,
+						MediaType:     v1.MediaTypeImageIndex,
+					},
+					Manifests: []manifestlist.ManifestDescriptor{
+						{Descriptor: cfg},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := OCIManifestFromBuildkitIndex(tt.arg)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			if tt.wantManifest != nil {
+				dm, err := ocischema.FromStruct(*tt.wantManifest)
+				require.NoError(t, err)
+				require.Equal(t, dm, got)
+			} else {
+				require.Nil(t, got)
+			}
+		})
 	}
 }

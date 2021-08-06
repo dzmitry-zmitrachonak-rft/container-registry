@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -339,7 +340,7 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 		return nil, dbManifest.Digest, errETagMatches
 	}
 
-	manifest, err := dbPayloadToManifest(dbManifest.Payload, dbManifest.MediaType, dbManifest.SchemaVersion)
+	manifest, err := dbManifestToManifest(dbManifest)
 	if err != nil {
 		return nil, "", err
 	}
@@ -380,7 +381,7 @@ func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 		}
 	}
 
-	return dbPayloadToManifest(dbManifest.Payload, dbManifest.MediaType, dbManifest.SchemaVersion)
+	return dbManifestToManifest(dbManifest)
 }
 
 type fsManifestGetter struct {
@@ -530,13 +531,23 @@ func (p *mirroringManifestWriter) Tag(imh *manifestHandler, mfst distribution.Ma
 	return p.db.Tag(imh, mfst, tag, desc)
 }
 
-func dbPayloadToManifest(payload []byte, mediaType string, schemaVersion int) (distribution.Manifest, error) {
-	if schemaVersion == 1 {
+func dbManifestToManifest(dbm *models.Manifest) (distribution.Manifest, error) {
+	if dbm.SchemaVersion == 1 {
 		return nil, distribution.ErrSchemaV1Unsupported
 	}
 
-	if schemaVersion != 2 {
-		return nil, fmt.Errorf("unrecognized manifest schema version %d", schemaVersion)
+	if dbm.SchemaVersion != 2 {
+		return nil, fmt.Errorf("unrecognized manifest schema version %d", dbm.SchemaVersion)
+	}
+
+	mediaType := dbm.MediaType
+	if dbm.NonConformant {
+		// parse payload and get real media type
+		var versioned manifest.Versioned
+		if err := json.Unmarshal(dbm.Payload, &versioned); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal manifest payload: %w", err)
+		}
+		mediaType = versioned.MediaType
 	}
 
 	// TODO: Each case here is taken directly from the respective
@@ -549,21 +560,21 @@ func dbPayloadToManifest(payload []byte, mediaType string, schemaVersion int) (d
 	switch mediaType {
 	case schema2.MediaTypeManifest:
 		m := &schema2.DeserializedManifest{}
-		if err := m.UnmarshalJSON(payload); err != nil {
+		if err := m.UnmarshalJSON(dbm.Payload); err != nil {
 			return nil, err
 		}
 
 		return m, nil
 	case v1.MediaTypeImageManifest:
 		m := &ocischema.DeserializedManifest{}
-		if err := m.UnmarshalJSON(payload); err != nil {
+		if err := m.UnmarshalJSON(dbm.Payload); err != nil {
 			return nil, err
 		}
 
 		return m, nil
 	case manifestlist.MediaTypeManifestList, v1.MediaTypeImageIndex:
 		m := &manifestlist.DeserializedManifestList{}
-		if err := m.UnmarshalJSON(payload); err != nil {
+		if err := m.UnmarshalJSON(dbm.Payload); err != nil {
 			return nil, err
 		}
 
@@ -573,7 +584,7 @@ func dbPayloadToManifest(payload []byte, mediaType string, schemaVersion int) (d
 
 		// First see if it looks like an image index
 		resIndex := &manifestlist.DeserializedManifestList{}
-		if err := resIndex.UnmarshalJSON(payload); err != nil {
+		if err := resIndex.UnmarshalJSON(dbm.Payload); err != nil {
 			return nil, err
 		}
 		if resIndex.Manifests != nil {
@@ -582,13 +593,13 @@ func dbPayloadToManifest(payload []byte, mediaType string, schemaVersion int) (d
 
 		// Otherwise, assume it must be an image manifest
 		m := &ocischema.DeserializedManifest{}
-		if err := m.UnmarshalJSON(payload); err != nil {
+		if err := m.UnmarshalJSON(dbm.Payload); err != nil {
 			return nil, err
 		}
 
 		return m, nil
 	default:
-		return nil, distribution.ErrManifestVerification{fmt.Errorf("unrecognized manifest content type %s", mediaType)}
+		return nil, distribution.ErrManifestVerification{fmt.Errorf("unrecognized manifest content type %s", dbm.MediaType)}
 	}
 }
 
@@ -833,7 +844,7 @@ func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedMani
 		return err
 	}
 
-	return dbPutManifestOCIOrSchema2(imh, manifest.Versioned, manifest.Layers, manifest.Config, payload)
+	return dbPutManifestOCIOrSchema2(imh, manifest.Versioned, manifest.Layers, manifest.Config, payload, false)
 }
 
 func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedManifest, payload []byte) error {
@@ -851,10 +862,10 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 		return err
 	}
 
-	return dbPutManifestOCIOrSchema2(imh, manifest.Versioned, manifest.Layers, manifest.Config, payload)
+	return dbPutManifestOCIOrSchema2(imh, manifest.Versioned, manifest.Layers, manifest.Config, payload, false)
 }
 
-func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versioned, layers []distribution.Descriptor, cfgDesc distribution.Descriptor, payload []byte) error {
+func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versioned, layers []distribution.Descriptor, cfgDesc distribution.Descriptor, payload []byte, nonConformant bool) error {
 	repoPath := imh.Repository.Named().Name()
 
 	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": versioned.SchemaVersion})
@@ -908,6 +919,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 				Digest:    dbCfgBlob.Digest,
 				Payload:   cfgPayload,
 			},
+			NonConformant: nonConformant,
 		}
 
 		mStore := datastore.NewManifestStore(imh.App.db)
@@ -985,6 +997,10 @@ const (
 )
 
 func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.DeserializedManifestList, payload []byte) error {
+	if mlcompat.LikelyBuildxCache(manifestList) {
+		return dbPutBuildkitIndex(imh, manifestList, payload)
+	}
+
 	repoPath := imh.Repository.Named().Name()
 	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{
 		"repository":      repoPath,
@@ -1159,6 +1175,37 @@ func (imh *manifestHandler) applyResourcePolicy(manifest distribution.Manifest) 
 	}
 
 	return nil
+}
+
+// Workaround for https://gitlab.com/gitlab-org/container-registry/-/issues/407. This attempts to convert a Buildkit
+// index to a valid OCI image manifest and validates it accordingly. The original index digest and payload are
+// preserved when stored on the database.
+func dbPutBuildkitIndex(imh *manifestHandler, ml *manifestlist.DeserializedManifestList, payload []byte) error {
+	repoReader := datastore.NewRepositoryStore(imh.db)
+	repoPath := imh.Repository.Named().Name()
+
+	// convert to OCI manifest and process as if it was one
+	m, err := mlcompat.OCIManifestFromBuildkitIndex(ml)
+	if err != nil {
+		return fmt.Errorf("converting buildkit index to manifest: %w", err)
+	}
+
+	v := validation.NewOCIValidator(
+		&datastore.RepositoryManifestService{RepositoryReader: repoReader, RepositoryPath: repoPath},
+		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
+		imh.App.isCache,
+		imh.App.manifestURLs,
+	)
+
+	if err := v.Validate(imh, m); err != nil {
+		return err
+	}
+
+	// Note that `payload` is not the deserialized manifest (`m`) payload but rather the index payload, untouched.
+	// Within dbPutManifestOCIOrSchema2 we use this value for the `manifests.payload` column and source the value for
+	// the `manifests.digest` column from `imh.Digest`, and not from `m`. Therefore, we keep behavioral consistency for
+	// the outside world by preserving the index payload and digest while storing things internally as an OCI manifest.
+	return dbPutManifestOCIOrSchema2(imh, m.Versioned, m.Layers, m.Config, payload, true)
 }
 
 const (
