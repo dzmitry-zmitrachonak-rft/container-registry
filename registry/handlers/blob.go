@@ -57,7 +57,7 @@ type blobHandler struct {
 	Digest digest.Digest
 }
 
-func dbGetBlob(ctx context.Context, db datastore.Queryer, repoPath string, dgst digest.Digest) error {
+func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string, dgst digest.Digest) error {
 	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "digest": dgst})
 	log.Debug("finding blob in database")
 
@@ -71,18 +71,11 @@ func dbGetBlob(ctx context.Context, db datastore.Queryer, repoPath string, dgst 
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
 	}
 
-	bb, err := rStore.Blobs(ctx, r)
+	found, err := rStore.ExistsBlob(ctx, r, dgst)
 	if err != nil {
 		return err
 	}
 
-	var found bool
-	for _, b := range bb {
-		if b.Digest == dgst {
-			found = true
-			break
-		}
-	}
 	if !found {
 		log.Warn("blob link not found in database")
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
@@ -100,7 +93,7 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 	blobs := bh.Repository.Blobs(bh)
 
 	if bh.useDatabase {
-		if err := dbGetBlob(bh.Context, bh.db, bh.Repository.Named().Name(), bh.Digest); err != nil {
+		if err := dbBlobLinkExists(bh.Context, bh.db, bh.Repository.Named().Name(), bh.Digest); err != nil {
 			bh.Errors = append(bh.Errors, errcode.FromUnknownError(err))
 			return
 		}
