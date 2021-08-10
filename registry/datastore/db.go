@@ -135,6 +135,7 @@ type PoolConfig struct {
 	MaxIdle     int
 	MaxOpen     int
 	MaxLifetime time.Duration
+	MaxIdleTime time.Duration
 }
 
 // OpenOption is used to pass options to Open.
@@ -276,6 +277,7 @@ func Open(dsn *DSN, opts ...OpenOption) (*DB, error) {
 	db.SetMaxOpenConns(config.pool.MaxOpen)
 	db.SetMaxIdleConns(config.pool.MaxIdle)
 	db.SetConnMaxLifetime(config.pool.MaxLifetime)
+	db.SetConnMaxIdleTime(config.pool.MaxIdleTime)
 
 	if err := db.Ping(); err != nil {
 		return nil, err

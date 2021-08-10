@@ -30,6 +30,7 @@ func TestOpen(t *testing.T) {
 					MaxIdle:     1,
 					MaxOpen:     1,
 					MaxLifetime: 1 * time.Minute,
+					MaxIdleTime: 10 * time.Minute,
 				}),
 			},
 			wantErr: false,

@@ -628,6 +628,7 @@ pool:
   maxidle: 25
   maxopen: 25
   maxlifetime: 5m
+  maxidletime: 10m
 ```
 
 Use these settings to configure the behavior of the database connection pool.
@@ -637,6 +638,7 @@ Use these settings to configure the behavior of the database connection pool.
 | `maxidle` | no       | The maximum number of connections in the idle connection pool. If `maxopen` is less than `maxidle`, then `maxidle` is reduced to match the `maxopen` limit. Defaults to 0 (no idle connections).   |
 | `maxopen`| no      | The maximum number of open connections to the database. If `maxopen` is less than `maxidle`, then `maxidle` is reduced to match the `maxopen` limit. Defaults to 0 (unlimited). |
 | `maxlifetime`| no    | The maximum amount of time a connection may be reused. Expired connections may be closed lazily before reuse. Defaults to 0 (unlimited). |
+| `maxidletime` | no | The maximum amount of time a connection may be idle. Expired connections may be closed lazily before reuse. Defaults to 0 (unlimited). |
 
 ## `migration`
 
