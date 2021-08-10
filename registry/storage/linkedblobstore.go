@@ -133,6 +133,24 @@ func WithMountFrom(ref reference.Canonical) distribution.BlobCreateOption {
 	})
 }
 
+// WithMountFromStat returns a BlobCreateOption which designates that the blob
+// should be mounted from the given canonical reference and that the repository
+// access check has already been performed.
+func WithMountFromStat(ref reference.Canonical, stat *distribution.Descriptor) distribution.BlobCreateOption {
+	return optionFunc(func(v interface{}) error {
+		opts, ok := v.(*distribution.CreateOptions)
+		if !ok {
+			return fmt.Errorf("unexpected options type: %T", v)
+		}
+
+		opts.Mount.ShouldMount = true
+		opts.Mount.From = ref
+		opts.Mount.Stat = stat
+
+		return nil
+	})
+}
+
 // Writer begins a blob write session, returning a handle.
 func (lbs *linkedBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
 	dcontext.GetLogger(ctx).Debug("(*linkedBlobStore).Writer")

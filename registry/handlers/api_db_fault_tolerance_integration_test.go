@@ -248,9 +248,10 @@ func TestDBFaultTolerance_ConnectionRefused_BlobPostMount(t *testing.T) {
 	args, _ := createRepoWithBlob(t, env)
 	destRepo := "foo"
 
-	// query API with proxy disabled, should fail
+	// query API with proxy disabled, should fall back to starting a regular
+	// upload, rather than a blob mount.
 	dbProxy.Disable()
-	assertBlobPostMountResponse(t, env, args.imageName.String(), destRepo, args.layerDigest, http.StatusServiceUnavailable)
+	assertBlobPostMountResponse(t, env, args.imageName.String(), destRepo, args.layerDigest, http.StatusAccepted)
 
 	// query API with proxy re-enabled, should succeed
 	dbProxy.Enable()
@@ -542,9 +543,10 @@ func TestDBFaultTolerance_ConnectionTimeout_BlobPostMount(t *testing.T) {
 	args, _ := createRepoWithBlob(t, env)
 	destRepo := "foo"
 
-	// query API with timeout, should fail
+	// query API with timeout, should fall back to starting a regular
+	// upload, rather than a blob mount.
 	toxic := dbProxy.AddToxic("timeout", toxiproxy.Attributes{"timeout": 2000})
-	assertBlobPostMountResponse(t, env, args.imageName.String(), destRepo, args.layerDigest, http.StatusServiceUnavailable)
+	assertBlobPostMountResponse(t, env, args.imageName.String(), destRepo, args.layerDigest, http.StatusAccepted)
 
 	// query API with no timeout, should succeed
 	dbProxy.RemoveToxic(toxic)
