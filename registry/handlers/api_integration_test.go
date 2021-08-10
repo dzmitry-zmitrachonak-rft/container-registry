@@ -1325,7 +1325,41 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
 
 	args, _ := createNamedRepoWithBlob(t, env2, "new/repo")
 
-	// Create another repository on the new code path. The filesystem should find
+	// Create another repository on the new code path. The database should find
+	// the source repo and mount the blob.
+	assertBlobPostMountResponse(t, env2, args.imageName.String(), "bar/repo", args.layerDigest, http.StatusCreated)
+}
+
+func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisabled(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	// Create a repository on the old code path and seed it with a layer to ensure
+	// that its presence does not effect the behavior of the new repositories.
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	env1.config.Database.Enabled = false
+
+	createNamedRepoWithBlob(t, env1, "old/repo")
+
+	// Create a repository on the new code path and seed it with a layer, without
+	// filesystem metadata.
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir), disableMirrorFS)
+	defer env2.Shutdown()
+
+	args, _ := createNamedRepoWithBlob(t, env2, "new/repo")
+
+	// Create another repository on the new code path. The database should find
 	// the source repo and mount the blob.
 	assertBlobPostMountResponse(t, env2, args.imageName.String(), "bar/repo", args.layerDigest, http.StatusCreated)
 }

@@ -447,7 +447,18 @@ func (buh *blobUploadHandler) createBlobMountOption(fromRepo, mountDigest string
 		return nil, err
 	}
 
-	return storage.WithMountFrom(canonical), nil
+	if !buh.useDatabase {
+		return storage.WithMountFrom(canonical), nil
+	}
+
+	// Check for blob access on the database and pass that information via the
+	// BlobCreateOption.
+	b, err := dbFindRepositoryBlob(buh, buh.db, distribution.Descriptor{Digest: dgst}, ref.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	return storage.WithMountFromStat(canonical, &distribution.Descriptor{Digest: b.Digest, Size: b.Size, MediaType: b.MediaType}), nil
 }
 
 // writeBlobCreatedHeaders writes the standard headers describing a newly
