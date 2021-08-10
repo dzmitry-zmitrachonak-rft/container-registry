@@ -18,6 +18,7 @@ func TestApplyOptions(t *testing.T) {
 		MaxIdle:     1,
 		MaxOpen:     2,
 		MaxLifetime: 1 * time.Minute,
+		MaxIdleTime: 10 * time.Minute,
 	}
 
 	tests := []struct {

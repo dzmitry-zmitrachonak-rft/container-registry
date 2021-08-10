@@ -360,6 +360,9 @@ type Database struct {
 		// MaxLifetime sets the maximum amount of time a connection may be reused. Expired connections may be closed
 		// lazily before reuse. Defaults to 0 (unlimited).
 		MaxLifetime time.Duration `yaml:"maxlifetime,omitempty"`
+		// MaxIdleTime is the maximum amount of time a connection may be idle. Expired connections may be closed lazily
+		// before reuse. Defaults to 0 (unlimited).
+		MaxIdleTime time.Duration `yaml:"maxidletime,omitempty"`
 	} `yaml:"pool,omitempty"`
 	// Maximum time to wait for a connection. Zero or not specified means waiting indefinitely.
 	ConnectTimeout time.Duration `yaml:"connecttimeout,omitempty"`

@@ -303,6 +303,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				MaxIdle:     config.Database.Pool.MaxIdle,
 				MaxOpen:     config.Database.Pool.MaxOpen,
 				MaxLifetime: config.Database.Pool.MaxLifetime,
+				MaxIdleTime: config.Database.Pool.MaxIdleTime,
 			}),
 		)
 		if err != nil {

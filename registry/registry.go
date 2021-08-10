@@ -546,6 +546,7 @@ func dbFromConfig(config *configuration.Configuration) (*datastore.DB, error) {
 			MaxIdle:     config.Database.Pool.MaxIdle,
 			MaxOpen:     config.Database.Pool.MaxOpen,
 			MaxLifetime: config.Database.Pool.MaxLifetime,
+			MaxIdleTime: config.Database.Pool.MaxIdleTime,
 		}),
 	)
 }
