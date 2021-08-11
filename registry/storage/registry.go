@@ -26,7 +26,7 @@ type registry struct {
 	schema1Enabled               bool
 	schema1PullsDisabled         bool
 	resumableDigestEnabled       bool
-	mirrorFS                     bool
+	disableMirrorFS              bool
 	schema1SigningKey            libtrust.PrivateKey
 	blobDescriptorServiceFactory distribution.BlobDescriptorServiceFactory
 	manifestURLs                 validation.ManifestURLs
@@ -156,7 +156,7 @@ func Database(db *datastore.DB) RegistryOption {
 // DisableWriteMetadataToFS is a functional option for NewRegistry. It instructs
 // the blob metadata not to be linked to the filesystem metadata.
 func DisableMirrorFS(registry *registry) error {
-	registry.mirrorFS = false
+	registry.disableMirrorFS = true
 	return nil
 }
 
@@ -184,7 +184,6 @@ func NewRegistry(ctx context.Context, driver storagedriver.StorageDriver, option
 		},
 		statter:                statter,
 		resumableDigestEnabled: true,
-		mirrorFS:               true,
 		driver:                 driver,
 	}
 
@@ -389,7 +388,7 @@ func (repo *repository) Blobs(ctx context.Context) distribution.BlobStore {
 		linkPathFns:            []linkPathFunc{blobLinkPath},
 		deleteEnabled:          repo.registry.deleteEnabled,
 		resumableDigestEnabled: repo.resumableDigestEnabled,
-		mirrorFS:               repo.mirrorFS,
+		disableMirrorFS:        repo.disableMirrorFS,
 	}
 }
 

@@ -32,7 +32,9 @@ type linkedBlobStore struct {
 	ctx                    context.Context // only to be used where context can't come through method args
 	deleteEnabled          bool
 	resumableDigestEnabled bool
-	mirrorFS               bool
+
+	// do not write blob link paths to filesystem, but still allow blob puts to common blob store
+	disableMirrorFS bool
 
 	// linkPathFns specifies one or more path functions allowing one to
 	// control the repository blob link set to which the blob store
@@ -73,7 +75,7 @@ func (lbs *linkedBlobStore) Open(ctx context.Context, dgst digest.Digest) (distr
 func (lbs *linkedBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
 	var d digest.Digest
 
-	if lbs.mirrorFS {
+	if !lbs.disableMirrorFS {
 		canonical, err := lbs.Stat(ctx, dgst) // access check
 		if err != nil {
 			return err
@@ -359,7 +361,6 @@ func (lbs *linkedBlobStore) newBlobUpload(ctx context.Context, uuid, path string
 		db:                     lbs.registry.db,
 		path:                   path,
 		resumableDigestEnabled: lbs.resumableDigestEnabled,
-		mirrorFS:               lbs.mirrorFS,
 	}
 
 	return bw, nil
@@ -368,6 +369,10 @@ func (lbs *linkedBlobStore) newBlobUpload(ctx context.Context, uuid, path string
 // linkBlob links a valid, written blob into the registry under the named
 // repository for the upload controller.
 func (lbs *linkedBlobStore) linkBlob(ctx context.Context, canonical distribution.Descriptor, aliases ...digest.Digest) error {
+	if lbs.disableMirrorFS {
+		return nil
+	}
+
 	dgsts := append([]digest.Digest{canonical.Digest}, aliases...)
 
 	// TODO(stevvooe): Need to write out mediatype for only canonical hash

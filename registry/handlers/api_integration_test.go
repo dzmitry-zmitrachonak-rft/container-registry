@@ -1328,6 +1328,24 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
 	// Create another repository on the new code path. The database should find
 	// the source repo and mount the blob.
 	assertBlobPostMountResponse(t, env2, args.imageName.String(), "bar/repo", args.layerDigest, http.StatusCreated)
+
+	// Try to delete the mounted blob on the target's filesystem. Should succeed
+	// since we mirrored it to the filesystem.
+	env3 := newTestEnv(t, withFSDriver(migrationDir), withDelete)
+	defer env3.Shutdown()
+
+	env3.config.Database.Enabled = false
+
+	ref, err := reference.WithDigest(args.imageName, args.layerDigest)
+	require.NoError(t, err)
+
+	layerURL, err := env3.builder.BuildBlobURL(ref)
+	require.NoError(t, err)
+
+	resp, err := httpDelete(layerURL)
+	require.NoError(t, err)
+
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 }
 
 func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisabled(t *testing.T) {
@@ -1362,6 +1380,24 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisable
 	// Create another repository on the new code path. The database should find
 	// the source repo and mount the blob.
 	assertBlobPostMountResponse(t, env2, args.imageName.String(), "bar/repo", args.layerDigest, http.StatusCreated)
+
+	// Try to delete the mounted blob on the target's filesystem. Should fail
+	// since we are not mirroring it.
+	env3 := newTestEnv(t, withFSDriver(migrationDir), withDelete)
+	defer env3.Shutdown()
+
+	env3.config.Database.Enabled = false
+
+	ref, err := reference.WithDigest(args.imageName, args.layerDigest)
+	require.NoError(t, err)
+
+	layerURL, err := env3.builder.BuildBlobURL(ref)
+	require.NoError(t, err)
+
+	resp, err := httpDelete(layerURL)
+	require.NoError(t, err)
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestDeleteReadOnly(t *testing.T) {
