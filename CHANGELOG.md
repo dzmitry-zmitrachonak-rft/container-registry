@@ -1,3 +1,24 @@
+# [3.8.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.7.0-gitlab...v3.8.0-gitlab) (2021-08-17)
+
+
+### Bug Fixes
+
+* **handlers:** deny pushes for manifest lists with blob references except manifest cache images ([79e854a](https://gitlab.com/gitlab-org/container-registry/commit/79e854aabd25278760eb17e9e5507b180cf89cf0))
+* **handlers:** enable cross repository blob mounts without FS mirroring ([98fe521](https://gitlab.com/gitlab-org/container-registry/commit/98fe521be56204aaaf330294a4e9bb7ccb2fb875))
+* **handlers:** handle blob not found errors when serving head requests ([2492b4e](https://gitlab.com/gitlab-org/container-registry/commit/2492b4e4f060adec5215f17c8bf65a196edbd73b))
+* **storage:** never write blob links when FS mirroring is disabled ([0786b77](https://gitlab.com/gitlab-org/container-registry/commit/0786b77573ea94d9b206012d2395d395470dabae))
+
+
+### Features
+
+* **datastore:** allow removing a connection from the pool after being idle for a period of time ([0352cc3](https://gitlab.com/gitlab-org/container-registry/commit/0352cc3fba180f277a9203a33cd936dc13ffd976))
+* **storage/driver/s3-aws:** add IRSA auth support ([de69331](https://gitlab.com/gitlab-org/container-registry/commit/de693316925e3327a3b2ddf990233e8db640d6f7))
+
+
+### Performance Improvements
+
+* **handlers:** lookup single blob link instead of looping over all ([46f1642](https://gitlab.com/gitlab-org/container-registry/commit/46f16420d2fdffd96c230db6e36ef17f9750e9d5))
+
 # [3.7.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.6.2-gitlab...v3.7.0-gitlab) (2021-08-06)
 
 
