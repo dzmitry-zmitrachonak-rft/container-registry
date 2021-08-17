@@ -155,13 +155,13 @@ func (ts *tagStore) linkedBlobStore(ctx context.Context, tag string) *linkedBlob
 		blobStore:  ts.blobStore,
 		repository: ts.repository,
 		ctx:        ctx,
-		linkPathFns: []linkPathFunc{func(name string, dgst digest.Digest) (string, error) {
+		linkPath: func(name string, dgst digest.Digest) (string, error) {
 			return pathFor(manifestTagIndexEntryLinkPathSpec{
 				name:     name,
 				tag:      tag,
 				revision: dgst,
 			})
-		}},
+		},
 	}
 }
 

@@ -8,11 +8,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/schema2"
-	"github.com/docker/distribution/reference"
-	"github.com/docker/distribution/registry/storage"
-	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/docker/distribution/testutil"
 	digest "github.com/opencontainers/go-digest"
@@ -24,48 +20,6 @@ var (
 	errMissingURL    = errors.New("missing URL on layer")
 	errInvalidURL    = errors.New("invalid URL on layer")
 )
-
-func createRegistry(t *testing.T) distribution.Namespace {
-	ctx := context.Background()
-
-	registry, err := storage.NewRegistry(ctx, inmemory.New())
-	if err != nil {
-		t.Fatalf("Failed to construct namespace")
-	}
-	return registry
-}
-
-func makeRepository(t *testing.T, registry distribution.Namespace, name string) distribution.Repository {
-	ctx := context.Background()
-
-	// Initialize a dummy repository
-	named, err := reference.WithName(name)
-	if err != nil {
-		t.Fatalf("Failed to parse name %s:  %v", name, err)
-	}
-
-	repo, err := registry.Repository(ctx, named)
-	if err != nil {
-		t.Fatalf("Failed to construct repository: %v", err)
-	}
-	return repo
-}
-
-// return a schema2 manifest with a pre-pushed config placeholder.
-func makeSchema2ManifestTemplate(t *testing.T, repo distribution.Repository) schema2.Manifest {
-	ctx := context.Background()
-
-	config, err := repo.Blobs(ctx).Put(ctx, schema2.MediaTypeImageConfig, nil)
-	require.NoError(t, err)
-
-	return schema2.Manifest{
-		Versioned: manifest.Versioned{
-			SchemaVersion: 2,
-			MediaType:     schema2.MediaTypeManifest,
-		},
-		Config: config,
-	}
-}
 
 func TestVerifyManifest_Schema2_ForeignLayer(t *testing.T) {
 	ctx := context.Background()

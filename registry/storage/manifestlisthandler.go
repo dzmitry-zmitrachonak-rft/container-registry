@@ -67,7 +67,9 @@ func (ms *manifestListHandler) verifyManifest(ctx context.Context, mnfst *manife
 		return err
 	}
 
-	v := validation.NewManifestListValidator(manifestService, skipDependencyVerification)
+	blobService := ms.repository.Blobs(ctx)
+
+	v := validation.NewManifestListValidator(manifestService, blobService, skipDependencyVerification)
 
 	return v.Validate(ctx, mnfst)
 }

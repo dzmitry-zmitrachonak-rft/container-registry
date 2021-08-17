@@ -257,19 +257,12 @@ func (repo *repository) Tags(ctx context.Context) distribution.TagService {
 // may be context sensitive in the future. The instance should be used similar
 // to a request local.
 func (repo *repository) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
-	manifestLinkPathFns := []linkPathFunc{
-		// NOTE(stevvooe): Need to search through multiple locations since
-		// 2.1.0 unintentionally linked into  _layers.
-		manifestRevisionLinkPath,
-		blobLinkPath,
-	}
-
 	manifestDirectoryPathSpec := manifestRevisionsPathSpec{name: repo.name.Name()}
 
 	var statter distribution.BlobDescriptorService = &linkedBlobStatter{
-		blobStore:   repo.blobStore,
-		repository:  repo,
-		linkPathFns: manifestLinkPathFns,
+		blobStore:  repo.blobStore,
+		repository: repo,
+		linkPath:   manifestRevisionLinkPath,
 	}
 
 	if repo.registry.blobDescriptorServiceFactory != nil {
@@ -283,9 +276,9 @@ func (repo *repository) Manifests(ctx context.Context, options ...distribution.M
 		deleteEnabled:        repo.registry.deleteEnabled,
 		blobAccessController: statter,
 
-		// TODO(stevvooe): linkPath limits this blob store to only
-		// manifests. This instance cannot be used for blob checks.
-		linkPathFns:           manifestLinkPathFns,
+		// LinkPath limits this blob store to only manifests. This instance cannot
+		// be used for blob checks.
+		linkPath:              manifestRevisionLinkPath,
 		linkDirectoryPathSpec: manifestDirectoryPathSpec,
 	}
 
@@ -349,9 +342,9 @@ func (repo *repository) Manifests(ctx context.Context, options ...distribution.M
 // to a request local.
 func (repo *repository) Blobs(ctx context.Context) distribution.BlobStore {
 	var statter distribution.BlobDescriptorService = &linkedBlobStatter{
-		blobStore:   repo.blobStore,
-		repository:  repo,
-		linkPathFns: []linkPathFunc{blobLinkPath},
+		blobStore:  repo.blobStore,
+		repository: repo,
+		linkPath:   blobLinkPath,
 	}
 
 	if repo.descriptorCache != nil {
@@ -383,9 +376,9 @@ func (repo *repository) Blobs(ctx context.Context) distribution.BlobStore {
 		repository:           repo,
 		ctx:                  ctx,
 
-		// TODO(stevvooe): linkPath limits this blob store to only layers.
-		// This instance cannot be used for manifest checks.
-		linkPathFns:            []linkPathFunc{blobLinkPath},
+		// LinkPath limits this blob store to only layers. This instance cannot be
+		// used for manifest checks.
+		linkPath:               blobLinkPath,
 		deleteEnabled:          repo.registry.deleteEnabled,
 		resumableDigestEnabled: repo.resumableDigestEnabled,
 		disableMirrorFS:        repo.disableMirrorFS,
