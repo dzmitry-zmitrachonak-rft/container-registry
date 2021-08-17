@@ -2665,7 +2665,7 @@ func manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository(t *testing.
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-// TestManifestAPI_Put_BuildkitIndex tests that the API will accept pushes and pulls of Buildkit cache image index.
+// TestManifestAPI_BuildkitIndex tests that the API will accept pushes and pulls of Buildkit cache image index.
 // Related to https://gitlab.com/gitlab-org/container-registry/-/issues/407.
 func TestManifestAPI_BuildkitIndex(t *testing.T) {
 	env := newTestEnv(t)
@@ -2745,6 +2745,57 @@ func TestManifestAPI_BuildkitIndex(t *testing.T) {
 	for _, d := range didx.References() {
 		assertBlobHeadResponse(t, env, repoPath, d.Digest, 200)
 	}
+}
+
+// TestManifestAPI_ManifestListWithLayerReferences tests that the API will not
+// accept pushes and pulls of non Buildkit cache image manifest lists which
+// reference blobs.
+// Related to https://gitlab.com/gitlab-org/container-registry/-/issues/407.
+func TestManifestAPI_ManifestListWithLayerReferences(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	tagName := "latest"
+	repoPath := "malformed-manifestlist"
+
+	// Create and push 2 random layers
+	layers := make([]distribution.Descriptor, 2)
+	for i := range layers {
+		rs, dgst := createRandomSmallLayer()
+		assertBlobPutResponse(t, env, repoPath, dgst, rs, 201)
+
+		layers[i] = distribution.Descriptor{
+			MediaType: v1.MediaTypeImageLayerGzip,
+			Digest:    dgst,
+			Size:      rand.Int63(),
+		}
+	}
+
+	idx := &manifestlist.ManifestList{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     manifestlist.MediaTypeManifestList,
+		},
+		Manifests: []manifestlist.ManifestDescriptor{
+			{Descriptor: layers[0]},
+			{Descriptor: layers[1]},
+		},
+	}
+
+	didx, err := manifestlist.FromDescriptorsWithMediaType(idx.Manifests, manifestlist.MediaTypeManifestList)
+	require.NoError(t, err)
+
+	// Push index, since there is no buildx config layer, we should reject the push as invalid.
+	assertManifestPutByTagResponse(t, env, repoPath, didx, manifestlist.MediaTypeManifestList, tagName, 400)
+	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, didx)
+
+	resp := putManifest(t, "putting manifest list bad request", manifestDigestURL, manifestlist.MediaTypeManifestList, didx)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	_, p, counts := checkBodyHasErrorCodes(t, "manifest list with layer blobs", resp, v2.ErrorCodeManifestBlobUnknown)
+	expectedCounts := map[errcode.ErrorCode]int{v2.ErrorCodeManifestBlobUnknown: 2}
+	require.EqualValuesf(t, expectedCounts, counts, "response body: %s", p)
 }
 
 func TestManifestAPI_Migration_Schema2(t *testing.T) {

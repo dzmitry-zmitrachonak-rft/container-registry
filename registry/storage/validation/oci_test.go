@@ -7,30 +7,13 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/docker/distribution/testutil"
 	digest "github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go/v1"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 )
-
-// return a oci manifest with a pre-pushed config placeholder.
-func makeOCIManifestTemplate(t *testing.T, repo distribution.Repository) ocischema.Manifest {
-	ctx := context.Background()
-
-	config, err := repo.Blobs(ctx).Put(ctx, v1.MediaTypeImageConfig, nil)
-	require.NoError(t, err)
-
-	return ocischema.Manifest{
-		Versioned: manifest.Versioned{
-			SchemaVersion: 2,
-			MediaType:     v1.MediaTypeImageConfig,
-		},
-		Config: config,
-	}
-}
 
 func TestVerifyManifest_OCI_NonDistributableLayer(t *testing.T) {
 	ctx := context.Background()

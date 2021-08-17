@@ -9,6 +9,7 @@ import (
 	"github.com/docker/distribution/context"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
+	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/libtrust"
@@ -236,6 +237,9 @@ func UploadRandomNonConformantBuildxCache(tb testing.TB, registry distribution.N
 		}
 		manifestDescriptors = append(manifestDescriptors, manifestDescriptor)
 	}
+
+	// Ensure one reference looks like a buildx cache config for validation.
+	manifestDescriptors[0].Descriptor.MediaType = mlcompat.MediaTypeBuildxCacheConfig
 
 	ml, err := manifestlist.FromDescriptors(manifestDescriptors)
 	require.NoError(tb, err)

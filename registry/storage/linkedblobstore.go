@@ -36,13 +36,10 @@ type linkedBlobStore struct {
 	// do not write blob link paths to filesystem, but still allow blob puts to common blob store
 	disableMirrorFS bool
 
-	// linkPathFns specifies one or more path functions allowing one to
-	// control the repository blob link set to which the blob store
-	// dispatches. This is required because manifest and layer blobs have not
-	// yet been fully merged. At some point, this functionality should be
-	// removed the blob links folder should be merged. The first entry is
-	// treated as the "canonical" link location and will be used for writes.
-	linkPathFns []linkPathFunc
+	// linkPath allows one to control the repository blob link set to which
+	// the blob store dispatches. This allows linked blobs stored at different
+	// paths to be operated on with the same logic.
+	linkPath linkPathFunc
 
 	// linkDirectoryPathSpec locates the root directories in which one might find links
 	linkDirectoryPathSpec pathSpec
@@ -382,16 +379,13 @@ func (lbs *linkedBlobStore) linkBlob(ctx context.Context, canonical distribution
 	// Don't make duplicate links.
 	seenDigests := make(map[digest.Digest]struct{}, len(dgsts))
 
-	// only use the first link
-	linkPathFn := lbs.linkPathFns[0]
-
 	for _, dgst := range dgsts {
 		if _, seen := seenDigests[dgst]; seen {
 			continue
 		}
 		seenDigests[dgst] = struct{}{}
 
-		blobLinkPath, err := linkPathFn(lbs.repository.Named().Name(), dgst)
+		blobLinkPath, err := lbs.linkPath(lbs.repository.Named().Name(), dgst)
 		if err != nil {
 			return err
 		}
@@ -408,44 +402,28 @@ type linkedBlobStatter struct {
 	*blobStore
 	repository distribution.Repository
 
-	// linkPathFns specifies one or more path functions allowing one to
-	// control the repository blob link set to which the blob store
-	// dispatches. This is required because manifest and layer blobs have not
-	// yet been fully merged. At some point, this functionality should be
-	// removed an the blob links folder should be merged. The first entry is
-	// treated as the "canonical" link location and will be used for writes.
-	linkPathFns []linkPathFunc
+	// linkPath allows one to control the repository blob link set to which
+	// the blob store dispatches. This allows linked blobs stored at different
+	// paths to be operated on with the same logic.
+	linkPath linkPathFunc
 }
 
 var _ distribution.BlobDescriptorService = &linkedBlobStatter{}
 
 func (lbs *linkedBlobStatter) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
-	var (
-		found  bool
-		target digest.Digest
-	)
+	blobLinkPath, err := lbs.linkPath(lbs.repository.Named().Name(), dgst)
+	if err != nil {
+		return distribution.Descriptor{}, err
+	}
 
-	// try the many link path functions until we get success or an error that
-	// is not PathNotFoundError.
-	for _, linkPathFn := range lbs.linkPathFns {
-		var err error
-		target, err = lbs.resolveWithLinkFunc(ctx, dgst, linkPathFn)
-
-		if err == nil {
-			found = true
-			break // success!
-		}
-
+	target, err := lbs.blobStore.readlink(ctx, blobLinkPath)
+	if err != nil {
 		switch err := err.(type) {
 		case driver.PathNotFoundError:
-			// do nothing, just move to the next linkPathFn
+			return distribution.Descriptor{}, distribution.ErrBlobUnknown
 		default:
 			return distribution.Descriptor{}, err
 		}
-	}
-
-	if !found {
-		return distribution.Descriptor{}, distribution.ErrBlobUnknown
 	}
 
 	if target != dgst {
@@ -460,25 +438,12 @@ func (lbs *linkedBlobStatter) Stat(ctx context.Context, dgst digest.Digest) (dis
 }
 
 func (lbs *linkedBlobStatter) Clear(ctx context.Context, dgst digest.Digest) (err error) {
-	// clear any possible existence of a link described in linkPathFns
-	for _, linkPathFn := range lbs.linkPathFns {
-		blobLinkPath, err := linkPathFn(lbs.repository.Named().Name(), dgst)
-		if err != nil {
-			return err
-		}
-
-		err = lbs.blobStore.driver.Delete(ctx, blobLinkPath)
-		if err != nil {
-			switch err := err.(type) {
-			case driver.PathNotFoundError:
-				continue // just ignore this error and continue
-			default:
-				return err
-			}
-		}
+	blobLinkPath, err := lbs.linkPath(lbs.repository.Named().Name(), dgst)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return lbs.blobStore.driver.Delete(ctx, blobLinkPath)
 }
 
 // resolveTargetWithFunc allows us to read a link to a resource with different

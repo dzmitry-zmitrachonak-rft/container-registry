@@ -1009,10 +1009,14 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	log.Debug("putting manifest list")
 
 	rStore := datastore.NewRepositoryStore(imh.db)
-	v := validation.NewManifestListValidator(&datastore.RepositoryManifestService{
-		RepositoryReader: rStore,
-		RepositoryPath:   repoPath,
-	}, imh.App.isCache)
+	v := validation.NewManifestListValidator(
+		&datastore.RepositoryManifestService{
+			RepositoryReader: rStore,
+			RepositoryPath:   repoPath,
+		},
+		&datastore.RepositoryBlobService{RepositoryReader: rStore, RepositoryPath: repoPath},
+		imh.App.isCache,
+	)
 
 	if err := v.Validate(imh, manifestList); err != nil {
 		return err
