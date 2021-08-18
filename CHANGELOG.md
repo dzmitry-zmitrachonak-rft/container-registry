@@ -1,3 +1,10 @@
+# [3.9.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.8.0-gitlab...v3.9.0-gitlab) (2021-08-18)
+
+
+### Features
+
+* **handlers:** enable migration mode to be paused ([9d43c34](https://gitlab.com/gitlab-org/container-registry/commit/9d43c34b6323533ae99e53de81286a392a5a9635))
+
 # [3.8.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.7.0-gitlab...v3.8.0-gitlab) (2021-08-17)
 
 
