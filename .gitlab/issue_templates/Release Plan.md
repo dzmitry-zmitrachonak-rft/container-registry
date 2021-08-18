@@ -60,10 +60,10 @@ Generate a new release ([documentation](../../docs-gitlab/README.md#releases)).
         - [ ] Wait for the [Gitlab Dependency Bot](https://gitlab.com/gitlab-dependency-bot) to create a merge request for the new version of the registry
         - [ ] Update `version` and `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml) and use the `Changelog: changed` commit trailer in the commit message
         - [ ] Label merge request with: `/label ~"workflow::ready for review"`
-    - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com):
-        - [ ] Update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl#L75)
-        - [ ] Update `tag` in [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl#L6)
-        - [ ] Label merge request with: `/label ~"Service::Container Registry" ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review"`
+    - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com). This requires two separate MRs, one for pre-production and staging and another for canary and production, which need to be created and merged in this order. Allow enough time between the two to confirm that everything is working as expected in pre-production and staging:
+        - [ ] For pre-production and staging, update `registry.image.tag` in [`pre.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/pre.yaml.gotmpl) and [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl)
+        - [ ] For canary and production, update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl)
+        - [ ] Label each merge request with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
         - [ ] Assign to a reviewer
 
 <details>
