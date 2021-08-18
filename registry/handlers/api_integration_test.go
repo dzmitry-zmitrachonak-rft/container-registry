@@ -36,6 +36,7 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
+	_ "github.com/docker/distribution/registry/auth/eligibilitymock"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/migrations"
 	"github.com/docker/distribution/registry/datastore/models"
@@ -90,6 +91,16 @@ func withMigrationEnabled(config *configuration.Configuration) {
 func withMigrationRootDirectory(path string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Migration.RootDirectory = path
+	}
+}
+
+func withEligibilityMockAuth(enabled, eligible bool) configOpt {
+	return func(config *configuration.Configuration) {
+		if config.Auth == nil {
+			config.Auth = make(map[string]configuration.Parameters)
+		}
+
+		config.Auth["eligibilitymock"] = configuration.Parameters{"enabled": enabled, "eligible": eligible}
 	}
 }
 
@@ -2983,6 +2994,184 @@ func TestManifestAPI_Migration_Schema2(t *testing.T) {
 	}
 }
 
+func TestAPI_Migration_Schema2_PauseMigration(t *testing.T) {
+	rootDir, err := ioutil.TempDir("", "test-manifest-api-")
+	require.NoError(t, err)
+
+	migrationDir, err := ioutil.TempDir("", "test-manifest-api-")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+		os.RemoveAll(migrationDir)
+	})
+
+	env1 := newTestEnv(t, withFSDriver(rootDir))
+	defer env1.Shutdown()
+
+	if !env1.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	oldRepoPath := "old-repo"
+
+	// Push up a random image to create the repository on the filesystem
+	seedRandomSchema2Manifest(t, env1, oldRepoPath, putByDigest, writeToFilesystemOnly)
+
+	// Bring up a new environment in migration mode.
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	// Push up a new manifest to the old repo.
+	oldRepoTag := "schema2-old-repo"
+
+	seedRandomSchema2Manifest(t, env2, oldRepoPath, putByTag(oldRepoTag))
+	oldTagURL := buildManifestTagURL(t, env2, oldRepoPath, oldRepoTag)
+
+	// Push a new manifest to a new repo.
+	newRepoPath := "new-repo"
+	newRepoTag := "schema2-new-repo"
+
+	seedRandomSchema2Manifest(t, env2, newRepoPath, putByTag(newRepoTag))
+	newTagURL := buildManifestTagURL(t, env2, newRepoPath, newRepoTag)
+
+	// Ensure both repos are accessible in migration mode.
+	req, err := http.NewRequest("GET", oldTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Unset auth eligibility and ensure both repos are still accessible.
+	env3 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir), withEligibilityMockAuth(false, false))
+	defer env3.Shutdown()
+
+	oldTagURL = buildManifestTagURL(t, env3, oldRepoPath, oldRepoTag)
+	newTagURL = buildManifestTagURL(t, env3, newRepoPath, newRepoTag)
+
+	req, err = http.NewRequest("GET", oldTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Put a new repo while paused, should go to the old path.
+	pausedRepoPath := "paused-repo"
+	pausedRepoTag := "schema2-paused-repo"
+
+	seedRandomSchema2Manifest(t, env3, pausedRepoPath, putByTag(pausedRepoTag))
+
+	// Put a new image to the new repo, should go to the new path.
+	newRepoTag2 := "schema2-new-repo-2"
+	seedRandomSchema2Manifest(t, env3, newRepoPath, putByTag(newRepoTag2))
+
+	// Set auth eligibility to ensure that paused migrations can resume
+	env4 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env4.Shutdown()
+
+	postPausedRepoPath := "post-paused-repo"
+	postPausedRepoTag := "schema2-post-paused-repo"
+
+	seedRandomSchema2Manifest(t, env4, postPausedRepoPath, putByTag(postPausedRepoTag))
+
+	// Bring up environment with only fs metadata under the old root to ensure
+	// that the paused repo ended up on the old path.
+	env5 := newTestEnv(t, withFSDriver(rootDir))
+	defer env5.Shutdown()
+	env5.config.Database.Enabled = false
+
+	pausedTagURL := buildManifestTagURL(t, env5, pausedRepoPath, pausedRepoTag)
+	postPausedTagURL := buildManifestTagURL(t, env5, postPausedRepoPath, postPausedRepoTag)
+	newTagURL2 := buildManifestTagURL(t, env5, newRepoPath, newRepoTag2)
+
+	req, err = http.NewRequest("GET", pausedTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL2, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", postPausedTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	// Bring up environment with only database metadata to ensure that the other
+	// non-paused images ended up on the new path.
+	env6 := newTestEnv(t, withFSDriver(migrationDir), disableMirrorFS)
+	defer env6.Shutdown()
+
+	pausedTagURL = buildManifestTagURL(t, env6, pausedRepoPath, pausedRepoTag)
+	postPausedTagURL = buildManifestTagURL(t, env6, postPausedRepoPath, postPausedRepoTag)
+	newTagURL2 = buildManifestTagURL(t, env6, newRepoPath, newRepoTag2)
+
+	req, err = http.NewRequest("GET", pausedTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", newTagURL2, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	req, err = http.NewRequest("GET", postPausedTagURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
 // The `Gitlab-Migration-Path` response header is set at the dispatcher level, and therefore transversal to all routes,
 // so testing it for the simplest write (starting a blob upload) and read (unknown manifest get) operations is enough.
 // The validation of the routing logic lies elsewhere.
@@ -5843,10 +6032,11 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 		}
 
 		if config.Migration.Enabled {
-			// The registry API test suite has no auth logic at all, neither we currently have a way to spin a test auth
-			// server and wire it to all migration tests, so we disable auth based eligibility validation during the
-			// migration tests for now. The underlying logic is tested in the `registry/auth/token` package.
-			config.Migration.AuthEligibilityDisabled = true
+			// If auth isn't explicity set, use the eligibilitymock and enable all new repos.
+			if config.Auth == nil {
+				config.Auth = make(map[string]configuration.Parameters)
+				withEligibilityMockAuth(true, true)(config)
+			}
 		}
 	}
 
