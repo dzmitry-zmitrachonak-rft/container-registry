@@ -521,6 +521,27 @@ func (app *App) getMigrationStatus(ctx context.Context, repo distribution.Reposi
 
 	// validate eligibility flag set by Rails to determine which code path this _new_ repository should follow
 	if !migration.HasEligibilityFlag(ctx) {
+		migrationRepo, err := app.migrationRegistry.Repository(ctx, repo.Named())
+		if err != nil {
+			return migration.StatusError, err
+		}
+
+		validator, ok := migrationRepo.(storage.RepositoryValidator)
+		if !ok {
+			return migration.StatusError, errors.New("repository does not implement RepositoryValidator interface")
+		}
+
+		// check if repository exists in the new storage prefix, if so, we should signal
+		// to use to the database and the migration storage prefix.
+		exists, err := validator.Exists(ctx)
+		if err != nil {
+			return migration.StatusError, fmt.Errorf("unable to determine if repository exists: %w", err)
+		}
+
+		if exists {
+			return migration.StatusNewRepo, nil
+		}
+
 		return migration.StatusAuthEligibilityNotSet, nil
 	}
 	if !migration.IsEligible(ctx) {
