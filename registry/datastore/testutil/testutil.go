@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -230,7 +229,7 @@ func NewDBFromEnv() (*datastore.DB, error) {
 	case "stderr":
 		logOut = os.Stderr
 	case "discard":
-		logOut = ioutil.Discard
+		logOut = io.Discard
 	default:
 		logOut = os.Stdout
 	}
@@ -300,7 +299,7 @@ func ReloadFixtures(tb testing.TB, db *datastore.DB, basePath string, tables ...
 	for _, table := range tables {
 		path := filepath.Join(basePath, "testdata", "fixtures", table.seedFileName())
 
-		query, err := ioutil.ReadFile(path)
+		query, err := os.ReadFile(path)
 		require.NoErrorf(tb, err, "error reading fixture")
 
 		_, err = db.Exec(string(query))
@@ -334,14 +333,14 @@ func updateGoldenFile(tb testing.TB, path string, content []byte) {
 	tb.Helper()
 
 	tb.Log("updating .golden file")
-	err := ioutil.WriteFile(path, content, 0644)
+	err := os.WriteFile(path, content, 0644)
 	require.NoError(tb, err, "error updating .golden file")
 }
 
 func readGoldenFile(tb testing.TB, path string) []byte {
 	tb.Helper()
 
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	require.NoError(tb, err, "error reading .golden file")
 
 	return content

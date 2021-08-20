@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 	"time"
 
@@ -83,7 +82,7 @@ func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
 	}
 	defer rc.Close()
 
-	return ioutil.ReadAll(rc)
+	return io.ReadAll(rc)
 }
 
 // PutContent stores the []byte content at a location designated by "path".
@@ -131,7 +130,7 @@ func (d *driver) reader(ctx context.Context, path string, offset int64) (io.Read
 		return nil, fmt.Errorf("%q is a directory", path)
 	}
 
-	return ioutil.NopCloser(found.(*file).sectionReader(offset)), nil
+	return io.NopCloser(found.(*file).sectionReader(offset)), nil
 }
 
 // Writer returns a FileWriter which will store the content written to it

@@ -22,10 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"regexp"
 	"runtime/debug"
@@ -172,7 +172,7 @@ func parseParameters(parameters map[string]interface{}) (*driverParameters, erro
 	var ts oauth2.TokenSource
 	jwtConf := new(jwt.Config)
 	if keyfile, ok := parameters["keyfile"]; ok {
-		jsonKey, err := ioutil.ReadFile(fmt.Sprint(keyfile))
+		jsonKey, err := os.ReadFile(fmt.Sprint(keyfile))
 		if err != nil {
 			return nil, err
 		}
@@ -295,7 +295,7 @@ func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
 	}
 	defer rc.Close()
 
-	p, err := ioutil.ReadAll(rc)
+	p, err := io.ReadAll(rc)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +343,7 @@ func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.Read
 					return nil, err
 				}
 				if offset == int64(obj.Size) {
-					return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
+					return io.NopCloser(bytes.NewReader([]byte{})), nil
 				}
 				return nil, storagedriver.InvalidOffsetError{Path: path, Offset: offset}
 			}
@@ -605,7 +605,7 @@ func (w *writer) init(path string) error {
 	if err != nil {
 		return err
 	}
-	buffer, err := ioutil.ReadAll(res.Body)
+	buffer, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}

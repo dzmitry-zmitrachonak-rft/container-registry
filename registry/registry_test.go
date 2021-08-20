@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -162,7 +162,7 @@ func TestGracefulShutdown_HTTPDrainTimeout(t *testing.T) {
 	if resp.Status != "200 OK" {
 		t.Error("response status is not 200 OK: ", resp.Status)
 	}
-	if body, err := ioutil.ReadAll(resp.Body); err != nil || string(body) != "{}" {
+	if body, err := io.ReadAll(resp.Body); err != nil || string(body) != "{}" {
 		t.Error("Body is not {}; ", string(body))
 	}
 }

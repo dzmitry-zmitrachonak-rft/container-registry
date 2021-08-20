@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -14,7 +13,7 @@ import (
 func TempRoot(tb testing.TB) string {
 	tb.Helper()
 
-	d, err := ioutil.TempDir("", "driver-")
+	d, err := os.MkdirTemp("", "driver-")
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {

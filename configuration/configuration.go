@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -608,7 +607,7 @@ func (out logOutput) Descriptor() io.Writer {
 	case LogOutputStderr:
 		return os.Stderr
 	case LogOutputDiscard:
-		return ioutil.Discard
+		return io.Discard
 	default:
 		return os.Stdout
 	}
@@ -983,7 +982,7 @@ func Parse(rd io.Reader, opts ...ParseOption) (*Configuration, error) {
 		v(&options)
 	}
 
-	in, err := ioutil.ReadAll(rd)
+	in, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, err
 	}

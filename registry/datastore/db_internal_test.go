@@ -1,7 +1,7 @@
 package datastore
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
 
@@ -11,7 +11,7 @@ import (
 
 func TestApplyOptions(t *testing.T) {
 	defaultLogger := logrus.New()
-	defaultLogger.SetOutput(ioutil.Discard)
+	defaultLogger.SetOutput(io.Discard)
 
 	l := logrus.NewEntry(logrus.New())
 	poolConfig := &PoolConfig{

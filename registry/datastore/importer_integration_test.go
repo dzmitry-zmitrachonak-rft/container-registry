@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -46,7 +45,7 @@ func newRegistry(tb testing.TB, driver storageDriver.StorageDriver) distribution
 	tb.Helper()
 
 	// load custom key to be used for manifest signing, ensuring that we have reproducible signatures
-	pemKey, err := ioutil.ReadFile(path.Join(suite.fixturesPath, "keys", "manifest_sign"))
+	pemKey, err := os.ReadFile(path.Join(suite.fixturesPath, "keys", "manifest_sign"))
 	require.NoError(tb, err)
 	block, _ := pem.Decode([]byte(pemKey))
 	require.NotNil(tb, block)
@@ -101,7 +100,7 @@ func newImporterWithRoot(t *testing.T, db *datastore.DB, root string, opts ...da
 }
 
 func newTempDirDriver(t *testing.T) (*filesystem.Driver, func()) {
-	rootDir, err := ioutil.TempDir("", "driver-")
+	rootDir, err := os.MkdirTemp("", "driver-")
 	require.NoError(t, err)
 
 	d, err := filesystem.FromParameters(map[string]interface{}{

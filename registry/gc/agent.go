@@ -3,7 +3,7 @@ package gc
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"sync"
 	"time"
@@ -82,7 +82,7 @@ func WithoutIdleBackoff() AgentOption {
 func (a *Agent) applyDefaults() {
 	if a.logger == nil {
 		defaultLogger := logrus.New()
-		defaultLogger.SetOutput(ioutil.Discard)
+		defaultLogger.SetOutput(io.Discard)
 		a.logger = defaultLogger
 	}
 	if a.initialInterval == 0 {
