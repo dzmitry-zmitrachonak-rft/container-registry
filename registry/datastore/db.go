@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"regexp"
 	"strconv"
@@ -187,7 +187,7 @@ func WithPreparedStatements(b bool) OpenOption {
 
 func applyOptions(opts []OpenOption) openOpts {
 	log := logrus.New()
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 
 	config := openOpts{
 		logger: logrus.NewEntry(log),

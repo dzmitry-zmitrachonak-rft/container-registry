@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -63,7 +63,7 @@ func (w *baseWorker) QueueName() string {
 func (w *baseWorker) applyDefaults() {
 	if w.logger == nil {
 		defaultLogger := logrus.New()
-		defaultLogger.SetOutput(ioutil.Discard)
+		defaultLogger.SetOutput(io.Discard)
 		w.logger = defaultLogger
 	}
 	if w.txTimeout == 0 {

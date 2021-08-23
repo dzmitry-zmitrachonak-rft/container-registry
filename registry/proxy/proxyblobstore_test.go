@@ -2,10 +2,10 @@ package proxy
 
 import (
 	"context"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -121,12 +121,12 @@ func makeTestEnv(t *testing.T) *testEnv {
 
 	ctx := context.Background()
 
-	truthDir, err := ioutil.TempDir("", "truth")
+	truthDir, err := os.MkdirTemp("", "truth")
 	if err != nil {
 		t.Fatalf("unable to create tempdir: %s", err)
 	}
 
-	cacheDir, err := ioutil.TempDir("", "cache")
+	cacheDir, err := os.MkdirTemp("", "cache")
 	if err != nil {
 		t.Fatalf("unable to create tempdir: %s", err)
 	}

@@ -1,7 +1,6 @@
 package swift
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
@@ -78,7 +77,7 @@ func init() {
 		container = "test"
 	}
 
-	prefix, err := ioutil.TempDir("", "driver-")
+	prefix, err := os.MkdirTemp("", "driver-")
 	if err != nil {
 		panic(err)
 	}

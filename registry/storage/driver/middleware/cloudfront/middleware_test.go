@@ -3,9 +3,9 @@ package middleware
 import (
 	"testing"
 
-	check "gopkg.in/check.v1"
-	"io/ioutil"
 	"os"
+
+	check "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) { check.TestingT(t) }
@@ -42,7 +42,7 @@ pZeMRablbPQdp8/1NyIwimq1VlG0ohQ4P6qhW7E09ZMC
 -----END RSA PRIVATE KEY-----
 `
 
-	file, err := ioutil.TempFile("", "pkey")
+	file, err := os.CreateTemp("", "pkey")
 	if err != nil {
 		t.Fatal("File cannot be created")
 	}

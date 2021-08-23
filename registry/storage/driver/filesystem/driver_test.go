@@ -3,7 +3,6 @@ package filesystem
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -20,7 +19,7 @@ import (
 func Test(t *testing.T) { TestingT(t) }
 
 func init() {
-	root, err := ioutil.TempDir("", "driver-")
+	root, err := os.MkdirTemp("", "driver-")
 	if err != nil {
 		panic(err)
 	}

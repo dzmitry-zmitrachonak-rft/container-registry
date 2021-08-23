@@ -3,7 +3,6 @@
 package oss
 
 import (
-	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
@@ -33,7 +32,7 @@ func init() {
 	secure := os.Getenv("OSS_SECURE")
 	endpoint := os.Getenv("OSS_ENDPOINT")
 	encryptionKeyID := os.Getenv("OSS_ENCRYPTIONKEYID")
-	root, err := ioutil.TempDir("", "driver-")
+	root, err := os.MkdirTemp("", "driver-")
 	if err != nil {
 		panic(err)
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,7 +104,7 @@ func testIdempotentUpload(t *testing.T, env *env) {
 
 	path := filepath.Join(basePath, "testdata", "fixtures", "blobwriter", "docker_configuration.json")
 
-	dockerPayload, err := ioutil.ReadFile(path)
+	dockerPayload, err := os.ReadFile(path)
 	require.NoErrorf(t, err, "error reading fixture")
 
 	dgst := digest.FromBytes(dockerPayload)
@@ -131,7 +130,7 @@ func testDockerConfigurationPaylodUpload(t *testing.T, env *env) {
 
 	path := filepath.Join(basePath, "testdata", "fixtures", "blobwriter", "docker_configuration.json")
 
-	dockerPayload, err := ioutil.ReadFile(path)
+	dockerPayload, err := os.ReadFile(path)
 	require.NoErrorf(t, err, "error reading fixture")
 
 	dgst := digest.FromBytes(dockerPayload)

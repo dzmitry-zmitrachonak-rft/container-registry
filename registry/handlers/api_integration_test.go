@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -176,7 +175,7 @@ func TestCheckAPI(t *testing.T) {
 		"Gitlab-Container-Registry-Features": []string{version.ExtFeatures},
 	})
 
-	p, err := ioutil.ReadAll(resp.Body)
+	p, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("unexpected error reading response body: %v", err)
 	}
@@ -1214,7 +1213,7 @@ func TestDeleteDisabled(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromOldToNewRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	rootDir, err := os.MkdirTemp("", "api-conformance-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(rootDir)
@@ -1245,7 +1244,7 @@ func TestBlobMount_Migration_FromOldToNewRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromNewToOldRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	rootDir, err := os.MkdirTemp("", "api-conformance-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(rootDir)
@@ -1277,7 +1276,7 @@ func TestBlobMount_Migration_FromNewToOldRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	rootDir, err := os.MkdirTemp("", "api-conformance-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(rootDir)
@@ -1309,7 +1308,7 @@ func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	rootDir, err := os.MkdirTemp("", "api-conformance-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(rootDir)
@@ -1360,7 +1359,7 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisabled(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	rootDir, err := os.MkdirTemp("", "api-conformance-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.RemoveAll(rootDir)
@@ -1412,7 +1411,7 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisable
 }
 
 func TestDeleteReadOnly(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "api-conformance-")
+	rootDir, err := os.MkdirTemp("", "api-conformance-")
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -1751,7 +1750,7 @@ func TestAPIConformance(t *testing.T) {
 				// Use filesystem driver here. This way, we're able to test conformance
 				// with migration mode enabled as the inmemory driver does not support
 				// root directories.
-				rootDir, err := ioutil.TempDir("", "api-conformance-")
+				rootDir, err := os.MkdirTemp("", "api-conformance-")
 				require.NoError(t, err)
 				t.Cleanup(func() {
 					os.RemoveAll(rootDir)
@@ -2372,7 +2371,7 @@ func TestManifestAPI_Put_Schema2LayersNotAssociatedWithRepositoryButArePresentIn
 		rs, dgst := createRandomSmallLayer()
 
 		// Save the layer content as pushLayer exhausts the io.ReadSeeker
-		layerBytes, err := ioutil.ReadAll(rs)
+		layerBytes, err := io.ReadAll(rs)
 		require.NoError(t, err)
 
 		uploadURLBase, _ := startPushLayer(t, env, fakeRepoRef)
@@ -2810,10 +2809,10 @@ func TestManifestAPI_ManifestListWithLayerReferences(t *testing.T) {
 }
 
 func TestManifestAPI_Migration_Schema2(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "test-manifest-api-")
+	rootDir, err := os.MkdirTemp("", "test-manifest-api-")
 	require.NoError(t, err)
 
-	migrationDir, err := ioutil.TempDir("", "test-manifest-api-")
+	migrationDir, err := os.MkdirTemp("", "test-manifest-api-")
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -2995,10 +2994,10 @@ func TestManifestAPI_Migration_Schema2(t *testing.T) {
 }
 
 func TestAPI_Migration_Schema2_PauseMigration(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "test-manifest-api-")
+	rootDir, err := os.MkdirTemp("", "test-manifest-api-")
 	require.NoError(t, err)
 
-	migrationDir, err := ioutil.TempDir("", "test-manifest-api-")
+	migrationDir, err := os.MkdirTemp("", "test-manifest-api-")
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -3176,9 +3175,9 @@ func TestAPI_Migration_Schema2_PauseMigration(t *testing.T) {
 // so testing it for the simplest write (starting a blob upload) and read (unknown manifest get) operations is enough.
 // The validation of the routing logic lies elsewhere.
 func TestAPI_MigrationPathResponseHeader(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "")
+	rootDir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
-	migrationDir, err := ioutil.TempDir("", "")
+	migrationDir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -6044,7 +6043,7 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 
 	var out io.Writer
 	if config.Log.AccessLog.Disabled {
-		out = ioutil.Discard
+		out = io.Discard
 	} else {
 		out = os.Stderr
 	}
@@ -6335,7 +6334,7 @@ func checkResponse(t *testing.T, msg string, resp *http.Response, expectedStatus
 func checkBodyHasErrorCodes(t *testing.T, msg string, resp *http.Response, errorCodes ...errcode.ErrorCode) (errcode.Errors, []byte, map[errcode.ErrorCode]int) {
 	t.Helper()
 
-	p, err := ioutil.ReadAll(resp.Body)
+	p, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
 	var errs errcode.Errors

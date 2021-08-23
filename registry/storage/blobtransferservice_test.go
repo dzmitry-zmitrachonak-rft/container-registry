@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"testing"
 
@@ -54,13 +53,13 @@ func TestTransferBlob(t *testing.T) {
 	sr, err := sourceBlobs.Open(source.ctx, srcDesc.Digest)
 	require.NoError(t, err)
 
-	sourceContent, err := ioutil.ReadAll(sr)
+	sourceContent, err := io.ReadAll(sr)
 	require.NoError(t, err)
 
 	tr, err := target.driver.Reader(target.ctx, blobDataPath, 0)
 	require.NoError(t, err)
 
-	targetContent, err := ioutil.ReadAll(tr)
+	targetContent, err := io.ReadAll(tr)
 	require.NoError(t, err)
 
 	require.EqualValues(t, sourceContent, targetContent)

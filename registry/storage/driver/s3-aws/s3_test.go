@@ -2,7 +2,6 @@ package s3
 
 import (
 	"bytes"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -44,7 +43,7 @@ func init() {
 	v4Auth := os.Getenv("S3_V4_AUTH")
 	region := os.Getenv("AWS_REGION")
 	objectACL := os.Getenv("S3_OBJECT_ACL")
-	root, err := ioutil.TempDir("", "driver-")
+	root, err := os.MkdirTemp("", "driver-")
 	regionEndpoint := os.Getenv("REGION_ENDPOINT")
 	sessionToken := os.Getenv("AWS_SESSION_TOKEN")
 	pathStyle := os.Getenv("AWS_PATH_STYLE")

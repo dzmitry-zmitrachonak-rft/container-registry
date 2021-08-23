@@ -3,7 +3,7 @@ package gc
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"testing"
 	"time"
@@ -26,7 +26,7 @@ func TestNewAgent(t *testing.T) {
 	workerMock := wmocks.NewMockWorker(ctrl)
 
 	tmp := logrus.New()
-	tmp.SetOutput(ioutil.Discard)
+	tmp.SetOutput(io.Discard)
 	defaultLogger := tmp.WithField(componentKey, agentName)
 
 	tmp = logrus.New()

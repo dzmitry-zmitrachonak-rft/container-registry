@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -52,7 +51,7 @@ func init() {
 		}
 	}
 
-	root, err := ioutil.TempDir("", "driver-")
+	root, err := os.MkdirTemp("", "driver-")
 	if err != nil {
 		panic(err)
 	}

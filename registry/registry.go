@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -180,7 +179,7 @@ func (registry *Registry) ListenAndServe() error {
 			pool := x509.NewCertPool()
 
 			for _, ca := range config.HTTP.TLS.ClientCAs {
-				caPem, err := ioutil.ReadFile(ca)
+				caPem, err := os.ReadFile(ca)
 				if err != nil {
 					return err
 				}
