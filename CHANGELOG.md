@@ -1,3 +1,11 @@
+# [3.10.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.9.0-gitlab...v3.10.0-gitlab) (2021-08-23)
+
+
+### Features
+
+* **handlers:** log metadata when a manifest is uploaded or downloaded ([e078c9f](https://gitlab.com/gitlab-org/container-registry/commit/e078c9f5b2440193157c04ddbd101b5e04fddd32))
+* **handlers:** log warning when eligibility flag is not set in migration mode ([fe78327](https://gitlab.com/gitlab-org/container-registry/commit/fe78327bc212b8089b2a8479eb458ec5a111c747))
+
 # [3.9.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.8.0-gitlab...v3.9.0-gitlab) (2021-08-18)
 
 
