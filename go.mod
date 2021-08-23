@@ -3,7 +3,6 @@ module github.com/docker/distribution
 go 1.16
 
 require (
-	cloud.google.com/go v0.88.0 // indirect
 	cloud.google.com/go/storage v1.16.0
 	github.com/Azure/azure-sdk-for-go v54.1.0+incompatible
 	github.com/Azure/go-autorest v10.8.1+incompatible // indirect
@@ -44,12 +43,13 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	gitlab.com/gitlab-org/labkit v1.9.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/mod v0.5.0 // indirect
 	golang.org/x/net v0.0.0-20210716203947-853a461950ff // indirect
-	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
+	golang.org/x/oauth2 v0.0.0-20210805134026-6f1e6394065a
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
-	google.golang.org/api v0.51.0
-	google.golang.org/genproto v0.0.0-20210722135532-667f2b7c528f // indirect
+	google.golang.org/api v0.54.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/yaml.v2 v2.4.0
 )
