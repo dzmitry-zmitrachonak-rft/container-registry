@@ -17,6 +17,7 @@ import (
 	"github.com/docker/distribution/manifest/manifestlist"
 	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/docker/distribution/manifest/ocischema"
+	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
@@ -48,8 +49,24 @@ const (
 	manifestlistSchema                        // 2
 	ociImageManifestSchema                    // 3
 	ociImageIndexSchema                       // 4
-	numStorageTypes                           // 5
 )
+
+func (t storageType) MediaType() string {
+	switch t {
+	case manifestSchema1:
+		return schema1.MediaTypeManifest
+	case manifestSchema2:
+		return schema2.MediaTypeManifest
+	case manifestlistSchema:
+		return manifestlist.MediaTypeManifestList
+	case ociImageManifestSchema:
+		return v1.MediaTypeImageManifest
+	case ociImageIndexSchema:
+		return v1.MediaTypeImageIndex
+	default:
+		return ""
+	}
+}
 
 // manifestDispatcher takes the request context and builds the
 // appropriate handler for handling manifest requests.
@@ -90,7 +107,8 @@ type manifestHandler struct {
 
 // GetManifest fetches the image manifest from the storage backend, if it exists.
 func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) {
-	dcontext.GetLogger(imh).Debug("GetImageManifest")
+	log := dcontext.GetLogger(imh)
+	log.Debug("GetImageManifest")
 
 	manifestGetter, err := imh.newManifestGetter(r)
 	if err != nil {
@@ -185,6 +203,14 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Docker-Content-Digest", imh.Digest.String())
 	w.Header().Set("Etag", fmt.Sprintf(`"%s"`, imh.Digest))
 	w.Write(p)
+
+	log.WithFields(logrus.Fields{
+		"media_type":      manifestType.MediaType(),
+		"size_bytes":      len(p),
+		"digest":          imh.Digest,
+		"tag":             imh.Tag,
+		"reference_count": len(manifest.References()),
+	}).Info("manifest downloaded")
 }
 
 func supports(req *http.Request, st storageType) bool {
@@ -702,10 +728,11 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 
 	log.WithFields(logrus.Fields{
-		"media_type": desc.MediaType,
-		"size_bytes": desc.Size,
-		"digest":     desc.Digest,
-		"tag":        imh.Tag,
+		"media_type":      desc.MediaType,
+		"size_bytes":      desc.Size,
+		"digest":          desc.Digest,
+		"tag":             imh.Tag,
+		"reference_count": len(manifest.References()),
 	}).Info("manifest uploaded")
 }
 
