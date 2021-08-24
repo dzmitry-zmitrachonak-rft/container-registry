@@ -153,3 +153,9 @@ func (m *DeserializedManifest) MarshalJSON() ([]byte, error) {
 func (m DeserializedManifest) Payload() (string, []byte, error) {
 	return m.MediaType, m.canonical, nil
 }
+
+var _ distribution.ManifestV2 = &DeserializedManifest{}
+
+func (m *DeserializedManifest) Version() manifest.Versioned       { return m.Versioned }
+func (m *DeserializedManifest) Config() distribution.Descriptor   { return m.Target() }
+func (m *DeserializedManifest) Layers() []distribution.Descriptor { return m.Manifest.Layers }

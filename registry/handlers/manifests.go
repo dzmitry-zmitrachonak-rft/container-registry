@@ -871,7 +871,7 @@ func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedMani
 		return err
 	}
 
-	return dbPutManifestOCIOrSchema2(imh, manifest.Versioned, manifest.Layers, manifest.Config, payload, false)
+	return dbPutManifestV2(imh, manifest, payload, false)
 }
 
 func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedManifest, payload []byte) error {
@@ -889,13 +889,13 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 		return err
 	}
 
-	return dbPutManifestOCIOrSchema2(imh, manifest.Versioned, manifest.Layers, manifest.Config, payload, false)
+	return dbPutManifestV2(imh, manifest, payload, false)
 }
 
-func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versioned, layers []distribution.Descriptor, cfgDesc distribution.Descriptor, payload []byte, nonConformant bool) error {
+func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload []byte, nonConformant bool) error {
 	repoPath := imh.Repository.Named().Name()
 
-	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": versioned.SchemaVersion})
+	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": mfst.Version().SchemaVersion})
 	log.Debug("putting manifest")
 
 	// create or find target repository
@@ -906,7 +906,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 	}
 
 	// Find the config now to ensure that the config's blob is associated with the repository.
-	dbCfgBlob, err := dbFindRepositoryBlob(imh.Context, imh.App.db, cfgDesc, dbRepo.Path)
+	dbCfgBlob, err := dbFindRepositoryBlob(imh.Context, imh.App.db, mfst.Config(), dbRepo.Path)
 	if err != nil {
 		return err
 	}
@@ -927,22 +927,15 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 			return err
 		}
 
-		// Media type can be either Docker (`application/vnd.docker.distribution.manifest.v2+json`) or OCI (empty).
-		// We need to make it explicit if empty, otherwise we're not able to distinguish between media types.
-		mediaType := versioned.MediaType
-		if mediaType == "" {
-			mediaType = v1.MediaTypeImageManifest
-		}
-
 		m := &models.Manifest{
 			NamespaceID:   dbRepo.NamespaceID,
 			RepositoryID:  dbRepo.ID,
-			SchemaVersion: versioned.SchemaVersion,
-			MediaType:     mediaType,
+			SchemaVersion: mfst.Version().SchemaVersion,
+			MediaType:     mfst.Version().MediaType,
 			Digest:        imh.Digest,
 			Payload:       payload,
 			Configuration: &models.Configuration{
-				MediaType: cfgDesc.MediaType,
+				MediaType: mfst.Config().MediaType,
 				Digest:    dbCfgBlob.Digest,
 				Payload:   cfgPayload,
 			},
@@ -957,7 +950,7 @@ func dbPutManifestOCIOrSchema2(imh *manifestHandler, versioned manifest.Versione
 		dbManifest = m
 
 		// find and associate manifest layer blobs
-		for _, reqLayer := range layers {
+		for _, reqLayer := range mfst.Layers() {
 			dbBlob, err := dbFindRepositoryBlob(imh.Context, imh.App.db, reqLayer, dbRepo.Path)
 			if err != nil {
 				return err
@@ -1151,20 +1144,20 @@ func (imh *manifestHandler) applyResourcePolicy(manifest distribution.Manifest) 
 	var class string
 	switch m := manifest.(type) {
 	case *schema2.DeserializedManifest:
-		switch m.Config.MediaType {
+		switch m.Config().MediaType {
 		case schema2.MediaTypeImageConfig:
 			class = imageClass
 		case schema2.MediaTypePluginConfig:
 			class = "plugin"
 		default:
-			return errcode.ErrorCodeDenied.WithMessage("unknown manifest class for " + m.Config.MediaType)
+			return errcode.ErrorCodeDenied.WithMessage("unknown manifest class for " + m.Config().MediaType)
 		}
 	case *ocischema.DeserializedManifest:
-		switch m.Config.MediaType {
+		switch m.Config().MediaType {
 		case v1.MediaTypeImageConfig:
 			class = imageClass
 		default:
-			return errcode.ErrorCodeDenied.WithMessage("unknown manifest class for " + m.Config.MediaType)
+			return errcode.ErrorCodeDenied.WithMessage("unknown manifest class for " + m.Config().MediaType)
 		}
 	}
 
@@ -1236,7 +1229,7 @@ func dbPutBuildkitIndex(imh *manifestHandler, ml *manifestlist.DeserializedManif
 	// Within dbPutManifestOCIOrSchema2 we use this value for the `manifests.payload` column and source the value for
 	// the `manifests.digest` column from `imh.Digest`, and not from `m`. Therefore, we keep behavioral consistency for
 	// the outside world by preserving the index payload and digest while storing things internally as an OCI manifest.
-	return dbPutManifestOCIOrSchema2(imh, m.Versioned, m.Layers, m.Config, payload, true)
+	return dbPutManifestV2(imh, m, payload, true)
 }
 
 const (
