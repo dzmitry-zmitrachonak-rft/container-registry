@@ -16,7 +16,7 @@ require (
 	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/getsentry/sentry-go v0.11.0
-	github.com/go-redis/redis/v8 v8.11.0
+	github.com/go-redis/redis/v8 v8.11.3
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
