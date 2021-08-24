@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema1"
-	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/storage/driver"
@@ -185,38 +182,7 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
 	return nil
 }
 
-type v2Manifest interface {
-	distribution.Manifest
-	version() manifest.Versioned
-	config() distribution.Descriptor
-	layers() []distribution.Descriptor
-}
-
-type schema2Extended struct {
-	*schema2.DeserializedManifest
-}
-
-func (m *schema2Extended) version() manifest.Versioned       { return m.Versioned }
-func (m *schema2Extended) config() distribution.Descriptor   { return m.Config }
-func (m *schema2Extended) layers() []distribution.Descriptor { return m.Layers }
-
-type ociExtended struct {
-	*ocischema.DeserializedManifest
-}
-
-func (m *ociExtended) version() manifest.Versioned {
-	// Helm chart manifests do not include a mediatype, set them to oci.
-	if m.Versioned.MediaType == "" {
-		m.Versioned.MediaType = v1.MediaTypeImageManifest
-	}
-
-	return m.Versioned
-}
-
-func (m *ociExtended) config() distribution.Descriptor   { return m.Config }
-func (m *ociExtended) layers() []distribution.Descriptor { return m.Layers }
-
-func (imp *Importer) importV2Manifest(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m v2Manifest, dgst digest.Digest) (*models.Manifest, error) {
+func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.ManifestV2, dgst digest.Digest) (*models.Manifest, error) {
 	_, payload, err := m.Payload()
 	if err != nil {
 		return nil, fmt.Errorf("error parsing manifest payload: %w", err)
@@ -224,21 +190,21 @@ func (imp *Importer) importV2Manifest(ctx context.Context, fsRepo distribution.R
 
 	// get configuration blob payload
 	blobStore := fsRepo.Blobs(ctx)
-	configPayload, err := blobStore.Get(ctx, m.config().Digest)
+	configPayload, err := blobStore.Get(ctx, m.Config().Digest)
 	if err != nil {
 		return nil, fmt.Errorf("error obtaining configuration payload: %w", err)
 	}
 
 	dbConfigBlob := &models.Blob{
-		MediaType: m.config().MediaType,
-		Digest:    m.config().Digest,
-		Size:      m.config().Size,
+		MediaType: m.Config().MediaType,
+		Digest:    m.Config().Digest,
+		Size:      m.Config().Size,
 	}
 	if err = imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
 		return nil, err
 	}
 
-	if err = imp.transferBlob(ctx, m.config().Digest); err != nil {
+	if err = imp.transferBlob(ctx, m.Config().Digest); err != nil {
 		return nil, fmt.Errorf("transferring config blob: %w", err)
 	}
 
@@ -251,8 +217,8 @@ func (imp *Importer) importV2Manifest(ctx context.Context, fsRepo distribution.R
 	dbManifest, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		NamespaceID:   dbRepo.NamespaceID,
 		RepositoryID:  dbRepo.ID,
-		SchemaVersion: m.version().SchemaVersion,
-		MediaType:     m.version().MediaType,
+		SchemaVersion: m.Version().SchemaVersion,
+		MediaType:     m.Version().MediaType,
 		Digest:        dgst,
 		Payload:       payload,
 		Configuration: &models.Configuration{
@@ -266,7 +232,7 @@ func (imp *Importer) importV2Manifest(ctx context.Context, fsRepo distribution.R
 	}
 
 	// import manifest layers
-	if err := imp.importLayers(ctx, dbRepo, dbManifest, m.layers()); err != nil {
+	if err := imp.importLayers(ctx, dbRepo, dbManifest, m.Layers()); err != nil {
 		return nil, fmt.Errorf("error importing layers: %w", err)
 	}
 
@@ -339,10 +305,8 @@ func (imp *Importer) importManifest(ctx context.Context, fsRepo distribution.Rep
 	switch fsManifest := m.(type) {
 	case *schema1.SignedManifest:
 		return nil, distribution.ErrSchemaV1Unsupported
-	case *schema2.DeserializedManifest:
-		return imp.importV2Manifest(ctx, fsRepo, dbRepo, &schema2Extended{fsManifest}, dgst)
-	case *ocischema.DeserializedManifest:
-		return imp.importV2Manifest(ctx, fsRepo, dbRepo, &ociExtended{fsManifest}, dgst)
+	case distribution.ManifestV2:
+		return imp.importManifestV2(ctx, fsRepo, dbRepo, fsManifest, dgst)
 	default:
 		return nil, fmt.Errorf("unknown manifest class")
 	}

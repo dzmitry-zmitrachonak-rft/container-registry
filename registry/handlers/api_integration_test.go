@@ -6591,7 +6591,7 @@ func TestManifestAPI_Get_Config(t *testing.T) {
 	deserializedManifest := seedRandomSchema2Manifest(t, env, repo.Name())
 
 	// fetch config through manifest endpoint
-	digestRef, err := reference.WithDigest(repo, deserializedManifest.Config.Digest)
+	digestRef, err := reference.WithDigest(repo, deserializedManifest.Config().Digest)
 	require.NoError(t, err)
 
 	digestURL, err := env.builder.BuildManifestURL(digestRef)

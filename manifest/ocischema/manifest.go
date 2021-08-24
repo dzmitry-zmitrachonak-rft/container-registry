@@ -122,3 +122,18 @@ func (m *DeserializedManifest) MarshalJSON() ([]byte, error) {
 func (m DeserializedManifest) Payload() (string, []byte, error) {
 	return v1.MediaTypeImageManifest, m.canonical, nil
 }
+
+var _ distribution.ManifestV2 = &DeserializedManifest{}
+
+func (m *DeserializedManifest) Version() manifest.Versioned {
+	// Media type can be either Docker (`application/vnd.docker.distribution.manifest.v2+json`) or OCI (empty).
+	// We need to make it explicit if empty, otherwise we're not able to distinguish between media types.
+	if m.Versioned.MediaType == "" {
+		m.Versioned.MediaType = v1.MediaTypeImageManifest
+	}
+
+	return m.Versioned
+}
+
+func (m *DeserializedManifest) Config() distribution.Descriptor   { return m.Target() }
+func (m *DeserializedManifest) Layers() []distribution.Descriptor { return m.Manifest.Layers }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mime"
 
+	"github.com/docker/distribution/manifest"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -24,6 +25,15 @@ type Manifest interface {
 	// Payload provides the serialized format of the manifest, in addition to
 	// the media type.
 	Payload() (mediaType string, payload []byte, err error)
+}
+
+// ManifestV2 represents a flat manifest with a configuration blob and layers.
+// For now, these are only docker schema 2 manifests and OCI images.
+type ManifestV2 interface {
+	Manifest
+	Version() manifest.Versioned
+	Config() Descriptor
+	Layers() []Descriptor
 }
 
 // ManifestBuilder creates a manifest allowing one to include dependencies.
