@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -481,14 +482,14 @@ func validate(config *configuration.Configuration) error {
 	var errs *multierror.Error
 
 	if !config.Database.Enabled && config.Migration.DisableMirrorFS {
-		errs = multierror.Append(fmt.Errorf("filesystem mirroring may only be disabled when database is enabled"))
+		errs = multierror.Append(errors.New("filesystem mirroring may only be disabled when database is enabled"))
 	}
 
 	// Validate redirect section.
 	if redirectConfig, ok := config.Storage["redirect"]; ok {
 		v, ok := redirectConfig["disable"]
 		if !ok {
-			errs = multierror.Append(fmt.Errorf("'storage.redirect' section must include 'disable' parameter (boolean)"))
+			errs = multierror.Append(errors.New("'storage.redirect' section must include 'disable' parameter (boolean)"))
 		} else {
 			if _, ok := v.(bool); !ok {
 				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.redirect.disable' (boolean)", v))
@@ -499,7 +500,11 @@ func validate(config *configuration.Configuration) error {
 	// Validate migration section.
 	if config.Migration.Enabled {
 		if !config.Database.Enabled {
-			errs = multierror.Append(errs, fmt.Errorf("database must be enabled to migrate"))
+			errs = multierror.Append(errs, errors.New("database must be enabled to migrate"))
+		}
+
+		if config.Migration.RootDirectory == "" {
+			errs = multierror.Append(errs, errors.New("'migration.rootdirectory' must be set when in migration mode"))
 		}
 
 		storageParams := config.Storage.Parameters()
@@ -511,7 +516,7 @@ func validate(config *configuration.Configuration) error {
 		// https://gitlab.com/gitlab-org/container-registry/-/issues/374
 		if config.Migration.RootDirectory == fmt.Sprintf("%s", storageParams["rootdirectory"]) {
 			errs = multierror.Append(errs,
-				fmt.Errorf("migration requires a 'migration.rootdirectory` distinct from the root directory of primary storage driver"))
+				errors.New("migration requires a 'migration.rootdirectory` distinct from the root directory of primary storage driver"))
 		}
 	}
 
