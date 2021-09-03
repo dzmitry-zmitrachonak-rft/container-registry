@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/benbjohnson/clock"
+	"github.com/docker/distribution/registry/internal/testutil"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
@@ -27,6 +31,9 @@ var (
 	accountKey  string
 	container   string
 	realm       string
+
+	azureDriverConstructor func(rootDirectory string) (*Driver, error)
+	skipCheck              func() string
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -57,13 +64,13 @@ func init() {
 	}
 	defer os.Remove(root)
 
-	azureDriverConstructor := func() (storagedriver.StorageDriver, error) {
+	azureDriverConstructor = func(rootDirectory string) (*Driver, error) {
 		params := &driverParameters{
 			accountName:          accountName,
 			accountKey:           accountKey,
 			container:            container,
 			realm:                realm,
-			root:                 root,
+			root:                 rootDirectory,
 			trimLegacyRootPrefix: true,
 		}
 
@@ -71,14 +78,16 @@ func init() {
 	}
 
 	// Skip Azure storage driver tests if environment variable parameters are not provided
-	skipCheck := func() string {
+	skipCheck = func() string {
 		if len(missing) > 0 {
 			return fmt.Sprintf("Must set %s environment variables to run Azure tests", strings.Join(missing, ", "))
 		}
 		return ""
 	}
 
-	testsuites.RegisterSuite(azureDriverConstructor, skipCheck)
+	testsuites.RegisterSuite(func() (storagedriver.StorageDriver, error) {
+		return azureDriverConstructor(root)
+	}, skipCheck)
 }
 
 func TestPathToKey(t *testing.T) {
@@ -275,4 +284,46 @@ func Test_parseParameters_Bool(t *testing.T) {
 	}
 
 	dtestutil.TestBoolValue(t, opts)
+}
+
+func TestURLFor_Expiry(t *testing.T) {
+	if skipCheck() != "" {
+		t.Skip(skipCheck())
+	}
+
+	ctx := context.Background()
+	validRoot := dtestutil.TempRoot(t)
+	d, err := azureDriverConstructor(validRoot)
+	require.NoError(t, err)
+
+	fp := "/foo"
+	err = d.PutContent(ctx, fp, []byte(`bar`))
+	require.NoError(t, err)
+
+	// https://docs.microsoft.com/en-us/rest/api/storageservices/create-service-sas#specifying-the-access-policy
+	param := "se"
+
+	mock := clock.NewMock()
+	mock.Set(time.Now())
+	testutil.StubClock(t, &systemClock, mock)
+
+	// default
+	s, err := d.URLFor(ctx, fp, nil)
+	require.NoError(t, err)
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+
+	dt := mock.Now().Add(20 * time.Minute)
+	expected := dt.UTC().Format(time.RFC3339)
+	require.Equal(t, expected, u.Query().Get(param))
+
+	// custom
+	dt = mock.Now().Add(1 * time.Hour)
+	s, err = d.URLFor(ctx, fp, map[string]interface{}{"expiry": dt})
+	require.NoError(t, err)
+
+	u, err = url.Parse(s)
+	require.NoError(t, err)
+	expected = dt.UTC().Format(time.RFC3339)
+	require.Equal(t, expected, u.Query().Get(param))
 }
