@@ -552,5 +552,6 @@ func dbFromConfig(config *configuration.Configuration) (*datastore.DB, error) {
 			MaxLifetime: config.Database.Pool.MaxLifetime,
 			MaxIdleTime: config.Database.Pool.MaxIdleTime,
 		}),
+		datastore.WithPreparedStatements(config.Database.PreparedStatements),
 	)
 }
