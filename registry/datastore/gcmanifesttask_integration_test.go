@@ -77,6 +77,79 @@ func TestGCManifestTaskStore_FindAll_NotFound(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestGCManifestTaskStore_FindAndLock(t *testing.T) {
+	reloadGCManifestTaskFixtures(t)
+
+	ctx1, cancel1 := context.WithCancel(suite.ctx)
+	defer cancel1()
+
+	tx1, err := suite.db.BeginTx(ctx1, nil)
+	require.NoError(t, err)
+	defer tx1.Rollback()
+
+	s := datastore.NewGCManifestTaskStore(tx1)
+
+	// see testdata/fixtures/gc_manifest_review_queue.sql
+	r, err := s.FindAndLock(suite.ctx, 1, 4, 7)
+	require.NoError(t, err)
+
+	local := r.ReviewAfter.Location()
+	expected := &models.GCManifestTask{
+		NamespaceID:  1,
+		RepositoryID: 4,
+		ManifestID:   7,
+		ReviewAfter:  testutil.ParseTimestamp(t, "2020-04-03 18:45:04.470711", local),
+		ReviewCount:  2,
+	}
+
+	require.Equal(t, expected, r)
+
+	// attempt to find the same record in a separate transaction, it should block and eventually timeout
+	ctx2, cancel2 := context.WithTimeout(suite.ctx, 500*time.Millisecond)
+	defer cancel2()
+
+	tx2, err := suite.db.BeginTx(ctx2, nil)
+	require.NoError(t, err)
+	defer tx2.Rollback()
+	s = datastore.NewGCManifestTaskStore(tx2)
+	r, err = s.FindAndLock(ctx2, 1, 4, 7)
+
+	var netError net.Error
+	ok := errors.As(err, &netError)
+	require.True(t, ok)
+	require.True(t, netError.Timeout())
+	require.Nil(t, r)
+
+	// attempt again, but this time tx1 completes before the tx3 timeout, and it gets to lock the row
+	ctx3, cancel3 := context.WithTimeout(suite.ctx, 1*time.Second)
+	defer cancel3()
+
+	tx3, err := suite.db.BeginTx(ctx3, nil)
+	require.NoError(t, err)
+	defer tx3.Rollback()
+
+	go time.AfterFunc(500*time.Millisecond, func() { tx1.Rollback() })
+
+	s = datastore.NewGCManifestTaskStore(tx3)
+	r, err = s.FindAndLock(ctx3, 1, 4, 7)
+	require.NoError(t, err)
+	require.Equal(t, expected, r)
+}
+
+func TestGCManifestTaskStore_FindAndLock_NotFound(t *testing.T) {
+	reloadGCManifestTaskFixtures(t)
+
+	tx, err := suite.db.BeginTx(suite.ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	s := datastore.NewGCManifestTaskStore(tx)
+
+	r, err := s.FindAndLock(suite.ctx, 1, 400, 7)
+	require.NoError(t, err)
+	require.Nil(t, r)
+}
+
 func TestGCManifestTaskStore_FindAndLockBefore(t *testing.T) {
 	reloadGCManifestTaskFixtures(t)
 
