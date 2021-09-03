@@ -2,8 +2,10 @@ package s3
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -15,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/benbjohnson/clock"
+	"github.com/docker/distribution/registry/internal/testutil"
 	"github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/require"
 
@@ -454,6 +458,44 @@ func TestOverThousandBlobs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting thousand files: %v", err)
 	}
+}
+
+func TestURLFor_Expiry(t *testing.T) {
+	if skipS3() != "" {
+		t.Skip(skipS3())
+	}
+
+	ctx := context.Background()
+	d := newTempDirDriver(t)
+
+	fp := "/foo"
+	err := d.PutContent(ctx, fp, []byte{})
+	require.NoError(t, err)
+
+	// https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
+	param := "X-Amz-Expires"
+
+	mock := clock.NewMock()
+	mock.Set(time.Now())
+	testutil.StubClock(t, &systemClock, mock)
+
+	// default
+	s, err := d.URLFor(ctx, fp, nil)
+	require.NoError(t, err)
+
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+	require.Equal(t, "1200", u.Query().Get(param))
+
+	// custom
+	dt := mock.Now().Add(1 * time.Hour)
+	s, err = d.URLFor(ctx, fp, map[string]interface{}{"expiry": dt})
+	require.NoError(t, err)
+
+	u, err = url.Parse(s)
+	require.NoError(t, err)
+	expected := dt.Sub(mock.Now()).Seconds()
+	require.Equal(t, fmt.Sprint(expected), u.Query().Get(param))
 }
 
 func TestMoveWithMultipartCopy(t *testing.T) {

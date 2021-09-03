@@ -7,11 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/benbjohnson/clock"
+	"github.com/docker/distribution/registry/internal/testutil"
 
 	"cloud.google.com/go/storage"
 	"github.com/stretchr/testify/require"
@@ -67,27 +72,25 @@ func init() {
 		panic(err)
 	}
 	defer os.Remove(root)
-	var ts oauth2.TokenSource
-	var email string
-	var privateKey []byte
 
-	ts, err = google.DefaultTokenSource(dcontext.Background(), storage.ScopeFullControl)
+	ctx := context.Background()
+	creds, err := google.FindDefaultCredentials(ctx, storage.ScopeFullControl)
 	if err != nil {
-		// Assume that the file contents are within the environment variable since it exists
-		// but does not contain a valid file path
-		jwtConfig, err := google.JWTConfigFromJSON([]byte(credentials), storage.ScopeFullControl)
-		if err != nil {
-			panic(fmt.Sprintf("Error reading JWT config : %s", err))
-		}
-		email = jwtConfig.Email
-		privateKey = []byte(jwtConfig.PrivateKey)
-		if len(privateKey) == 0 {
-			panic("Error reading JWT config : missing private_key property")
-		}
-		if email == "" {
-			panic("Error reading JWT config : missing client_email property")
-		}
-		ts = jwtConfig.TokenSource(dcontext.Background())
+		panic(fmt.Sprintf("Error reading default credentials: %s", err))
+	}
+
+	ts := creds.TokenSource
+	jwtConfig, err := google.JWTConfigFromJSON(creds.JSON)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading JWT config: %s", err))
+	}
+	email := jwtConfig.Email
+	if email == "" {
+		panic("Error reading JWT config : missing client_email property")
+	}
+	privateKey := jwtConfig.PrivateKey
+	if len(privateKey) == 0 {
+		panic("Error reading JWT config : missing private_key property")
 	}
 
 	storageClient, err := storage.NewClient(dcontext.Background(), option.WithTokenSource(ts))
@@ -582,4 +585,46 @@ func newTempDirDriver(tb testing.TB) storagedriver.StorageDriver {
 	require.NoError(tb, err)
 
 	return d
+}
+
+func TestURLFor_Expiry(t *testing.T) {
+	if skipGCS() != "" {
+		t.Skip(skipGCS())
+	}
+
+	ctx := context.Background()
+	validRoot := dtestutil.TempRoot(t)
+	d, err := gcsDriverConstructor(validRoot)
+	require.NoError(t, err)
+
+	fp := "/foo"
+	err = d.PutContent(ctx, fp, []byte(`bar`))
+	require.NoError(t, err)
+
+	// https://cloud.google.com/storage/docs/access-control/signed-urls-v2
+	param := "Expires"
+
+	mock := clock.NewMock()
+	mock.Set(time.Now())
+	testutil.StubClock(t, &systemClock, mock)
+
+	// default
+	s, err := d.URLFor(ctx, fp, nil)
+	require.NoError(t, err)
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+
+	dt := mock.Now().Add(20 * time.Minute)
+	expected := fmt.Sprint(dt.Unix())
+	require.Equal(t, expected, u.Query().Get(param))
+
+	// custom
+	dt = mock.Now().Add(1 * time.Hour)
+	s, err = d.URLFor(ctx, fp, map[string]interface{}{"expiry": dt})
+	require.NoError(t, err)
+
+	u, err = url.Parse(s)
+	require.NoError(t, err)
+	expected = fmt.Sprint(dt.Unix())
+	require.Equal(t, expected, u.Query().Get(param))
 }

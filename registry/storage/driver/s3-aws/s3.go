@@ -35,8 +35,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/benbjohnson/clock"
 	"github.com/cenkalti/backoff/v4"
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/registry/internal"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
@@ -1047,6 +1049,9 @@ func (d *driver) DeleteFiles(ctx context.Context, paths []string) (int, error) {
 	return count, errs
 }
 
+// for testing purposes
+var systemClock internal.Clock = clock.New()
+
 // URLFor returns a URL which may be used to retrieve the content stored at the given path.
 // May return an UnsupportedMethodErr in certain StorageDriver implementations.
 func (d *driver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
@@ -1064,7 +1069,7 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 	if ok {
 		et, ok := expires.(time.Time)
 		if ok {
-			expiresIn = et.Sub(time.Now())
+			expiresIn = et.Sub(systemClock.Now())
 		}
 	}
 

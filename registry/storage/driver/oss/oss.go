@@ -22,7 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/denverdino/aliyungo/oss"
+	"github.com/docker/distribution/registry/internal"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
@@ -471,6 +473,9 @@ func (d *driver) DeleteFiles(ctx context.Context, paths []string) (int, error) {
 	return count, nil
 }
 
+// for testing purposes
+var systemClock internal.Clock = clock.New()
+
 // URLFor returns a URL which may be used to retrieve the content stored at the given path.
 // May return an UnsupportedMethodErr in certain StorageDriver implementations.
 func (d *driver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
@@ -483,7 +488,7 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 		}
 	}
 
-	expiresTime := time.Now().Add(20 * time.Minute)
+	expiresTime := systemClock.Now().Add(20 * time.Minute)
 
 	expires, ok := options["expiry"]
 	if ok {

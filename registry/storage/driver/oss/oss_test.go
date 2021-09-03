@@ -3,15 +3,20 @@
 package oss
 
 import (
+	"net/url"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/benbjohnson/clock"
 	alioss "github.com/denverdino/aliyungo/oss"
 	"github.com/docker/distribution/context"
+	"github.com/docker/distribution/registry/internal/testutil"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/check.v1"
 )
 
@@ -190,4 +195,46 @@ func Test_parseParameters_Bool(t *testing.T) {
 			dtestutil.TestBoolValue(t, opts)
 		})
 	}
+}
+
+func TestURLFor_Expiry(t *testing.T) {
+	if skipCheck() != "" {
+		t.Skip(skipCheck())
+	}
+
+	ctx := context.Background()
+	validRoot := dtestutil.TempRoot(t)
+	d, err := ossDriverConstructor(validRoot)
+	require.NoError(t, err)
+
+	fp := "/foo"
+	err = d.PutContent(ctx, fp, []byte(`bar`))
+	require.NoError(t, err)
+
+	// https://www.alibabacloud.com/help/doc-detail/31952.htm
+	param := "Expires"
+
+	mock := clock.NewMock()
+	mock.Set(time.Now())
+	testutil.StubClock(t, &systemClock, mock)
+
+	// default
+	s, err := d.URLFor(ctx, fp, nil)
+	require.NoError(t, err)
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+
+	dt := mock.Now().Add(20 * time.Minute)
+	expected := strconv.FormatInt(dt.Unix(), 10)
+	require.Equal(t, expected, u.Query().Get(param))
+
+	// custom
+	dt = mock.Now().Add(1 * time.Hour)
+	s, err = d.URLFor(ctx, fp, map[string]interface{}{"expiry": dt})
+	require.NoError(t, err)
+
+	u, err = url.Parse(s)
+	require.NoError(t, err)
+	expected = strconv.FormatInt(dt.Unix(), 10)
+	require.Equal(t, expected, u.Query().Get(param))
 }

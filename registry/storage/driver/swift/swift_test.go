@@ -1,11 +1,18 @@
 package swift
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/benbjohnson/clock"
+	"github.com/docker/distribution/registry/internal/testutil"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ncw/swift/swifttest"
 
@@ -274,4 +281,42 @@ func TestSwiftSegmentPath(t *testing.T) {
 	if s1 == s2 {
 		t.Fatalf("expected segment paths to differ, %s == %s", s1, s2)
 	}
+}
+
+func TestURLFor_Expiry(t *testing.T) {
+	ctx := context.Background()
+	validRoot := dtestutil.TempRoot(t)
+	d, err := swiftDriverConstructor(validRoot)
+	require.NoError(t, err)
+
+	fp := "/foo"
+	err = d.PutContent(ctx, fp, []byte(`bar`))
+	require.NoError(t, err)
+
+	// https://docs.openstack.org/swift/latest/api/temporary_url_middleware.html#temporary-url-format
+	param := "temp_url_expires"
+
+	mock := clock.NewMock()
+	mock.Set(time.Now())
+	testutil.StubClock(t, &systemClock, mock)
+
+	// default
+	s, err := d.URLFor(ctx, fp, nil)
+	require.NoError(t, err)
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+
+	dt := mock.Now().Add(20 * time.Minute)
+	expected := fmt.Sprint(dt.Unix())
+	require.Equal(t, expected, u.Query().Get(param))
+
+	// custom
+	dt = mock.Now().Add(1 * time.Hour)
+	s, err = d.URLFor(ctx, fp, map[string]interface{}{"expiry": dt})
+	require.NoError(t, err)
+
+	u, err = url.Parse(s)
+	require.NoError(t, err)
+	expected = fmt.Sprint(dt.Unix())
+	require.Equal(t, expected, u.Query().Get(param))
 }
