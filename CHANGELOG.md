@@ -1,3 +1,12 @@
+## [3.10.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.10.0-gitlab...v3.10.1-gitlab) (2021-09-03)
+
+
+### Bug Fixes
+
+* set prepared statements option for the CLI DB client ([1cc1716](https://gitlab.com/gitlab-org/container-registry/commit/1cc1716f8eb92b55cc462f23e32ff3f346ee6575))
+* **configuration:** require rootdirectory to be set when in migration mode ([6701c98](https://gitlab.com/gitlab-org/container-registry/commit/6701c98e71a1bff26f30492f4965fc8d91754163))
+* **gc:** improve handling of database errors and review postponing ([e359925](https://gitlab.com/gitlab-org/container-registry/commit/e3599255528f29f0a0cc8d75c6ee0b16122fbce2))
+
 # [3.10.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.9.0-gitlab...v3.10.0-gitlab) (2021-08-23)
 
 
