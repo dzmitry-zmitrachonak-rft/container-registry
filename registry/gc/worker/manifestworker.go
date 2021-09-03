@@ -11,6 +11,7 @@ import (
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/gc/internal/metrics"
 	"github.com/hashicorp/go-multierror"
+	"github.com/jackc/pgconn"
 	"github.com/sirupsen/logrus"
 )
 
@@ -103,30 +104,19 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 
 	dangling, err := mts.IsDangling(ctx, t)
 	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			// The transaction duration exceeded w.txTimeout and therefore the connection was closed, just return
-			// because the task was unlocked on close and therefore we can't postpone the next review
-		default:
-			// we don't know how to react here, so just try to postpone the task review and return
-			if innerErr := w.postponeTaskAndCommit(ctx, tx, t); innerErr != nil {
-				err = multierror.Append(err, innerErr)
-			}
-		}
-		return true, err
+		return true, w.handleDBError(ctx, t, err)
 	}
 
 	if dangling {
-		log.Info("the manifest is dangling")
+		log.Info("the manifest is dangling, deleting")
+		// deleting the manifest cascades to the review queue, so we don't need to delete the task directly here
 		if err := w.deleteManifest(ctx, tx, t); err != nil {
-			return true, err
+			return true, w.handleDBError(ctx, t, err)
 		}
 	} else {
-		log.Info("the manifest is not dangling")
-		// deleting the manifest cascades to the review queue, so we only delete the task directly if not dangling
-		log.Info("deleting task")
+		log.Info("the manifest is not dangling, deleting task")
 		if err := mts.Delete(ctx, t); err != nil {
-			return true, err
+			return true, w.handleDBError(ctx, t, err)
 		}
 	}
 
@@ -147,32 +137,55 @@ func (w *ManifestWorker) deleteManifest(ctx context.Context, tx datastore.Transa
 	report := metrics.ManifestDelete()
 	found, err = ms.Delete(ctx, &models.Manifest{NamespaceID: t.NamespaceID, RepositoryID: t.RepositoryID, ID: t.ManifestID})
 	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			// The transaction duration exceeded w.txTimeout and therefore the connection was closed, just return
-			// because the task was unlocked on close and therefore we can't postpone the next review
-		default:
-			if innerErr := w.postponeTaskAndCommit(ctx, tx, t); innerErr != nil {
-				err = multierror.Append(err, innerErr)
-			}
-		}
 		report(err)
 		return err
 	}
 	if !found {
 		// this should never happen because deleting a manifest cascades to the review queue, nevertheless...
 		log.Warn("manifest no longer exists on database")
+		return nil
 	}
 
 	report(nil)
 	return nil
 }
 
-func (w *ManifestWorker) postponeTaskAndCommit(ctx context.Context, tx datastore.Transactor, t *models.GCManifestTask) error {
+// postponeTask will postpone the next review of a GC task by applying an exponential delay based on the amount of times
+// a task has been reviewed/retried. A row lock is used to avoid having other GC workers picking this task "at the same
+// time". To guard against long-running transactions in case another worker already got a lock for this task, the caller
+// of this method should set a timeout for the provided context. This is already done when called from processTask where
+// we enforce a global processing deadline of w.txTimeout (configurable).
+func (w *ManifestWorker) postponeTask(ctx context.Context, t *models.GCManifestTask) error {
+	// create transaction
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("creating database transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// find and lock task for update
+	mts := manifestTaskStoreConstructor(tx)
+	t2, err := mts.FindAndLock(ctx, t.NamespaceID, t.RepositoryID, t.ManifestID)
+	if err != nil {
+		return err
+	}
+	if t2 == nil {
+		// if the task no longer exists it means it was reprocessed successfully by another worker and then deleted
+		return nil
+	}
+
+	// If the value of review_after retrieved from the DB is ahead of the one we have, it means that this task was
+	// already postponed by another worker.
+	log := dcontext.GetLogger(ctx)
+	if t2.ReviewAfter.After(t.ReviewAfter) {
+		log.WithField("review_after", t2.ReviewAfter.String()).Info("task already postponed, skipping")
+		return nil
+	}
+
+	// otherwise, calculate what should be the next review delay and update the task
 	d := exponentialBackoff(t.ReviewCount)
 	dcontext.GetLogger(ctx).WithField("backoff_duration", d.String()).Info("postponing next review")
-
-	if err := manifestTaskStoreConstructor(tx).Postpone(ctx, t, d); err != nil {
+	if err := mts.Postpone(ctx, t, d); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -181,4 +194,20 @@ func (w *ManifestWorker) postponeTaskAndCommit(ctx context.Context, tx datastore
 
 	metrics.ReviewPostpone(w.name)
 	return nil
+}
+
+func (w *ManifestWorker) handleDBError(ctx context.Context, t *models.GCManifestTask, err error) error {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded), pgconn.Timeout(err):
+		// this error is likely temporary. Do not postpone the task's next review as it is likely to succeed
+		dcontext.GetLogger(ctx).WithError(err).Warn("skipping next review postpone as error is likely temporary")
+	default:
+		// If this is not a temporary error and/or we're not sure how to handle it, then we should err on the safe side
+		// and try to postpone this task's next review so that we have time to debug and fix the underlying cause.
+		if innerErr := w.postponeTask(ctx, t); innerErr != nil {
+			return multierror.Append(err, innerErr)
+		}
+	}
+
+	return err
 }

@@ -80,6 +80,21 @@ func (mr *MockGCManifestTaskStoreMockRecorder) FindAll(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAll", reflect.TypeOf((*MockGCManifestTaskStore)(nil).FindAll), arg0)
 }
 
+// FindAndLock mocks base method.
+func (m *MockGCManifestTaskStore) FindAndLock(arg0 context.Context, arg1, arg2, arg3 int64) (*models.GCManifestTask, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindAndLock", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*models.GCManifestTask)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindAndLock indicates an expected call of FindAndLock.
+func (mr *MockGCManifestTaskStoreMockRecorder) FindAndLock(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAndLock", reflect.TypeOf((*MockGCManifestTaskStore)(nil).FindAndLock), arg0, arg1, arg2, arg3)
+}
+
 // FindAndLockBefore mocks base method.
 func (m *MockGCManifestTaskStore) FindAndLockBefore(arg0 context.Context, arg1, arg2, arg3 int64, arg4 time.Time) (*models.GCManifestTask, error) {
 	m.ctrl.T.Helper()
