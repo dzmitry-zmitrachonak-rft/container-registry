@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/docker/distribution/configuration"
 	dcontext "github.com/docker/distribution/context"
@@ -487,12 +488,20 @@ func validate(config *configuration.Configuration) error {
 
 	// Validate redirect section.
 	if redirectConfig, ok := config.Storage["redirect"]; ok {
-		v, ok := redirectConfig["disable"]
-		if !ok {
-			errs = multierror.Append(errors.New("'storage.redirect' section must include 'disable' parameter (boolean)"))
-		} else {
+		if v, ok := redirectConfig["disable"]; ok {
 			if _, ok := v.(bool); !ok {
 				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.redirect.disable' (boolean)", v))
+			}
+		}
+		if v, ok := redirectConfig["expirydelay"]; ok {
+			switch val := v.(type) {
+			case time.Duration:
+			case string:
+				if _, err := time.ParseDuration(val); err != nil {
+					errs = multierror.Append(fmt.Errorf("%q value for 'storage.redirect.expirydelay' is not a valid duration", val))
+				}
+			default:
+				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.redirect.expirydelay' (duration)", v))
 			}
 		}
 	}

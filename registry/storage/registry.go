@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
@@ -41,7 +42,7 @@ type RegistryOption func(*registry) error
 // EnableRedirect is a functional option for NewRegistry. It causes the backend
 // blob server to attempt using (StorageDriver).URLFor to serve all blobs.
 func EnableRedirect(registry *registry) error {
-	registry.blobServer.redirect = true
+	registry.blobServer.redirect.enabled = true
 	return nil
 }
 
@@ -49,7 +50,7 @@ func EnableRedirect(registry *registry) error {
 // whose paths match any of the exceptions.
 func EnableRedirectWithExceptions(exceptions []string) RegistryOption {
 	return func(registry *registry) error {
-		registry.blobServer.redirect = true
+		registry.blobServer.redirect.enabled = true
 
 		for _, e := range exceptions {
 			r, err := regexp.Compile(e)
@@ -59,6 +60,15 @@ func EnableRedirectWithExceptions(exceptions []string) RegistryOption {
 
 			registry.redirectExceptions = append(registry.redirectExceptions, r)
 		}
+		return nil
+	}
+}
+
+// WithRedirectExpiryDelay sets a custom expiry delay for presigned URLs used for redirecting clients to supported
+// storage backends for blob downloads.
+func WithRedirectExpiryDelay(d time.Duration) RegistryOption {
+	return func(registry *registry) error {
+		registry.blobServer.redirect.expiryDelay = d
 		return nil
 	}
 }
@@ -359,10 +369,10 @@ func (repo *repository) Blobs(ctx context.Context) distribution.BlobStore {
 	// for the purpose of conditionally disabling redirection for repositories.
 	blobServer := *repo.blobServer
 
-	if blobServer.redirect {
+	if blobServer.redirect.enabled {
 		for _, exception := range repo.redirectExceptions {
 			if exception.MatchString(repo.name.Name()) {
-				blobServer.redirect = false
+				blobServer.redirect.enabled = false
 				break
 			}
 		}

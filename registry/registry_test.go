@@ -3,6 +3,7 @@ package registry
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -364,4 +365,90 @@ func TestConfigureMonitoring_All(t *testing.T) {
 	assertMonitoringResponse(t, addr, "/debug/health", http.StatusOK)
 	assertMonitoringResponse(t, addr, "/debug/pprof", http.StatusOK)
 	assertMonitoringResponse(t, addr, "/metrics", http.StatusOK)
+}
+
+func Test_validate_redirect(t *testing.T) {
+	tests := []struct {
+		name          string
+		redirect      map[string]interface{}
+		expectedError error
+	}{
+		{
+			name:     "no redirect section",
+			redirect: nil,
+		},
+		{
+			name:     "no parameters",
+			redirect: map[string]interface{}{},
+		},
+		{
+			name: "no disable parameter",
+			redirect: map[string]interface{}{
+				"expirydelay": 2 * time.Minute,
+			},
+		},
+		{
+			name: "bool disable parameter",
+			redirect: map[string]interface{}{
+				"disable": true,
+			},
+		},
+		{
+			name: "invalid disable parameter",
+			redirect: map[string]interface{}{
+				"disable": "true",
+			},
+			expectedError: errors.New("1 error occurred:\n\t* invalid type string for 'storage.redirect.disable' (boolean)\n\n"),
+		},
+		{
+			name: "no expiry delay parameter",
+			redirect: map[string]interface{}{
+				"disable": true,
+			},
+		},
+		{
+			name: "duration expiry delay parameter",
+			redirect: map[string]interface{}{
+				"expirydelay": 2 * time.Minute,
+			},
+		},
+		{
+			name: "string expiry delay parameter",
+			redirect: map[string]interface{}{
+				"expirydelay": "2ms",
+			},
+		},
+		{
+			name: "invalid expiry delay parameter",
+			redirect: map[string]interface{}{
+				"expirydelay": 1,
+			},
+			expectedError: errors.New("1 error occurred:\n\t* invalid type int for 'storage.redirect.expirydelay' (duration)\n\n"),
+		},
+		{
+			name: "invalid string expiry delay parameter",
+			redirect: map[string]interface{}{
+				"expirydelay": "2mm",
+			},
+			expectedError: errors.New("1 error occurred:\n\t* \"2mm\" value for 'storage.redirect.expirydelay' is not a valid duration\n\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &configuration.Configuration{
+				Storage: map[string]configuration.Parameters{},
+			}
+
+			if tt.redirect != nil {
+				cfg.Storage["redirect"] = tt.redirect
+			}
+
+			if tt.expectedError != nil {
+				require.EqualError(t, validate(cfg), tt.expectedError.Error())
+			} else {
+				require.NoError(t, validate(cfg))
+			}
+		})
+	}
 }

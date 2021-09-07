@@ -220,6 +220,8 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		switch v := v.(type) {
 		case bool:
 			redirectDisabled = v
+		case nil:
+			// disable is not mandatory as we default to false, so do nothing if it doesn't exist
 		default:
 			panic(fmt.Sprintf("invalid type %T for 'storage.redirect.disable' (boolean)", v))
 		}
@@ -227,6 +229,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if redirectDisabled {
 		log.Info("backend redirection disabled")
 	} else {
+		l := log
 		exceptions := config.Storage["redirect"]["exceptions"]
 		if exceptions, ok := exceptions.([]interface{}); ok && len(exceptions) > 0 {
 			s := make([]string, len(exceptions))
@@ -234,12 +237,34 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				s[i] = fmt.Sprint(v)
 			}
 
-			log.WithField("exceptions", s).Info("backend redirection enabled with exceptions")
+			l.WithField("exceptions", s)
 
 			options = append(options, storage.EnableRedirectWithExceptions(s))
 		} else {
 			options = append(options, storage.EnableRedirect)
 		}
+
+		// expiry delay
+		delay := config.Storage["redirect"]["expirydelay"]
+		var d time.Duration
+
+		switch v := delay.(type) {
+		case time.Duration:
+			d = v
+		case string:
+			if d, err = time.ParseDuration(v); err != nil {
+				panic(fmt.Errorf("%q value for 'storage.redirect.expirydelay' is not a valid duration", v))
+			}
+		case nil:
+		default:
+			panic(fmt.Errorf("invalid type %[1]T for 'storage.redirect.expirydelay' (duration)", delay))
+		}
+		if d > 0 {
+			l = l.WithField("expiry_delay_s", d.Seconds())
+			options = append(options, storage.WithRedirectExpiryDelay(d))
+		}
+
+		l.Info("storage backend redirection enabled")
 	}
 
 	if !config.Validation.Enabled {

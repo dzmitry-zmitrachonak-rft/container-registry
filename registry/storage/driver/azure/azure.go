@@ -422,7 +422,7 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 	if ok {
 		t, ok := expires.(time.Time)
 		if ok {
-			expiresTime = t
+			expiresTime = t.UTC()
 		}
 	}
 	blobRef := d.client.GetContainerReference(d.container).GetBlobReference(d.pathToKey(path))
