@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -16,7 +16,6 @@ import (
 	"github.com/docker/distribution/registry/storage"
 	"github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
-	"github.com/sirupsen/logrus"
 )
 
 // blobUploadDispatcher constructs and returns the blob upload handler for the
@@ -71,12 +70,12 @@ type blobUploadHandler struct {
 }
 
 func dbMountBlob(ctx context.Context, db datastore.Queryer, fromRepoPath, toRepoPath string, d digest.Digest) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"source":      fromRepoPath,
 		"destination": toRepoPath,
 		"digest":      d,
 	})
-	log.Debug("cross repository blob mounting")
+	l.Debug("cross repository blob mounting")
 
 	// find source blob from source repository
 	b, err := dbFindRepositoryBlob(ctx, db, distribution.Descriptor{Digest: d}, fromRepoPath)
@@ -267,7 +266,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 		// of this.
 	})
 
-	log := dcontext.GetLogger(buh)
+	l := log.GetLogger(log.WithContext(buh))
 	if err != nil {
 		switch err := err.(type) {
 		case distribution.ErrBlobInvalidDigest:
@@ -283,7 +282,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 			case distribution.ErrBlobInvalidLength, distribution.ErrBlobDigestUnsupported:
 				buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadInvalid.WithDetail(err))
 			default:
-				log.Errorf("unknown error completing upload: %v", err)
+				l.WithError(err).Error("unknown error completing upload")
 				buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
 
@@ -292,7 +291,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 		// Clean up the backend blob data if there was an error.
 		if err := buh.Upload.Cancel(buh); err != nil {
 			// If the cleanup fails, all we can do is observe and report.
-			log.Errorf("error canceling upload after error: %v", err)
+			l.WithError(err).Error("error canceling upload after error")
 		}
 
 		return
@@ -311,7 +310,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 		return
 	}
 
-	log.WithFields(logrus.Fields{
+	l.WithFields(log.Fields{
 		"media_type": desc.MediaType,
 		"size_bytes": desc.Size,
 		"digest":     desc.Digest,
@@ -327,7 +326,7 @@ func (buh *blobUploadHandler) CancelBlobUpload(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Docker-Upload-UUID", buh.UUID)
 	if err := buh.Upload.Cancel(buh); err != nil {
-		dcontext.GetLogger(buh).Errorf("error encountered canceling upload: %v", err)
+		log.GetLogger(log.WithContext(buh)).WithError(err).Error("error encountered canceling upload")
 		buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 	}
 
@@ -338,7 +337,7 @@ func (buh *blobUploadHandler) ResumeBlobUpload(ctx *Context, r *http.Request) ht
 	state, err := hmacKey(ctx.Config.HTTP.Secret).unpackUploadState(r.FormValue("_state"))
 	if err != nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			dcontext.GetLogger(ctx).Infof("error resolving upload: %v", err)
+			log.GetLogger(log.WithContext(ctx)).WithError(err).Info("error resolving upload")
 			buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadInvalid.WithDetail(err))
 		})
 	}
@@ -346,14 +345,21 @@ func (buh *blobUploadHandler) ResumeBlobUpload(ctx *Context, r *http.Request) ht
 
 	if state.Name != ctx.Repository.Named().Name() {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			dcontext.GetLogger(ctx).Infof("mismatched repository name in upload state: %q != %q", state.Name, buh.Repository.Named().Name())
+			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+				"state_name": state.Name,
+				"repository": buh.Repository.Named().Name(),
+			}).Info("mismatched repository name in upload state")
 			buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadInvalid.WithDetail(err))
 		})
 	}
 
 	if state.UUID != buh.UUID {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			dcontext.GetLogger(ctx).Infof("mismatched uuid in upload state: %q != %q", state.UUID, buh.UUID)
+			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+				"state_uuid":  state.UUID,
+				"upload_uuid": buh.UUID,
+
+			}).Info("mismatched uuid in upload state")
 			buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadInvalid.WithDetail(err))
 		})
 	}
@@ -361,7 +367,7 @@ func (buh *blobUploadHandler) ResumeBlobUpload(ctx *Context, r *http.Request) ht
 	blobs := ctx.Repository.Blobs(buh)
 	upload, err := blobs.Resume(buh, buh.UUID)
 	if err != nil {
-		dcontext.GetLogger(ctx).Errorf("error resolving upload: %v", err)
+		log.GetLogger(log.WithContext(ctx)).WithError(err).Error("error resolving upload")
 		if err == distribution.ErrBlobUploadUnknown {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadUnknown.WithDetail(err))
@@ -376,7 +382,10 @@ func (buh *blobUploadHandler) ResumeBlobUpload(ctx *Context, r *http.Request) ht
 
 	if size := upload.Size(); size != buh.State.Offset {
 		defer upload.Close()
-		dcontext.GetLogger(ctx).Errorf("upload resumed at wrong offset: %d != %d", size, buh.State.Offset)
+		log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+			"upload_size":  size,
+			"state_offset": buh.State.Offset,
+		}).Error("upload resumed at wrong offset")
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadInvalid.WithDetail(err))
 			upload.Cancel(buh)
@@ -400,7 +409,7 @@ func (buh *blobUploadHandler) blobUploadResponse(w http.ResponseWriter, r *http.
 
 	token, err := hmacKey(buh.Config.HTTP.Secret).packUploadState(buh.State)
 	if err != nil {
-		dcontext.GetLogger(buh).Infof("error building upload state token: %s", err)
+		log.GetLogger(log.WithContext(buh)).WithError(err).Info("error building upload state token")
 		return err
 	}
 
@@ -410,7 +419,7 @@ func (buh *blobUploadHandler) blobUploadResponse(w http.ResponseWriter, r *http.
 			"_state": []string{token},
 		})
 	if err != nil {
-		dcontext.GetLogger(buh).Infof("error building upload url: %s", err)
+		log.GetLogger(log.WithContext(buh)).WithError(err).Info("error building upload url")
 		return err
 	}
 

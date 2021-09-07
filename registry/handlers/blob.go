@@ -6,8 +6,7 @@ import (
 	"net/http"
 
 	"github.com/docker/distribution/configuration"
-
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 
 	"github.com/docker/distribution/registry/datastore"
 
@@ -58,8 +57,8 @@ type blobHandler struct {
 }
 
 func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string, dgst digest.Digest) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "digest": dgst})
-	log.Debug("finding blob in database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "digest": dgst})
+	l.Debug("finding blob in database")
 
 	rStore := datastore.NewRepositoryStore(db)
 	r, err := rStore.FindByPath(ctx, repoPath)
@@ -67,7 +66,7 @@ func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string
 		return err
 	}
 	if r == nil {
-		log.Warn("repository not found in database")
+		l.Warn("repository not found in database")
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
 	}
 
@@ -77,7 +76,7 @@ func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string
 	}
 
 	if !found {
-		log.Warn("blob link not found in database")
+		l.Warn("blob link not found in database")
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
 	}
 
@@ -87,7 +86,7 @@ func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string
 // GetBlob fetches the binary data from backend storage returns it in the
 // response.
 func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
-	dcontext.GetLogger(bh).Debug("GetBlob")
+	log.GetLogger(log.WithContext(bh)).Debug("GetBlob")
 
 	var dgst digest.Digest
 	blobs := bh.Repository.Blobs(bh)
@@ -114,7 +113,7 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := blobs.ServeBlob(bh, w, r, dgst); err != nil {
-		dcontext.GetLogger(bh).Debugf("unexpected error getting blob HTTP handler: %v", err)
+		log.GetLogger(log.WithContext(bh)).WithError(err).Debug("unexpected error getting blob HTTP handler")
 		if errors.Is(err, distribution.ErrBlobUnknown) {
 			bh.Errors = append(bh.Errors, v2.ErrorCodeBlobUnknown.WithDetail(bh.Digest))
 		} else {
@@ -127,8 +126,8 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 // dbDeleteBlob does not actually delete a blob from the database (that's GC's responsibility), it only unlinks it from
 // a repository.
 func dbDeleteBlob(ctx context.Context, config *configuration.Configuration, db datastore.Queryer, repoPath string, d digest.Digest) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "digest": d})
-	log.Debug("deleting blob from repository in database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "digest": d})
+	l.Debug("deleting blob from repository in database")
 
 	if !deleteEnabled(config) {
 		return distribution.ErrUnsupported
@@ -168,7 +167,7 @@ func deleteEnabled(config *configuration.Configuration) bool {
 
 // DeleteBlob deletes a layer blob
 func (bh *blobHandler) DeleteBlob(w http.ResponseWriter, r *http.Request) {
-	dcontext.GetLogger(bh).Debug("DeleteBlob")
+	log.GetLogger(log.WithContext(bh)).Debug("DeleteBlob")
 
 	err := bh.deleteBlob()
 	if err != nil {
@@ -184,7 +183,7 @@ func (bh *blobHandler) DeleteBlob(w http.ResponseWriter, r *http.Request) {
 			return
 		default:
 			bh.Errors = append(bh.Errors, errcode.FromUnknownError(err))
-			dcontext.GetLogger(bh).WithError(err).Error("failed to delete blob")
+			log.GetLogger(log.WithContext(bh)).WithError(err).Error("failed to delete blob")
 			return
 		}
 	}
