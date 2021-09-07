@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
@@ -39,8 +39,8 @@ type tagsAPIResponse struct {
 }
 
 func dbGetTags(ctx context.Context, db datastore.Queryer, repoPath string, n int, last string) ([]string, bool, error) {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "limit": n, "marker": last})
-	log.Debug("finding tags in database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "limit": n, "marker": last})
+	l.Debug("finding tags in database")
 
 	rStore := datastore.NewRepositoryStore(db)
 	r, err := rStore.FindByPath(ctx, repoPath)
@@ -48,7 +48,7 @@ func dbGetTags(ctx context.Context, db datastore.Queryer, repoPath string, n int
 		return nil, false, err
 	}
 	if r == nil {
-		log.Warn("repository not found in database")
+		l.Warn("repository not found in database")
 		return nil, false, v2.ErrorCodeNameUnknown.WithDetail(map[string]string{"name": repoPath})
 	}
 
@@ -165,8 +165,8 @@ const (
 )
 
 func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tagName string) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "tag": tagName})
-	log.Debug("deleting tag from repository in database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "tag": tagName})
+	l.Debug("deleting tag from repository in database")
 
 	rStore := datastore.NewRepositoryStore(db)
 	r, err := rStore.FindByPath(ctx, repoPath)
@@ -229,7 +229,7 @@ func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tag
 
 // DeleteTag deletes a tag for a specific image name.
 func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
-	dcontext.GetLogger(th).Debug("DeleteTag")
+	log.GetLogger(log.WithContext(th)).Debug("DeleteTag")
 
 	if th.App.isCache {
 		th.Errors = append(th.Errors, errcode.ErrorCodeUnsupported)

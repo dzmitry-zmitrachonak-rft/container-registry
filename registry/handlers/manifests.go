@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
@@ -29,7 +29,6 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/sirupsen/logrus"
 )
 
 // These constants determine which architecture and OS to choose from a
@@ -107,8 +106,8 @@ type manifestHandler struct {
 
 // GetManifest fetches the image manifest from the storage backend, if it exists.
 func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) {
-	log := dcontext.GetLogger(imh)
-	log.Debug("GetImageManifest")
+	l := log.GetLogger(log.WithContext(imh))
+	l.Debug("GetImageManifest")
 
 	manifestGetter, err := imh.newManifestGetter(r)
 	if err != nil {
@@ -204,7 +203,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Etag", fmt.Sprintf(`"%s"`, imh.Digest))
 	w.Write(p)
 
-	log.WithFields(logrus.Fields{
+	l.WithFields(log.Fields{
 		"media_type":      manifestType.MediaType(),
 		"size_bytes":      len(p),
 		"digest":          imh.Digest,
@@ -253,11 +252,11 @@ func supports(req *http.Request, st storageType) bool {
 }
 
 func (imh *manifestHandler) rewriteManifestList(manifestList *manifestlist.DeserializedManifestList) (distribution.Manifest, error) {
-	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{
+	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{
 		"manifest_list_digest": imh.Digest.String(),
 		"default_arch":         defaultArch,
 		"default_os":           defaultOS})
-	log.Info("client does not advertise support for manifest lists, selecting a manifest image for the default arch and os")
+	l.Info("client does not advertise support for manifest lists, selecting a manifest image for the default arch and os")
 
 	// Find the image manifest corresponding to the default platform.
 	var manifestDigest digest.Digest
@@ -338,8 +337,8 @@ func newDBManifestGetter(imh *manifestHandler, req *http.Request) (*dbManifestGe
 }
 
 func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distribution.Manifest, digest.Digest, error) {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": g.repoPath, "tag": tagName})
-	log.Debug("getting manifest by tag from database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": g.repoPath, "tag": tagName})
+	l.Debug("getting manifest by tag from database")
 
 	dbRepo, err := g.FindByPath(ctx, g.repoPath)
 	if err != nil {
@@ -347,7 +346,7 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 	}
 
 	if dbRepo == nil {
-		log.Warn("repository not found in database")
+		l.Warn("repository not found in database")
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
@@ -358,7 +357,7 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 
 	// at the DB level a tag has a FK to manifests, so a tag cannot exist unless it points to an existing manifest
 	if dbManifest == nil {
-		log.Warn("tag not found in database")
+		l.Warn("tag not found in database")
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
@@ -375,8 +374,8 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 }
 
 func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) (distribution.Manifest, error) {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": g.repoPath, "digest": dgst})
-	log.Debug("getting manifest by digest from database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": g.repoPath, "digest": dgst})
+	l.Debug("getting manifest by digest from database")
 
 	if etagMatch(g.req, dgst.String()) {
 		return nil, errETagMatches
@@ -388,7 +387,7 @@ func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 	}
 
 	if dbRepo == nil {
-		log.Warn("repository not found in database")
+		l.Warn("repository not found in database")
 		return nil, distribution.ErrManifestUnknownRevision{
 			Name:     g.repoPath,
 			Revision: dgst,
@@ -640,8 +639,8 @@ func etagMatch(r *http.Request, etag string) bool {
 
 // PutManifest validates and stores a manifest in the registry.
 func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) {
-	log := dcontext.GetLogger(imh)
-	log.Debug("PutImageManifest")
+	l := log.GetLogger(log.WithContext(imh))
+	l.Debug("PutImageManifest")
 
 	var jsonBuf bytes.Buffer
 	if err := copyFullPayload(imh, w, r, &jsonBuf, maxManifestBodySize, "image manifest PUT"); err != nil {
@@ -659,7 +658,10 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 
 	if imh.Digest != "" {
 		if desc.Digest != imh.Digest {
-			log.Errorf("payload digest does match: %q != %q", desc.Digest, imh.Digest)
+			l.WithFields(log.Fields{
+				"payload_digest":  desc.Digest,
+				"provided_digest": imh.Digest,
+			}).Error("payload digest does not match provided digest")
 			imh.Errors = append(imh.Errors, v2.ErrorCodeDigestInvalid)
 			return
 		}
@@ -673,9 +675,9 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 	isAnOCIManifest := mediaType == v1.MediaTypeImageManifest || mediaType == v1.MediaTypeImageIndex
 
 	if isAnOCIManifest {
-		log.Debug("Putting an OCI Manifest!")
+		l.Debug("Putting an OCI Manifest!")
 	} else {
-		log.Debug("Putting a Docker Manifest!")
+		l.Debug("Putting a Docker Manifest!")
 	}
 
 	manifestList, isManifestList := manifest.(*manifestlist.DeserializedManifestList)
@@ -720,14 +722,14 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		// NOTE(stevvooe): Given the behavior above, this absurdly unlikely to
 		// happen. We'll log the error here but proceed as if it worked. Worst
 		// case, we set an empty location header.
-		log.Errorf("error building manifest url from digest: %v", err)
+		l.WithError(err).Error("error building manifest url from digest")
 	}
 
 	w.Header().Set("Location", location)
 	w.Header().Set("Docker-Content-Digest", imh.Digest.String())
 	w.WriteHeader(http.StatusCreated)
 
-	log.WithFields(logrus.Fields{
+	l.WithFields(log.Fields{
 		"media_type":      desc.MediaType,
 		"size_bytes":      desc.Size,
 		"digest":          desc.Digest,
@@ -798,8 +800,8 @@ const (
 )
 
 func dbTagManifest(ctx context.Context, db datastore.Handler, dgst digest.Digest, tagName, path string) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": path, "manifest_digest": dgst, "tag": tagName})
-	log.Debug("tagging manifest")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": path, "manifest_digest": dgst, "tag": tagName})
+	l.Debug("tagging manifest")
 
 	repositoryStore := datastore.NewRepositoryStore(db)
 	dbRepo, err := repositoryStore.FindByPath(ctx, path)
@@ -817,7 +819,7 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, dgst digest.Digest
 		return fmt.Errorf("manifest %s not found in database", dgst)
 	}
 
-	log.Debug("creating tag")
+	l.Debug("creating tag")
 
 	// We need to find and lock a GC manifest task that is related with the manifest that we're about to tag. This
 	// is needed to ensure we lock any related online GC tasks to prevent race conditions around the tag creation. See:
@@ -895,8 +897,8 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload []byte, nonConformant bool) error {
 	repoPath := imh.Repository.Named().Name()
 
-	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": mfst.Version().SchemaVersion})
-	log.Debug("putting manifest")
+	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": mfst.Version().SchemaVersion})
+	l.Debug("putting manifest")
 
 	// create or find target repository
 	repositoryStore := datastore.NewRepositoryStore(imh.App.db)
@@ -916,7 +918,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 		return err
 	}
 	if dbManifest == nil {
-		log.Debug("manifest not found in database")
+		l.Debug("manifest not found in database")
 
 		// Since filesystem writes may be optional, We cannot be sure that the
 		// repository scoped filesystem blob service will have a link to the
@@ -994,8 +996,8 @@ func dbFindManifestListManifest(
 	dbRepo *models.Repository,
 	dgst digest.Digest,
 	repoPath string) (*models.Manifest, error) {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "manifest_digest": dgst})
-	log.Debug("finding manifest list manifest")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "manifest_digest": dgst})
+	l.Debug("finding manifest list manifest")
 
 	var dbManifest *models.Manifest
 
@@ -1022,11 +1024,11 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	}
 
 	repoPath := imh.Repository.Named().Name()
-	log := dcontext.GetLoggerWithFields(imh, map[interface{}]interface{}{
+	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{
 		"repository":      repoPath,
 		"manifest_digest": imh.Digest,
 	})
-	log.Debug("putting manifest list")
+	l.Debug("putting manifest list")
 
 	rStore := datastore.NewRepositoryStore(imh.db)
 	v := validation.NewManifestListValidator(
@@ -1242,8 +1244,8 @@ const (
 // associates the manifest with a digest d with the repository with path repoPath. Any tags that reference the manifest
 // within the repository are also deleted.
 func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string, d digest.Digest) error {
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{"repository": repoPath, "digest": d})
-	log.Debug("deleting manifest from repository in database")
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "digest": d})
+	l.Debug("deleting manifest from repository in database")
 
 	rStore := datastore.NewRepositoryStore(db)
 	r, err := rStore.FindByPath(ctx, repoPath)
@@ -1282,7 +1284,7 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string
 		// This should never happen, as it's not possible to delete a child manifest if it's referenced by a list, which
 		// means that we'll always have at least one child manifest here. Nevertheless, log error if this ever happens.
 		if len(mm) == 0 {
-			log.Error("stored manifest list has no references")
+			l.Error("stored manifest list has no references")
 			break
 		}
 		ids := make([]int64, 0, len(mm))
@@ -1322,7 +1324,7 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string
 
 // DeleteManifest removes the manifest with the given digest from the registry.
 func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Request) {
-	dcontext.GetLogger(imh).Debug("DeleteImageManifest")
+	log.GetLogger(log.WithContext(imh)).Debug("DeleteImageManifest")
 
 	if imh.writeFSMetadata {
 		manifests, err := imh.Repository.Manifests(imh)
@@ -1398,11 +1400,11 @@ func logIfManifestListInvalid(ctx context.Context, ml *manifestlist.Deserialized
 		unknownReferenceMediaTypes = append(unknownReferenceMediaTypes, mediaType)
 	}
 
-	log := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"method":                        method,
 		"media_type":                    ml.MediaType,
 		"likely_buildx_cache":           mlcompat.LikelyBuildxCache(ml),
 		"unknown_reference_media_types": strings.Join(unknownReferenceMediaTypes, ","),
 	})
-	log.Warn("invalid manifest list/index reference(s), please report this issue to GitLab at https://gitlab.com/gitlab-org/container-registry/-/issues/409")
+	l.Warn("invalid manifest list/index reference(s), please report this issue to GitLab at https://gitlab.com/gitlab-org/container-registry/-/issues/409")
 }
