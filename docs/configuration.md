@@ -149,6 +149,7 @@ storage:
     enabled: false
   redirect:
     disable: false
+    expirydelay: 20m
   cache:
     blobdescriptor: redis
   maintenance:
@@ -475,6 +476,7 @@ storage:
       enabled: false
   redirect:
     disable: false
+    expirydelay: 20m
 ```
 
 The `storage` option is **required** and defines which storage backend is in
@@ -566,19 +568,22 @@ layer metadata.
 ### `redirect`
 
 The `redirect` subsection provides configuration for managing redirects from
-content backends. For backends that support it, redirecting is enabled by
-default. In certain deployment scenarios, you may decide to route all data
-through the Registry, rather than redirecting to the backend. This may be more
-efficient when using a backend that is not co-located or when a registry
-instance is aggressively caching.
-
-To disable redirects, add a single flag `disable`, set to `true`
-under the `redirect` section:
+content backends. This is supported and enabled by default for Azure, GCS, OSS,
+S3 and Swift backends. In certain deployment scenarios, you may decide to route
+all data through the Registry, rather than redirecting to the backend. This may
+be more efficient when using a backend that is not co-located or when a
+registry instance is aggressively caching.
 
 ```none
 redirect:
-  disable: true
+  disable: false
+  expirydelay: 20m
 ```
+
+| Parameter    | Required | Description                                                                                     |
+|--------------|----------|-------------------------------------------------------------------------------------------------|
+| `disable`    | no       | Set to `true` to disable redirects. Defaults to `false`.                                        |
+| `expirydelay`| no       | An integer and unit for the expiration delay of pre-signed URLs. Defaults to `20m` (20 minutes).|
 
 ## `database`
 

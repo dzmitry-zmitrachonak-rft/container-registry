@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
@@ -36,7 +37,7 @@ func TestNewRegistry_RedirectException(t *testing.T) {
 		r, ok := reg.(*registry)
 		require.True(t, ok)
 
-		require.True(t, r.blobServer.redirect)
+		require.True(t, r.blobServer.redirect.enabled)
 
 		// All exceptions strings are compiled to regular expressions.
 		require.Len(t, r.redirectExceptions, len(tt.exceptions))
@@ -50,7 +51,7 @@ func TestNewRegistry_RedirectException(t *testing.T) {
 		}
 
 		// Global direction is not effected by repository specific exceptions.
-		require.True(t, r.blobServer.redirect)
+		require.True(t, r.blobServer.redirect.enabled)
 	}
 }
 
@@ -75,12 +76,22 @@ func expectRedirect(t *testing.T, reg *registry, repoPath string, redirect bool)
 	bs, ok := lbs.blobServer.(*blobServer)
 	require.True(t, ok)
 
-	require.Equalf(t, redirect, bs.redirect, "\n\tregexes: %+v\n\trepo path: %q", reg.redirectExceptions, repoPath)
+	require.Equalf(t, redirect, bs.redirect.enabled, "\n\tregexes: %+v\n\trepo path: %q", reg.redirectExceptions, repoPath)
 }
 
 func TestNewRegistry_RedirectException_InvalidRegex(t *testing.T) {
 	_, err := NewRegistry(context.Background(), inmemory.New(), EnableRedirectWithExceptions([]string{"><(((('>"}))
 	require.EqualError(t, err, "configuring storage redirect exception: error parsing regexp: missing closing ): `><(((('>`")
+}
+
+func TestNewRegistry_RedirectExpiryDelay(t *testing.T) {
+	expiryDelay := 2 * time.Minute
+	reg, err := NewRegistry(context.Background(), inmemory.New(), WithRedirectExpiryDelay(expiryDelay))
+	require.NoError(t, err)
+	r, ok := reg.(*registry)
+	require.True(t, ok)
+
+	require.Equal(t, expiryDelay, r.blobServer.redirect.expiryDelay)
 }
 
 func TestRepositoryExists(t *testing.T) {
