@@ -559,21 +559,21 @@ func Test_parseParameters_Bool(t *testing.T) {
 	p := map[string]interface{}{
 		"bucket":  "bucket",
 		"keyfile": "testdata/key.json",
+		// TODO: add string test cases, if needed?
 	}
 
 	testFn := func(params map[string]interface{}) (interface{}, error) {
 		return parseParameters(params)
 	}
 
-	opts := dtestutil.BoolOpts{
+	opts := dtestutil.Opts{
 		Defaultt:          false,
 		ParamName:         "parallelwalk",
 		DriverParamName:   "parallelWalk",
 		OriginalParams:    p,
 		ParseParametersFn: testFn,
 	}
-
-	dtestutil.TestBoolValue(t, opts)
+	dtestutil.AssertByDefaultType(t, opts)
 }
 
 func newTempDirDriver(tb testing.TB) storagedriver.StorageDriver {

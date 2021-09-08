@@ -269,13 +269,14 @@ func Test_parseParameters_Bool(t *testing.T) {
 		"accountname": "accountName",
 		"accountkey":  "accountKey",
 		"container":   "container",
+		// TODO: add string test cases, if needed?
 	}
 
 	testFn := func(params map[string]interface{}) (interface{}, error) {
 		return parseParameters(params)
 	}
 
-	opts := dtestutil.BoolOpts{
+	opts := dtestutil.Opts{
 		Defaultt:          false,
 		ParamName:         paramTrimLegacyRootPrefix,
 		DriverParamName:   "trimLegacyRootPrefix",
@@ -283,7 +284,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 		ParseParametersFn: testFn,
 	}
 
-	dtestutil.TestBoolValue(t, opts)
+	dtestutil.AssertByDefaultType(t, opts)
 }
 
 func TestURLFor_Expiry(t *testing.T) {

@@ -184,7 +184,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 		parameters      map[string]interface{}
 		paramName       string
 		driverParamName string
-		defaultt        bool
+		defaultt        interface{}
 	}{
 		"secure": {
 			parameters:      p,
@@ -233,11 +233,12 @@ func Test_parseParameters_Bool(t *testing.T) {
 			driverParamName: "ParallelWalk",
 			defaultt:        false,
 		},
+		// TODO: add string test cases
 	}
 
 	for tn, tt := range tcs {
 		t.Run(tn, func(t *testing.T) {
-			opts := dtestutil.BoolOpts{
+			opts := dtestutil.Opts{
 				Defaultt:          tt.defaultt,
 				ParamName:         tt.paramName,
 				DriverParamName:   tt.driverParamName,
@@ -245,7 +246,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 				ParseParametersFn: testFn,
 			}
 
-			dtestutil.TestBoolValue(t, opts)
+			dtestutil.AssertByDefaultType(t, opts)
 		})
 	}
 }
