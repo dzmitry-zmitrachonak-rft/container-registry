@@ -23,15 +23,26 @@ func TempRoot(tb testing.TB) string {
 	return d
 }
 
-type BoolOpts struct {
-	Defaultt          bool
+type Opts struct {
+	Defaultt          interface{}
 	ParamName         string
 	DriverParamName   string
 	OriginalParams    map[string]interface{}
 	ParseParametersFn func(map[string]interface{}) (interface{}, error)
 }
 
-func TestBoolValue(t *testing.T, opts BoolOpts) {
+func AssertByDefaultType(t *testing.T, opts Opts) {
+	t.Helper()
+
+	switch opts.Defaultt.(type) {
+	case bool:
+		TestBoolValue(t, opts)
+	case string:
+		TestStringValue(t, opts)
+	}
+}
+
+func TestBoolValue(t *testing.T, opts Opts) {
 	t.Helper()
 
 	// Keep OriginalParams intact for idempotency.
@@ -40,25 +51,25 @@ func TestBoolValue(t *testing.T, opts BoolOpts) {
 	driverParams, err := opts.ParseParametersFn(params)
 	require.NoError(t, err)
 
-	AssertBoolParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "default value mismatch")
+	AssertParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "default value mismatch")
 
 	params[opts.ParamName] = true
 	driverParams, err = opts.ParseParametersFn(params)
 	require.NoError(t, err)
 
-	AssertBoolParam(t, driverParams, opts.DriverParamName, true, "boolean true")
+	AssertParam(t, driverParams, opts.DriverParamName, true, "boolean true")
 
 	params[opts.ParamName] = false
 	driverParams, err = opts.ParseParametersFn(params)
 	require.NoError(t, err)
 
-	AssertBoolParam(t, driverParams, opts.DriverParamName, false, "boolean false")
+	AssertParam(t, driverParams, opts.DriverParamName, false, "boolean false")
 
 	params[opts.ParamName] = nil
 	driverParams, err = opts.ParseParametersFn(params)
 	require.NoError(t, err, "nil does not return: %v", err)
 
-	AssertBoolParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "param is nil")
+	AssertParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "param is nil")
 
 	params[opts.ParamName] = ""
 	driverParams, err = opts.ParseParametersFn(params)
@@ -73,13 +84,52 @@ func TestBoolValue(t *testing.T, opts BoolOpts) {
 	require.Error(t, err, "not boolean type")
 }
 
-func AssertBoolParam(t *testing.T, params interface{}, fieldName string, expected bool, msgs ...interface{}) {
+func TestStringValue(t *testing.T, opts Opts) {
+	t.Helper()
+
+	// Keep OriginalParams intact for idempotency.
+	params := CopyMap(opts.OriginalParams)
+
+	driverParams, err := opts.ParseParametersFn(params)
+	require.NoError(t, err)
+
+	AssertParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "default value mismatch")
+
+	params[opts.ParamName] = "value"
+	driverParams, err = opts.ParseParametersFn(params)
+	require.NoError(t, err)
+
+	AssertParam(t, driverParams, opts.DriverParamName, true, "boolean true")
+
+	params[opts.ParamName] = nil
+	driverParams, err = opts.ParseParametersFn(params)
+	require.NoError(t, err, "nil does not return: %v", err)
+
+	AssertParam(t, driverParams, opts.DriverParamName, opts.Defaultt, "param is nil")
+
+	params[opts.ParamName] = ""
+	driverParams, err = opts.ParseParametersFn(params)
+	require.Error(t, err, "empty string")
+
+	params[opts.ParamName] = 12
+	driverParams, err = opts.ParseParametersFn(params)
+	require.Error(t, err, "not boolean type")
+}
+
+func AssertParam(t *testing.T, params interface{}, fieldName string, expected interface{}, msgs ...interface{}) {
 	t.Helper()
 
 	r := reflect.ValueOf(params)
 	field := reflect.Indirect(r).FieldByName(fieldName)
 
-	require.True(t, field.Bool() == expected, msgs...)
+	switch e := expected.(type) {
+	case string:
+		require.Equal(t, field.String(), e, msgs...)
+	case bool:
+		require.Equal(t, field.Bool(), e, msgs...)
+	default:
+		t.Fatalf("unhandled expected type: %T", e)
+	}
 }
 
 func CopyMap(original map[string]interface{}) map[string]interface{} {
