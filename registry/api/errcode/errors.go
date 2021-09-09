@@ -1,6 +1,7 @@
 package errcode
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -293,6 +294,11 @@ func FromUnknownError(err error) Error {
 
 		// use 503 Service Unavailable for network connection refused or unknown host errors
 		return ErrorCodeUnavailable.WithDetail(err)
+	}
+
+	// use 400 Bad Request for canceled requests
+	if errors.Is(err, context.Canceled) {
+		return ErrorCodeRequestCanceled.WithDetail(err)
 	}
 
 	// otherwise, we're not sure what the error is or how to react, use 500 Internal Server Error
