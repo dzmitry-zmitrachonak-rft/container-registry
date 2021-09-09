@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/reference"
-	"github.com/sirupsen/logrus"
 )
 
 // Inventory is a list of repository data, it provides a mutex enabling
@@ -95,8 +94,8 @@ func (t *Taker) Run(ctx context.Context) (*Inventory, error) {
 	}
 
 	start := time.Now()
-	log := dcontext.GetLogger(ctx)
-	log.Info("starting inventory")
+	l := log.GetLogger(log.WithContext(ctx))
+	l.Info("starting inventory")
 
 	iv := &Inventory{
 		sync.Mutex{},
@@ -106,8 +105,8 @@ func (t *Taker) Run(ctx context.Context) (*Inventory, error) {
 	var index int32
 	err := repositoryEnumerator.Enumerate(ctx, func(repoName string) error {
 		atomic.AddInt32(&index, 1)
-		log := log.WithFields(logrus.Fields{"path": repoName, "count": index})
-		log.Debug("inventoring repository start")
+		l = l.WithFields(log.Fields{"path": repoName, "count": index})
+		l.Debug("inventoring repository start")
 		start := time.Now()
 
 		r := Repository{
@@ -142,12 +141,12 @@ func (t *Taker) Run(ctx context.Context) (*Inventory, error) {
 			r.TagCount = len(tags)
 		}
 
-		log = log.WithFields(logrus.Fields{
+		l = l.WithFields(log.Fields{
 			"group":      r.Group,
 			"tag_count":  r.TagCount,
 			"duration_s": time.Since(start).Seconds(),
 		})
-		log.Info("inventoring repository complete")
+		l.Info("inventoring repository complete")
 
 		iv.Lock()
 		defer iv.Unlock()
@@ -160,7 +159,7 @@ func (t *Taker) Run(ctx context.Context) (*Inventory, error) {
 		return nil, err
 	}
 
-	log.WithField("duration_s", time.Since(start).Seconds()).Info("inventory complete")
+	l.WithFields(log.Fields{"duration_s": time.Since(start).Seconds()}).Info("inventory complete")
 
 	return iv, nil
 }
