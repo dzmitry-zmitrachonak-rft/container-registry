@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/internal/metrics"
 	"github.com/opencontainers/go-digest"
@@ -40,6 +41,11 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 		return err
 	}
 
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"size_bytes": desc.Size,
+		"digest":     desc.Digest,
+	})
+
 	if bs.redirect.enabled {
 		opts := map[string]interface{}{"method": r.Method}
 		if bs.redirect.expiryDelay > 0 {
@@ -51,6 +57,7 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 			// Redirect to storage URL.
 			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 			metrics.BlobDownload(true, desc.Size)
+			l.WithFields(log.Fields{"redirect": true}).Info("blob downloaded")
 			return nil
 
 		case driver.ErrUnsupportedMethod:
@@ -86,6 +93,7 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 
 	http.ServeContent(w, r, desc.Digest.String(), time.Time{}, br)
 	metrics.BlobDownload(false, desc.Size)
+	l.WithFields(log.Fields{"redirect": false}).Info("blob downloaded")
 
 	return nil
 }
