@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/distribution/log"
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,11 +51,9 @@ type Logger interface {
 	WithFields(fields logrus.Fields) *logrus.Entry
 }
 
-type loggerKey struct{}
-
 // WithLogger creates a new context with provided logger.
 func WithLogger(ctx context.Context, logger Logger) context.Context {
-	return context.WithValue(ctx, loggerKey{}, logger)
+	return context.WithValue(ctx, log.LoggerKey{}, logger)
 }
 
 // GetLoggerWithField returns a logger instance with the specified field key
@@ -95,7 +94,7 @@ func getLogrusLogger(ctx context.Context, keys ...interface{}) *logrus.Entry {
 	var logger *logrus.Entry
 
 	// Get a logger, if it is present.
-	loggerInterface := ctx.Value(loggerKey{})
+	loggerInterface := ctx.Value(log.LoggerKey{})
 	if loggerInterface != nil {
 		if lgr, ok := loggerInterface.(*logrus.Entry); ok {
 			logger = lgr

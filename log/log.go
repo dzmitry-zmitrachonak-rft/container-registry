@@ -35,7 +35,9 @@ type Logger interface {
 	WithFields(Fields) Logger
 }
 
-type loggerKey struct{}
+// LoggerKey is exposed temporarily while we're in the process of moving the
+// legacy logging over to this package.
+type LoggerKey struct{}
 
 // Fields is an alias so that callers only need to know about this package
 type Fields = logrus.Fields
@@ -69,7 +71,7 @@ func (w *wrapper) WithFields(f Fields) Logger {
 
 // WithLogger creates a new context with provided logger.
 func WithLogger(ctx context.Context, logger Logger) context.Context {
-	return context.WithValue(ctx, loggerKey{}, logger)
+	return context.WithValue(ctx, LoggerKey{}, logger)
 }
 
 type logOptions struct {
@@ -115,7 +117,7 @@ func getLogrusLogger(ctx context.Context, keys ...interface{}) *logrus.Entry {
 	var logger *logrus.Entry
 
 	// Get a logger, if it is present.
-	loggerInterface := ctx.Value(loggerKey{})
+	loggerInterface := ctx.Value(LoggerKey{})
 	if loggerInterface != nil {
 		if lgr, ok := loggerInterface.(*logrus.Entry); ok {
 			logger = lgr
