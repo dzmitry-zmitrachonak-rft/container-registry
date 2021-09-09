@@ -84,6 +84,15 @@ var (
 		// but it is preferable to stay within the spec.
 		HTTPStatusCode: http.StatusBadRequest,
 	})
+
+	// ErrorCodeRequestCanceled provides an error to report a canceled request. This is usually due to a
+	// context.Canceled error.
+	ErrorCodeRequestCanceled = Register("errcode", ErrorDescriptor{
+		Value:          "REQUESTCANCELED",
+		Message:        "request canceled",
+		Description:    "Returned when the client cancels the request",
+		HTTPStatusCode: http.StatusBadRequest,
+	})
 )
 
 var nextCode = 1000
