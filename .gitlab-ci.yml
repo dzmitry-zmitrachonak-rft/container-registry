@@ -102,7 +102,7 @@ mocks:
   stage: validate
   needs: []
   before_script:
-    - go install github.com/golang/mock/mockgen
+    - go install github.com/golang/mock/mockgen@v1.6.0
   script:
     - go generate ./...
     - git diff --exit-code **/mocks/*.go

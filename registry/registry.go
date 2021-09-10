@@ -277,6 +277,13 @@ func configureReporting(config *configuration.Configuration, h http.Handler) (ht
 
 // configureLogging prepares the context with a logger using the configuration.
 func configureLogging(ctx context.Context, config *configuration.Configuration) (context.Context, error) {
+	// We need to set the GITLAB_ISO8601_LOG_TIMESTAMP env var so that LabKit will use ISO 8601 timestamps with
+	// millisecond precision instead of the logrus default format (RFC3339).
+	envVar := "GITLAB_ISO8601_LOG_TIMESTAMP"
+	if err := os.Setenv(envVar, "true"); err != nil {
+		return nil, fmt.Errorf("unable to set environment variable %q: %w", envVar, err)
+	}
+
 	// the registry doesn't log to a file, so we can ignore the io.Closer (noop) returned by LabKit (we could also
 	// ignore the error, but keeping it for future proofing)
 	if _, err := logkit.Initialize(
