@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/docker/distribution"
@@ -110,7 +111,7 @@ func (bs *blobStore) Enumerate(ctx context.Context, ingester func(descriptor dis
 
 		digest, err := digestFromPath(currentPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse digest from path %s: %w", currentPath, err)
 		}
 
 		return ingester(distribution.Descriptor{
