@@ -1,3 +1,20 @@
+# [3.11.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.10.1-gitlab...v3.11.0-gitlab) (2021-09-10)
+
+
+### Bug Fixes
+
+* **handlers:** use 400 Bad Request status for canceled requests ([30428c6](https://gitlab.com/gitlab-org/container-registry/commit/30428c69c3670ed5102e4692abf51b98ae2cf6c2))
+* **log:** use same logger key between both logging packages ([04e2f68](https://gitlab.com/gitlab-org/container-registry/commit/04e2f68a6796222103da8a43eb6dfd06440f24cb))
+* **storage:** provide detailed error when blob enumeration cannot parse digest from path ([f8d9d40](https://gitlab.com/gitlab-org/container-registry/commit/f8d9d40a5f664dc39c4b3182c5de601df6d17897))
+
+
+### Features
+
+* use ISO 8601 with millisecond precision as timestamp format ([2c56935](https://gitlab.com/gitlab-org/container-registry/commit/2c56935a69b04d21abc32dc6352ff7cb08e7b8c6))
+* **handlers:** log metadata when a blob is downloaded ([ca37bff](https://gitlab.com/gitlab-org/container-registry/commit/ca37bffbe0d6803eb2c4f625375638bbf2df4fc0))
+* **handlers:** use structured logging throughout ([97975de](https://gitlab.com/gitlab-org/container-registry/commit/97975dee9197f7e6ba078ca8cb5b64cbcd44fc7b))
+* configurable expiry delay for storage backend presigned URLs ([820052a](https://gitlab.com/gitlab-org/container-registry/commit/820052a2ce9eed84746e80802c8fee37f2019394))
+
 ## [3.10.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.10.0-gitlab...v3.10.1-gitlab) (2021-09-03)
 
 
