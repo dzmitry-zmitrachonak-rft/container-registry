@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"syscall"
+
+	storagedriver "github.com/docker/distribution/registry/storage/driver"
 )
 
 // ErrorCoder is the base interface for ErrorCode and Error allowing
@@ -276,6 +278,12 @@ func FromUnknownError(err error) Error {
 	var e Error
 	if errors.As(err, &e) {
 		return e
+	}
+
+	// if this is a storage driver catch-all error (storagedriver.Error), extract the enclosed error
+	var sdErr storagedriver.Error
+	if errors.As(err, &sdErr) {
+		err = sdErr.Enclosed
 	}
 
 	// use 503 Service Unavailable for network timeout errors
