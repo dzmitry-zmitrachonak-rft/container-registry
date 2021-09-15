@@ -25,6 +25,7 @@ import (
 	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
+	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
@@ -1348,6 +1349,10 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 
 		for _, tag := range referencedTags {
 			if err = tagService.Untag(imh, tag); err != nil {
+				// ignore if the tag no longer exists
+				if errors.As(err, &storagedriver.PathNotFoundError{}) {
+					continue
+				}
 				imh.Errors = append(imh.Errors, err)
 				return
 			}
