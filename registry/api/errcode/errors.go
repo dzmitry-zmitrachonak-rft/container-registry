@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"syscall"
 
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	"google.golang.org/api/googleapi"
 )
 
 // ErrorCoder is the base interface for ErrorCode and Error allowing
@@ -307,6 +309,14 @@ func FromUnknownError(err error) Error {
 	// use 400 Bad Request for canceled requests
 	if errors.Is(err, context.Canceled) {
 		return ErrorCodeRequestCanceled.WithDetail(err)
+	}
+
+	// propagate a 503 Service Unavailable status from the storage backends
+	var gcsErr *googleapi.Error
+	if errors.As(err, &gcsErr) {
+		if gcsErr.Code == http.StatusServiceUnavailable {
+			return ErrorCodeUnavailable.WithDetail(gcsErr.Error())
+		}
 	}
 
 	// otherwise, we're not sure what the error is or how to react, use 500 Internal Server Error
