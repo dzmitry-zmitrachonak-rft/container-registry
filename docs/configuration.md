@@ -583,7 +583,7 @@ redirect:
 | Parameter    | Required | Description                                                                                     |
 |--------------|----------|-------------------------------------------------------------------------------------------------|
 | `disable`    | no       | Set to `true` to disable redirects. Defaults to `false`.                                        |
-| `expirydelay`| no       | An integer and unit for the expiration delay of pre-signed URLs. Defaults to `20m` (20 minutes).|
+| `expirydelay`| no       | An integer and unit for the expiration delay of pre-signed URLs. Defaults to `20m` (20 minutes). Please note that storage providers have different min and max allowed values for this parameter. Check your provider's documentation before setting a custom value. |
 
 ## `database`
 
