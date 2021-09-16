@@ -16,6 +16,7 @@ import (
 	"github.com/docker/distribution/registry/gc/worker"
 	reginternal "github.com/docker/distribution/registry/internal"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
@@ -35,6 +36,7 @@ var (
 	// for testing purposes (mocks)
 	backoffConstructor                   = newBackoff
 	systemClock        reginternal.Clock = clock.New()
+	newCorrelationID                     = correlation.SafeRandomID
 )
 
 // Agent manages a online garbage collection worker.
@@ -115,7 +117,7 @@ func NewAgent(w worker.Worker, opts ...AgentOption) *Agent {
 // delay) after every successful run, unless no task was found and WithoutIdleBackoff was not provided. The Agent starts
 // with a randomized jitter of up to 60 seconds to ease concurrency in clustered environments.
 func (a *Agent) Start(ctx context.Context) error {
-	log := dcontext.GetLoggerWithField(ctx, "worker", a.worker.Name())
+	log := a.logger.WithField("worker", a.worker.Name())
 	b := backoffConstructor(a.initialInterval, a.maxBackoff)
 
 	rand.Seed(systemClock.Now().UnixNano())
@@ -134,20 +136,25 @@ func (a *Agent) Start(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			start := systemClock.Now()
-			log.Info("running worker")
+
+			id := newCorrelationID()
+			wCtx := correlation.ContextWithCorrelation(ctx, id)
+			l := log.WithField(correlation.FieldName, id)
+
+			l.Info("running worker")
 
 			report := metrics.WorkerRun(a.worker.Name())
-			found, err := a.worker.Run(ctx)
+			found, err := a.worker.Run(wCtx)
 			if err != nil {
 				log.WithError(err).Error("failed run")
 			} else if found || a.noIdleBackoff {
 				b.Reset()
 			}
 			report(!found, err)
-			log.WithField("duration_s", systemClock.Since(start).Seconds()).Info("run complete")
+			l.WithField("duration_s", systemClock.Since(start).Seconds()).Info("run complete")
 
 			sleep := b.NextBackOff()
-			log.WithField("duration_s", sleep.Seconds()).Info("sleeping")
+			l.WithField("duration_s", sleep.Seconds()).Info("sleeping")
 			metrics.WorkerSleep(a.worker.Name(), sleep)
 			systemClock.Sleep(sleep)
 		}

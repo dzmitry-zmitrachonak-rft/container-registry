@@ -114,10 +114,9 @@ func (w *baseWorker) rollbackOnExit(ctx context.Context, tx datastore.Transactor
 }
 
 func injectCorrelationID(ctx context.Context, logger dcontext.Logger) context.Context {
-	id := correlation.SafeRandomID()
-	ctx = correlation.ContextWithCorrelation(ctx, id)
+	id := correlation.ExtractFromContextOrGenerate(ctx)
 
-	log := logger.WithField("correlation_id", id)
+	log := logger.WithField(correlation.FieldName, id)
 	ctx = dcontext.WithLogger(ctx, log)
 
 	return ctx
