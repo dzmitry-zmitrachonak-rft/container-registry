@@ -19,6 +19,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 func TestNewAgent(t *testing.T) {
@@ -162,6 +163,19 @@ func stubBackoff(tb testing.TB, m *mocks.MockBackoff) {
 	tb.Cleanup(func() { backoffConstructor = bkp })
 }
 
+func stubCorrelationID(tb testing.TB) string {
+	tb.Helper()
+
+	id := correlation.SafeRandomID()
+	bkp := newCorrelationID
+	newCorrelationID = func() string {
+		return id
+	}
+	tb.Cleanup(func() { newCorrelationID = bkp })
+
+	return id
+}
+
 func TestAgent_Start_Jitter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	workerMock := wmocks.NewMockWorker(ctrl)
@@ -210,6 +224,7 @@ func TestAgent_Start_NoTaskFound(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	wCtx := correlation.ContextWithCorrelation(ctx, stubCorrelationID(t))
 
 	seedTime := time.Time{}
 	startTime := seedTime.Add(1 * time.Millisecond)
@@ -221,7 +236,7 @@ func TestAgent_Start_NoTaskFound(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(ctx).Return(false, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(false, nil).Times(1),
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
 		workerMock.EXPECT().Name().Times(1),
@@ -247,6 +262,7 @@ func TestAgent_Start_NoTaskFoundWithoutIdleBackoff(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	wCtx := correlation.ContextWithCorrelation(ctx, stubCorrelationID(t))
 
 	seedTime := time.Time{}
 	startTime := seedTime.Add(1 * time.Millisecond)
@@ -258,7 +274,7 @@ func TestAgent_Start_NoTaskFoundWithoutIdleBackoff(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(ctx).Return(false, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(false, nil).Times(1),
 		backoffMock.EXPECT().Reset().Times(1), // ensure backoff reset
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
@@ -285,6 +301,7 @@ func TestAgent_Start_RunFound(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	wCtx := correlation.ContextWithCorrelation(ctx, stubCorrelationID(t))
 
 	seedTime := time.Time{}
 	startTime := seedTime.Add(1 * time.Millisecond)
@@ -296,7 +313,7 @@ func TestAgent_Start_RunFound(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(ctx).Return(true, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(true, nil).Times(1),
 		backoffMock.EXPECT().Reset().Times(1), // ensure backoff reset
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
@@ -323,6 +340,7 @@ func TestAgent_Start_RunError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	wCtx := correlation.ContextWithCorrelation(ctx, stubCorrelationID(t))
 
 	seedTime := time.Time{}
 	startTime := seedTime.Add(1 * time.Millisecond)
@@ -335,7 +353,7 @@ func TestAgent_Start_RunError(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(ctx).Return(false, errors.New("fake error")).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(false, errors.New("fake error")).Times(1),
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
 		workerMock.EXPECT().Name().Times(1),
@@ -361,6 +379,7 @@ func TestAgent_Start_RunLoopSurvivesError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	wCtx := correlation.ContextWithCorrelation(ctx, stubCorrelationID(t))
 
 	seedTime := time.Time{}
 	startTime := seedTime.Add(1 * time.Millisecond)
@@ -373,7 +392,7 @@ func TestAgent_Start_RunLoopSurvivesError(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(ctx).Return(false, errors.New("fake error")).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(false, errors.New("fake error")).Times(1),
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
 		workerMock.EXPECT().Name().Times(1),
@@ -381,7 +400,7 @@ func TestAgent_Start_RunLoopSurvivesError(t *testing.T) {
 		// 2nd loop iteration
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(ctx).Return(true, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(true, nil).Times(1),
 		backoffMock.EXPECT().Reset().Times(1), // ensure backoff reset
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
