@@ -284,6 +284,7 @@ func TestManifestWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
 		mtsMock.EXPECT().Next(dbCtx).Return(mt, nil).Times(1),
 		mtsMock.EXPECT().IsDangling(dbCtx, mt).Return(true, nil).Times(1),
 		msMock.EXPECT().Delete(dbCtx, m).Return(false, nil).Times(1),
+		mtsMock.EXPECT().Delete(dbCtx, mt).Return(nil).Times(1),
 		txMock.EXPECT().Commit().Return(nil).Times(1),
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)

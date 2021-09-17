@@ -142,8 +142,9 @@ func (w *ManifestWorker) deleteManifest(ctx context.Context, tx datastore.Transa
 	}
 	if !found {
 		// this should never happen because deleting a manifest cascades to the review queue, nevertheless...
-		log.Warn("manifest no longer exists on database")
-		return nil
+		log.Warn("manifest no longer exists on database, deleting task")
+		mts := manifestTaskStoreConstructor(tx)
+		return mts.Delete(ctx, t)
 	}
 
 	report(nil)
