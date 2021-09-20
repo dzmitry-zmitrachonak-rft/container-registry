@@ -1,3 +1,14 @@
+## [3.11.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.11.0-gitlab...v3.11.1-gitlab) (2021-09-20)
+
+
+### Bug Fixes
+
+* **api/errcode:** extract enclosed error from a storage driver catch-all error ([800a15e](https://gitlab.com/gitlab-org/container-registry/commit/800a15e282f79ed41ef0c3606a3303224cd176d1))
+* **api/errcode:** propagate 503 Service Unavailable status thrown by CGS ([21041fe](https://gitlab.com/gitlab-org/container-registry/commit/21041fef6f3e863d598d6bb97476815ae2518e38))
+* **gc:** always propagate correlation ID from agent to workers ([8de9c93](https://gitlab.com/gitlab-org/container-registry/commit/8de9c936d52e4ab84bb40efae63ea15371d70bc3))
+* **gc/worker:** delete task if dangling manifest no longer exists on database ([dffdd72](https://gitlab.com/gitlab-org/container-registry/commit/dffdd72d6527dfc037fc6bcbda2530ac83c9fe4b))
+* **handlers:** ignore tag not found errors when deleting a manifest ([e740416](https://gitlab.com/gitlab-org/container-registry/commit/e74041697ccfb178749bd1b89395c2f07b2aee02))
+
 # [3.11.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.10.1-gitlab...v3.11.0-gitlab) (2021-09-10)
 
 
