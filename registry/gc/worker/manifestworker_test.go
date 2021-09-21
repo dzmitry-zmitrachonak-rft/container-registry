@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	storemock "github.com/docker/distribution/registry/datastore/mocks"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/internal/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/go-multierror"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,13 +53,13 @@ func Test_NewManifestWorker(t *testing.T) {
 func Test_NewManifestWorker_WithLogger(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	logger := logrus.New()
+	logger := log.GetLogger()
 	dbMock := storemock.NewMockHandler(ctrl)
 	w := NewManifestWorker(dbMock, WithManifestLogger(logger))
 
-	got, ok := w.logger.(*logrus.Entry)
-	require.True(t, ok)
-	require.Equal(t, logger.WithField(componentKey, w.name), got)
+	got, err := log.ToLogrusEntry(w.logger)
+	require.NoError(t, err)
+	require.Equal(t, got.WithField(componentKey, w.name), got)
 }
 
 func Test_NewManifestWorker_WithTxDeadline(t *testing.T) {

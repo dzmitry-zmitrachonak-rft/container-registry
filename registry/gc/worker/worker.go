@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/internal"
 	"github.com/getsentry/sentry-go"
@@ -46,7 +46,7 @@ type baseWorker struct {
 	name      string
 	queueName string
 	db        datastore.Handler
-	logger    dcontext.Logger
+	logger    log.Logger
 	txTimeout time.Duration
 }
 
@@ -64,7 +64,7 @@ func (w *baseWorker) applyDefaults() {
 	if w.logger == nil {
 		defaultLogger := logrus.New()
 		defaultLogger.SetOutput(io.Discard)
-		w.logger = defaultLogger
+		w.logger = log.FromLogrusLogger(defaultLogger)
 	}
 	if w.txTimeout == 0 {
 		w.txTimeout = defaultTxTimeout
@@ -93,7 +93,7 @@ func (w *baseWorker) logAndReportErr(ctx context.Context, err error) {
 		errortracking.WithContext(ctx),
 		errortracking.WithField(componentKey, w.name),
 	)
-	dcontext.GetLogger(ctx).WithError(err).Error(err.Error())
+	log.GetLogger(log.WithContext(ctx)).WithError(err).Error(err.Error())
 }
 
 func (w *baseWorker) rollbackOnExit(ctx context.Context, tx datastore.Transactor) {
@@ -113,11 +113,11 @@ func (w *baseWorker) rollbackOnExit(ctx context.Context, tx datastore.Transactor
 	rollback()
 }
 
-func injectCorrelationID(ctx context.Context, logger dcontext.Logger) context.Context {
+func injectCorrelationID(ctx context.Context, logger log.Logger) context.Context {
 	id := correlation.ExtractFromContextOrGenerate(ctx)
 
-	log := logger.WithField(correlation.FieldName, id)
-	ctx = dcontext.WithLogger(ctx, log)
+	l := logger.WithFields(log.Fields{correlation.FieldName: id})
+	ctx = log.WithLogger(ctx, l)
 
 	return ctx
 }

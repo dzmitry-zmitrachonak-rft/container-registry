@@ -10,7 +10,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cenkalti/backoff/v4"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/gc/internal"
 	"github.com/docker/distribution/registry/gc/internal/metrics"
 	"github.com/docker/distribution/registry/gc/worker"
@@ -42,7 +42,7 @@ var (
 // Agent manages a online garbage collection worker.
 type Agent struct {
 	worker          worker.Worker
-	logger          dcontext.Logger
+	logger          log.Logger
 	initialInterval time.Duration
 	maxBackoff      time.Duration
 	noIdleBackoff   bool
@@ -52,7 +52,7 @@ type Agent struct {
 type AgentOption func(*Agent)
 
 // WithLogger sets the logger.
-func WithLogger(l dcontext.Logger) AgentOption {
+func WithLogger(l log.Logger) AgentOption {
 	return func(a *Agent) {
 		a.logger = l
 	}
@@ -85,7 +85,7 @@ func (a *Agent) applyDefaults() {
 	if a.logger == nil {
 		defaultLogger := logrus.New()
 		defaultLogger.SetOutput(io.Discard)
-		a.logger = defaultLogger
+		a.logger = log.FromLogrusLogger(defaultLogger)
 	}
 	if a.initialInterval == 0 {
 		a.initialInterval = defaultInitialInterval
@@ -104,7 +104,7 @@ func NewAgent(w worker.Worker, opts ...AgentOption) *Agent {
 		opt(a)
 	}
 
-	a.logger = a.logger.WithField(componentKey, agentName)
+	a.logger = a.logger.WithFields(log.Fields{componentKey: agentName})
 
 	return a
 }
@@ -117,44 +117,44 @@ func NewAgent(w worker.Worker, opts ...AgentOption) *Agent {
 // delay) after every successful run, unless no task was found and WithoutIdleBackoff was not provided. The Agent starts
 // with a randomized jitter of up to 60 seconds to ease concurrency in clustered environments.
 func (a *Agent) Start(ctx context.Context) error {
-	log := a.logger.WithField("worker", a.worker.Name())
+	l := a.logger.WithFields(log.Fields{"worker": a.worker.Name()})
 	b := backoffConstructor(a.initialInterval, a.maxBackoff)
 
 	rand.Seed(systemClock.Now().UnixNano())
 	/* #nosec G404 */
 	jitter := time.Duration(rand.Intn(startJitterMaxSeconds)) * time.Second
-	log.WithField("jitter_s", jitter.Seconds()).Info("starting online GC agent")
+	l.WithFields(log.Fields{"jitter_s": jitter.Seconds()}).Info("starting online GC agent")
 	systemClock.Sleep(jitter)
 
-	quit := a.startQueueSizeMonitoring(ctx, log)
+	quit := a.startQueueSizeMonitoring(ctx, l)
 	defer quit.close()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Warn("context cancelled, exiting")
+			l.Warn("context cancelled, exiting")
 			return ctx.Err()
 		default:
 			start := systemClock.Now()
 
 			id := newCorrelationID()
 			wCtx := correlation.ContextWithCorrelation(ctx, id)
-			l := log.WithField(correlation.FieldName, id)
+			l := l.WithFields(log.Fields{correlation.FieldName: id})
 
 			l.Info("running worker")
 
 			report := metrics.WorkerRun(a.worker.Name())
 			found, err := a.worker.Run(wCtx)
 			if err != nil {
-				log.WithError(err).Error("failed run")
+				l.WithError(err).Error("failed run")
 			} else if found || a.noIdleBackoff {
 				b.Reset()
 			}
 			report(!found, err)
-			l.WithField("duration_s", systemClock.Since(start).Seconds()).Info("run complete")
+			l.WithFields(log.Fields{"duration_s": systemClock.Since(start).Seconds()}).Info("run complete")
 
 			sleep := b.NextBackOff()
-			l.WithField("duration_s", sleep.Seconds()).Info("sleeping")
+			l.WithFields(log.Fields{"duration_s": sleep.Seconds()}).Info("sleeping")
 			metrics.WorkerSleep(a.worker.Name(), sleep)
 			systemClock.Sleep(sleep)
 		}
@@ -172,24 +172,24 @@ func (qc *quitCh) close() {
 	qc.Do(func() { close(qc.c) })
 }
 
-func (a *Agent) startQueueSizeMonitoring(ctx context.Context, log dcontext.Logger) *quitCh {
+func (a *Agent) startQueueSizeMonitoring(ctx context.Context, l log.Logger) *quitCh {
 	b := backoffConstructor(queueSizeMonitorInterval, a.maxBackoff)
 	quit := &quitCh{c: make(chan struct{})}
 
-	log.WithField("interval_s", queueSizeMonitorInterval.Seconds()).Info("starting online GC queue monitoring")
+	l.WithFields(log.Fields{"interval_s": queueSizeMonitorInterval.Seconds()}).Info("starting online GC queue monitoring")
 
 	go func() {
 		time.Sleep(queueSizeMonitorInterval)
 		for {
 			select {
 			case <-ctx.Done():
-				log.WithError(ctx.Err()).Warn("context cancelled, stopping worker queue size monitoring")
+				l.WithError(ctx.Err()).Warn("context cancelled, stopping worker queue size monitoring")
 				return
 			case <-quit.c:
-				log.Info("stopping worker queue size monitoring")
+				l.Info("stopping worker queue size monitoring")
 				return
 			default:
-				log.Info("measuring worker queue size")
+				l.Info("measuring worker queue size")
 				// apply tight timeout, this is a non-critical lookup
 				ctx2, cancel := context.WithDeadline(ctx, systemClock.Now().Add(queueSizeMonitorTimeout))
 				count, err := a.worker.QueueSize(ctx2)
@@ -200,13 +200,13 @@ func (a *Agent) startQueueSizeMonitoring(ctx context.Context, log dcontext.Logge
 						errortracking.WithContext(ctx),
 						errortracking.WithField(componentKey, agentName),
 					)
-					log.WithError(err).Error("failed to measure worker queue size, backing off")
+					l.WithError(err).Error("failed to measure worker queue size, backing off")
 				} else {
 					b.Reset()
 					metrics.QueueSize(a.worker.QueueName(), count)
 				}
 				sleep := b.NextBackOff()
-				log.WithField("duration_s", sleep.Seconds()).Debug("sleeping before next queue measurement")
+				l.WithFields(log.Fields{"duration_s": sleep.Seconds()}).Debug("sleeping before next queue measurement")
 				systemClock.Sleep(sleep)
 				time.Sleep(queueSizeMonitorInterval)
 			}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/gc/internal"
 	"github.com/docker/distribution/registry/gc/internal/mocks"
 	"github.com/docker/distribution/registry/gc/worker"
@@ -28,10 +29,10 @@ func TestNewAgent(t *testing.T) {
 
 	tmp := logrus.New()
 	tmp.SetOutput(io.Discard)
-	defaultLogger := tmp.WithField(componentKey, agentName)
+	defaultLogger := log.FromLogrusLogger(tmp.WithField(componentKey, agentName).Logger)
 
 	tmp = logrus.New()
-	customLogger := tmp.WithField(componentKey, agentName)
+	customLogger := log.FromLogrusLogger(tmp.WithField(componentKey, agentName).Logger)
 
 	type args struct {
 		w    worker.Worker
@@ -142,10 +143,10 @@ func TestNewAgent(t *testing.T) {
 			require.Equal(t, tt.want.noIdleBackoff, got.noIdleBackoff)
 
 			// we have to cast loggers and compare only their public fields
-			wantLogger, ok := tt.want.logger.(*logrus.Entry)
-			require.True(t, ok)
-			gotLogger, ok := got.logger.(*logrus.Entry)
-			require.True(t, ok)
+			wantLogger, err := log.ToLogrusEntry(tt.want.logger)
+			require.NoError(t, err)
+			gotLogger, err := log.ToLogrusEntry(got.logger)
+			require.NoError(t, err)
 			require.EqualValues(t, wantLogger.Logger.Level, gotLogger.Logger.Level)
 			require.Equal(t, wantLogger.Logger.Formatter, gotLogger.Logger.Formatter)
 			require.Equal(t, wantLogger.Logger.Out, gotLogger.Logger.Out)
@@ -184,7 +185,7 @@ func TestAgent_Start_Jitter(t *testing.T) {
 	testutil.StubClock(t, &systemClock, clockMock)
 
 	agent := NewAgent(workerMock,
-		WithLogger(logrus.New()), // so that we can see the log output during test runs
+		WithLogger(log.GetLogger()), // so that we can see the log output during test runs
 	)
 
 	// use fixed time for reproducible rand seeds (used to generate jitter durations)
@@ -220,7 +221,7 @@ func TestAgent_Start_NoTaskFound(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	agent := NewAgent(workerMock, WithLogger(logrus.New()))
+	agent := NewAgent(workerMock, WithLogger(log.GetLogger()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -258,7 +259,7 @@ func TestAgent_Start_NoTaskFoundWithoutIdleBackoff(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	agent := NewAgent(workerMock, WithLogger(logrus.New()), WithoutIdleBackoff())
+	agent := NewAgent(workerMock, WithLogger(log.GetLogger()), WithoutIdleBackoff())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -297,7 +298,7 @@ func TestAgent_Start_RunFound(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	agent := NewAgent(workerMock, WithLogger(logrus.New()))
+	agent := NewAgent(workerMock, WithLogger(log.GetLogger()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -336,7 +337,7 @@ func TestAgent_Start_RunError(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	agent := NewAgent(workerMock, WithLogger(logrus.New()))
+	agent := NewAgent(workerMock, WithLogger(log.GetLogger()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -375,7 +376,7 @@ func TestAgent_Start_RunLoopSurvivesError(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	agent := NewAgent(workerMock, WithLogger(logrus.New()))
+	agent := NewAgent(workerMock, WithLogger(log.GetLogger()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -437,7 +438,7 @@ func TestAgent_startQueueSizeMonitoring(t *testing.T) {
 	backoffMock := mocks.NewMockBackoff(ctrl)
 	stubBackoff(t, backoffMock)
 
-	log := logrus.New()
+	log := log.GetLogger()
 	agent := NewAgent(workerMock, WithLogger(log))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -487,7 +488,7 @@ func TestAgent_startQueueSizeMonitoring_Error(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	log := logrus.New()
+	log := log.GetLogger()
 	agent := NewAgent(workerMock, WithLogger(log))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -531,7 +532,7 @@ func TestAgent_startQueueSizeMonitoring_Quit(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	log := logrus.New()
+	log := log.GetLogger()
 	agent := NewAgent(workerMock, WithLogger(log))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -557,7 +558,7 @@ func TestAgent_startQueueSizeMonitoring_ContextDone(t *testing.T) {
 	clockMock := regmocks.NewMockClock(ctrl)
 	testutil.StubClock(t, &systemClock, clockMock)
 
-	log := logrus.New()
+	log := log.GetLogger()
 	agent := NewAgent(workerMock, WithLogger(log))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
