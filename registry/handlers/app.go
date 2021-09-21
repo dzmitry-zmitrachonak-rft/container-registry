@@ -23,6 +23,7 @@ import (
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/health"
 	"github.com/docker/distribution/health/checks"
+	dlog "github.com/docker/distribution/log"
 	prometheus "github.com/docker/distribution/metrics"
 	"github.com/docker/distribution/notifications"
 	"github.com/docker/distribution/reference"
@@ -638,10 +639,10 @@ func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storaged
 		return
 	}
 
-	log := dcontext.GetLogger(ctx)
+	l := dlog.GetLogger(dlog.WithContext(ctx))
 
 	aOpts := []gc.AgentOption{
-		gc.WithLogger(log),
+		gc.WithLogger(l),
 	}
 	if config.GC.NoIdleBackoff {
 		aOpts = append(aOpts, gc.WithoutIdleBackoff())
@@ -654,7 +655,7 @@ func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storaged
 
 	if !config.GC.Blobs.Disabled {
 		bwOpts := []worker.BlobWorkerOption{
-			worker.WithBlobLogger(log),
+			worker.WithBlobLogger(l),
 		}
 		if config.GC.TransactionTimeout > 0 {
 			bwOpts = append(bwOpts, worker.WithBlobTxTimeout(config.GC.TransactionTimeout))
@@ -674,7 +675,7 @@ func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storaged
 
 	if !config.GC.Manifests.Disabled {
 		mwOpts := []worker.ManifestWorkerOption{
-			worker.WithManifestLogger(log),
+			worker.WithManifestLogger(l),
 		}
 		if config.GC.TransactionTimeout > 0 {
 			mwOpts = append(mwOpts, worker.WithManifestTxTimeout(config.GC.TransactionTimeout))
@@ -696,7 +697,7 @@ func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storaged
 			// case of context cancellation, the app is shutting down, so there is nothing to worry about.
 			defer func() {
 				if err := recover(); err != nil {
-					log.WithField("error", err).Error("online GC agent stopped with panic")
+					l.WithFields(dlog.Fields{"error": err}).Error("online GC agent stopped with panic")
 					sentry.CurrentHub().Recover(err)
 					sentry.Flush(5 * time.Second)
 					panic(err)
@@ -705,11 +706,11 @@ func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storaged
 			if err := a.Start(ctx); err != nil {
 				if errors.Is(err, context.Canceled) {
 					// leaving this here for now for additional confidence and improved observability
-					log.Warn("shutting down online GC agent due due to context cancellation")
+					l.Warn("shutting down online GC agent due due to context cancellation")
 				} else {
 					// this should never happen, but leaving it here for future proofing against bugs within Agent.Start
 					errortracking.Capture(fmt.Errorf("online GC agent stopped with error: %w", err))
-					log.WithError(err).Error("online GC agent stopped")
+					l.WithError(err).Error("online GC agent stopped")
 				}
 			}
 		}(a)

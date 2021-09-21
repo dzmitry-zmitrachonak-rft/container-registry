@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/gc/internal/metrics"
 	"github.com/docker/distribution/registry/storage"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/hashicorp/go-multierror"
-	"github.com/sirupsen/logrus"
 )
 
 const defaultStorageTimeout = 5 * time.Second
@@ -39,7 +38,7 @@ type BlobWorker struct {
 type BlobWorkerOption func(*BlobWorker)
 
 // WithBlobLogger sets the logger.
-func WithBlobLogger(l dcontext.Logger) BlobWorkerOption {
+func WithBlobLogger(l log.Logger) BlobWorkerOption {
 	return func(w *BlobWorker) {
 		w.logger = l
 	}
@@ -79,7 +78,7 @@ func NewBlobWorker(db datastore.Handler, storageDeleter driver.StorageDeleter, o
 	for _, opt := range opts {
 		opt(w)
 	}
-	w.logger = w.logger.WithField(componentKey, w.name)
+	w.logger = w.logger.WithFields(log.Fields{componentKey: w.name})
 
 	return w
 }
@@ -95,7 +94,7 @@ func (w *BlobWorker) QueueSize(ctx context.Context) (int, error) {
 }
 
 func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
-	log := dcontext.GetLogger(ctx)
+	l := log.GetLogger(log.WithContext(ctx))
 
 	// don't let the database transaction run for longer than w.txTimeout
 	ctx, cancel := context.WithDeadline(ctx, systemClock.Now().Add(w.txTimeout))
@@ -113,10 +112,10 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	if t == nil {
-		log.Info("no task available")
+		l.Info("no task available")
 		return false, nil
 	}
-	log.WithFields(logrus.Fields{
+	l.WithFields(log.Fields{
 		"review_after": t.ReviewAfter.UTC(),
 		"review_count": t.ReviewCount,
 		"digest":       t.Digest,
@@ -138,15 +137,15 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 	}
 
 	if dangling {
-		log.Info("the blob is dangling")
+		l.Info("the blob is dangling")
 		if err := w.deleteBlob(ctx, tx, t); err != nil {
 			return true, err
 		}
 	} else {
-		log.Info("the blob is not dangling")
+		l.Info("the blob is not dangling")
 	}
 
-	log.Info("deleting task")
+	l.Info("deleting task")
 	if err := bts.Delete(ctx, t); err != nil {
 		return true, err
 	}
@@ -158,7 +157,7 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 }
 
 func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t *models.GCBlobTask) error {
-	log := dcontext.GetLogger(ctx)
+	l := log.GetLogger(log.WithContext(ctx))
 	bs := blobStoreConstructor(tx)
 
 	// delete blob from storage
@@ -171,7 +170,7 @@ func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t 
 		switch {
 		case errors.As(err, &driver.PathNotFoundError{}):
 			// this is unexpected, but it's not a show stopper for GC
-			log.Warn("blob no longer exists on storage")
+			l.Warn("blob no longer exists on storage")
 		default:
 			err = fmt.Errorf("deleting blob from storage: %w", err)
 			// we don't know how to react here, so just try to postpone the task review and return
@@ -186,11 +185,11 @@ func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t 
 		b, err := bs.FindByDigest(ctx, t.Digest)
 		if err != nil {
 			// log and continue, try to delete the blob on the database and handle the failure there (if it persists)
-			log.WithError(err).Error("failed searching for blob on database")
+			l.WithError(err).Error("failed searching for blob on database")
 		} else {
 			if b == nil {
 				// this is unexpected, but it's not a show stopper for GC
-				log.Warn("blob no longer exists on database")
+				l.Warn("blob no longer exists on database")
 				return nil
 			}
 			metrics.StorageDeleteBytes(b.Size, b.MediaType)
@@ -204,7 +203,7 @@ func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t 
 		switch {
 		case err == datastore.ErrNotFound:
 			// this is unexpected, but it's not a show stopper for GC
-			log.Warn("blob no longer exists on database")
+			l.Warn("blob no longer exists on database")
 			return nil
 		case errors.Is(err, context.DeadlineExceeded):
 			// the transaction duration exceeded w.txTimeout and therefore the connection was closed, just return
@@ -224,7 +223,7 @@ func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t 
 
 func (w *BlobWorker) postponeTaskAndCommit(ctx context.Context, tx datastore.Transactor, t *models.GCBlobTask) error {
 	d := exponentialBackoff(t.ReviewCount)
-	dcontext.GetLogger(ctx).WithField("backoff_duration", d.String()).Info("postponing next review")
+	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"backoff_duration": d.String()}).Info("postponing next review")
 
 	if err := blobTaskStoreConstructor(tx).Postpone(ctx, t, d); err != nil {
 		return err

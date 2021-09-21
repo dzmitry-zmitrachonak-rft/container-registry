@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/gc/internal/metrics"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jackc/pgconn"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -34,7 +33,7 @@ type ManifestWorker struct {
 type ManifestWorkerOption func(*ManifestWorker)
 
 // WithManifestLogger sets the logger.
-func WithManifestLogger(l dcontext.Logger) ManifestWorkerOption {
+func WithManifestLogger(l log.Logger) ManifestWorkerOption {
 	return func(w *ManifestWorker) {
 		w.logger = l
 	}
@@ -56,14 +55,14 @@ func NewManifestWorker(db datastore.Handler, opts ...ManifestWorkerOption) *Mani
 	for _, opt := range opts {
 		opt(w)
 	}
-	w.logger = w.logger.WithField(componentKey, w.name)
+	w.logger = w.logger.WithFields(log.Fields{componentKey: w.name})
 
 	return w
 }
 
 // Run implements Worker.
 func (w *ManifestWorker) Run(ctx context.Context) (bool, error) {
-	ctx = dcontext.WithLogger(ctx, w.logger)
+	ctx = log.WithLogger(ctx, w.logger)
 	return w.run(ctx, w)
 }
 
@@ -73,7 +72,7 @@ func (w *ManifestWorker) QueueSize(ctx context.Context) (int, error) {
 }
 
 func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
-	log := dcontext.GetLogger(ctx)
+	l := log.GetLogger(log.WithContext(ctx))
 
 	// don't let the database transaction run for longer than w.txTimeout
 	ctx, cancel := context.WithDeadline(ctx, systemClock.Now().Add(w.txTimeout))
@@ -91,11 +90,11 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	if t == nil {
-		log.Info("no task available")
+		l.Info("no task available")
 		return false, nil
 	}
 
-	log.WithFields(logrus.Fields{
+	l.WithFields(log.Fields{
 		"review_after":  t.ReviewAfter.UTC(),
 		"review_count":  t.ReviewCount,
 		"repository_id": t.RepositoryID,
@@ -108,13 +107,13 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 	}
 
 	if dangling {
-		log.Info("the manifest is dangling, deleting")
+		l.Info("the manifest is dangling, deleting")
 		// deleting the manifest cascades to the review queue, so we don't need to delete the task directly here
 		if err := w.deleteManifest(ctx, tx, t); err != nil {
 			return true, w.handleDBError(ctx, t, err)
 		}
 	} else {
-		log.Info("the manifest is not dangling, deleting task")
+		l.Info("the manifest is not dangling, deleting task")
 		if err := mts.Delete(ctx, t); err != nil {
 			return true, w.handleDBError(ctx, t, err)
 		}
@@ -128,7 +127,7 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 }
 
 func (w *ManifestWorker) deleteManifest(ctx context.Context, tx datastore.Transactor, t *models.GCManifestTask) error {
-	log := dcontext.GetLogger(ctx)
+	l := log.GetLogger(log.WithContext(ctx))
 
 	var err error
 	var found bool
@@ -142,7 +141,7 @@ func (w *ManifestWorker) deleteManifest(ctx context.Context, tx datastore.Transa
 	}
 	if !found {
 		// this should never happen because deleting a manifest cascades to the review queue, nevertheless...
-		log.Warn("manifest no longer exists on database, deleting task")
+		l.Warn("manifest no longer exists on database, deleting task")
 		mts := manifestTaskStoreConstructor(tx)
 		return mts.Delete(ctx, t)
 	}
@@ -177,15 +176,15 @@ func (w *ManifestWorker) postponeTask(ctx context.Context, t *models.GCManifestT
 
 	// If the value of review_after retrieved from the DB is ahead of the one we have, it means that this task was
 	// already postponed by another worker.
-	log := dcontext.GetLogger(ctx)
+	l := log.GetLogger(log.WithContext(ctx))
 	if t2.ReviewAfter.After(t.ReviewAfter) {
-		log.WithField("review_after", t2.ReviewAfter.String()).Info("task already postponed, skipping")
+		l.WithFields(log.Fields{"review_after": t2.ReviewAfter.String()}).Info("task already postponed, skipping")
 		return nil
 	}
 
 	// otherwise, calculate what should be the next review delay and update the task
 	d := exponentialBackoff(t.ReviewCount)
-	dcontext.GetLogger(ctx).WithField("backoff_duration", d.String()).Info("postponing next review")
+	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"backoff_duration": d.String()}).Info("postponing next review")
 	if err := mts.Postpone(ctx, t, d); err != nil {
 		return err
 	}
@@ -201,7 +200,7 @@ func (w *ManifestWorker) handleDBError(ctx context.Context, t *models.GCManifest
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded), pgconn.Timeout(err):
 		// this error is likely temporary. Do not postpone the task's next review as it is likely to succeed
-		dcontext.GetLogger(ctx).WithError(err).Warn("skipping next review postpone as error is likely temporary")
+		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("skipping next review postpone as error is likely temporary")
 	default:
 		// If this is not a temporary error and/or we're not sure how to handle it, then we should err on the safe side
 		// and try to postpone this task's next review so that we have time to debug and fix the underlying cause.

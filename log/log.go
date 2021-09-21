@@ -119,7 +119,10 @@ func getLogrusLogger(ctx context.Context, keys ...interface{}) *logrus.Entry {
 	// Get a logger, if it is present.
 	loggerInterface := ctx.Value(LoggerKey{})
 	if loggerInterface != nil {
-		if lgr, ok := loggerInterface.(*logrus.Entry); ok {
+		switch lgr := loggerInterface.(type) {
+		case *wrapper:
+			logger = lgr.Entry
+		case *logrus.Entry:
 			logger = lgr
 		}
 	}

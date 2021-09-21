@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	storemock "github.com/docker/distribution/registry/datastore/mocks"
 	"github.com/docker/distribution/registry/datastore/models"
@@ -16,7 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/go-multierror"
 	"github.com/opencontainers/go-digest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,15 +61,14 @@ func Test_NewBlobWorker(t *testing.T) {
 
 func Test_NewBlobWorker_WithLogger(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
-	logger := logrus.New()
+	logger := log.GetLogger(log.WithContext(ctx))
 	dbMock := storemock.NewMockHandler(ctrl)
 	driverMock := drivermock.NewMockStorageDeleter(ctrl)
 	w := NewBlobWorker(dbMock, driverMock, WithBlobLogger(logger))
 
-	got, ok := w.logger.(*logrus.Entry)
-	require.True(t, ok)
-	require.Equal(t, logger.WithField(componentKey, w.name), got)
+	require.Equal(t, logger.WithFields(log.Fields{componentKey: w.name}), w.logger)
 }
 
 func Test_NewBlobWorker_WithTxDeadline(t *testing.T) {
