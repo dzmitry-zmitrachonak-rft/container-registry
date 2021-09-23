@@ -62,11 +62,15 @@ Generate a new release ([documentation](../../docs-gitlab/README.md#releases)).
         - [ ] Update `image.tag` in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md), under the [Configuration](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md#configuration), [Installation command line options](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md#installation-command-line-options) and [Configuring the `image`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md#configuring-the-image) sections
         - [ ] Add `Changelog: changed` as commit trailer in the commit message
         - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review" ~"feature::maintenance"`
-    - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com). This requires two separate MRs, one for pre-production and staging and another for canary and production, which need to be created and merged in this order. Allow enough time between the two to confirm that everything is working as expected in pre-production and staging:
-        - [ ] For pre-production and staging, update `registry.image.tag` in [`pre.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/pre.yaml.gotmpl) and [`gstg.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gstg.yaml.gotmpl)
-        - [ ] For canary and production, update `$registry_version` in [`init-values.yaml.gotmpl`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/init-values.yaml.gotmpl)
-        - [ ] Label each merge request with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
-        - [ ] Assign to a reviewer
+    - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com). This requires two separate MRs, one for pre-production and staging and another for production, which need to be created and merged in this order. Allow enough time between the two to confirm that everything is working as expected in pre-production and staging. For all environments, update `registry_version` under the respective stanza for each environment in [`bases/environments.yaml`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/105b865bbd4c4d745452429b0e3d8ff2e4e52080/bases/environments.yaml):
+        - [ ] Pre-production and staging
+            - [ ] Update `registry_version` under `pre` and `gstg`
+            - [ ] Label with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
+            - [ ] Assign to a reviewer
+        - [ ] Production
+            - [ ] Update `registry_version` under `gprd`
+            - [ ] Label with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
+            - [ ] Assign to a reviewer
 
 <details>
 <summary><b>Instructions</b></summary>
