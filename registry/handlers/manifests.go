@@ -204,13 +204,15 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Etag", fmt.Sprintf(`"%s"`, imh.Digest))
 	w.Write(p)
 
-	l.WithFields(log.Fields{
-		"media_type":      manifestType.MediaType(),
-		"size_bytes":      len(p),
-		"digest":          imh.Digest,
-		"tag":             imh.Tag,
-		"reference_count": len(manifest.References()),
-	}).Info("manifest downloaded")
+	if r.Method == http.MethodGet {
+		l.WithFields(log.Fields{
+			"media_type":      manifestType.MediaType(),
+			"size_bytes":      len(p),
+			"digest":          imh.Digest,
+			"tag":             imh.Tag,
+			"reference_count": len(manifest.References()),
+		}).Info("manifest downloaded")
+	}
 }
 
 func supports(req *http.Request, st storageType) bool {

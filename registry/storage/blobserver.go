@@ -57,7 +57,9 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 			// Redirect to storage URL.
 			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 			metrics.BlobDownload(true, desc.Size)
-			l.WithFields(log.Fields{"redirect": true}).Info("blob downloaded")
+			if r.Method == http.MethodGet {
+				l.WithFields(log.Fields{"redirect": true}).Info("blob downloaded")
+			}
 			return nil
 
 		case driver.ErrUnsupportedMethod:
@@ -93,7 +95,9 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 
 	http.ServeContent(w, r, desc.Digest.String(), time.Time{}, br)
 	metrics.BlobDownload(false, desc.Size)
-	l.WithFields(log.Fields{"redirect": false}).Info("blob downloaded")
+	if r.Method == http.MethodGet {
+		l.WithFields(log.Fields{"redirect": false}).Info("blob downloaded")
+	}
 
 	return nil
 }
