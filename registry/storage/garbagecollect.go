@@ -7,13 +7,12 @@ import (
 	"sync"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/manifest/manifestlist"
 	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/hashicorp/go-multierror"
-	"github.com/sirupsen/logrus"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
@@ -96,13 +95,13 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 	// mark
 	markStart := time.Now()
-	dcontext.GetLogger(ctx).Info("starting mark stage")
+	log.GetLogger(log.WithContext(ctx)).Info("starting mark stage")
 
 	markSet := newSyncDigestSet()
 	manifestArr := syncManifestDelContainer{sync.Mutex{}, make([]ManifestDel, 0)}
 
 	err := repositoryEnumerator.Enumerate(ctx, func(repoName string) error {
-		dcontext.GetLoggerWithField(ctx, "repo", repoName).Info("marking repository")
+		log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repo": repoName}).Info("marking repository")
 
 		taggedManifests := newSyncDigestSet()
 		unTaggedManifests := newSyncDigestSet()
@@ -141,7 +140,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		// and allows us to report the number of primed tags.
 		if opts.RemoveUntagged {
 			primeStart := time.Now()
-			dcontext.GetLoggerWithField(ctx, "repo", repoName).Info("priming tags cache")
+			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repo": repoName}).Info("priming tags cache")
 
 			allTags, err := cachedTagStore.All(ctx)
 			if err != nil {
@@ -153,7 +152,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 				}
 			}
 
-			dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 				"repo":        repoName,
 				"tags_primed": len(allTags),
 				"duration_s":  time.Since(primeStart).Seconds(),
@@ -214,7 +213,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 						<-semaphore
 					}()
 
-					dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+					log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 						"referenced_by": "tag",
 						"digest_type":   "manifest",
 						"digest":        manifestDigest,
@@ -239,7 +238,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 						// Normal manifest list with only manifest references, add these
 						// to the set of referenced manifests.
 						for _, r := range splitRef.Manifests {
-							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+							log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 								"digest_type":   "manifest",
 								"digest":        r.Digest,
 								"mediatype":     r.MediaType,
@@ -257,7 +256,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 							if err != nil {
 								return fmt.Errorf("retrieving tags for digest %v: %w", dgst, err)
 							}
-							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+							log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 								"mediatype":  manifestList.Versioned.MediaType,
 								"digest":     manifestDigest,
 								"tags":       tags,
@@ -267,7 +266,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 
 						// Mark the manifest list layer references as normal blobs.
 						for _, r := range splitRef.Blobs {
-							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+							log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 								"digest_type":   "layer",
 								"digest":        r.Digest,
 								"mediatype":     r.MediaType,
@@ -278,7 +277,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 						}
 					} else {
 						for _, descriptor := range manifest.References() {
-							dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+							log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 								"referenced_by": "tag",
 								"digest_type":   "layer",
 								"digest":        descriptor.Digest,
@@ -300,7 +299,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 					continue
 				}
 
-				dcontext.GetLoggerWithField(ctx, "digest", dgst).Infof("manifest eligible for deletion")
+				log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"digest": dgst}).Info("manifest eligible for deletion")
 				// Fetch all tags from repository: all of these tags could contain the
 				// manifest in history which means that we need check (and delete) those
 				// references when deleting the manifest.
@@ -324,7 +323,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 			refType = "manifest_list"
 		}
 
-		markLog := dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+		markLog := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 			"repository":    repoName,
 			"referenced_by": refType,
 		})
@@ -341,7 +340,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 				}()
 
 				// Mark the manifest's blob
-				markLog.WithFields(logrus.Fields{
+				markLog.WithFields(log.Fields{
 					"digest_type": "manifest",
 					"digest":      d,
 				}).Info("marking manifest")
@@ -359,7 +358,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 				}
 
 				for _, descriptor := range manifest.References() {
-					markLog.WithFields(logrus.Fields{
+					markLog.WithFields(log.Fields{
 						"digest_type": "layer",
 						"digest":      descriptor.Digest,
 					}).Info("marking manifest")
@@ -384,7 +383,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 	blobService := registry.Blobs()
 	deleteSet := newSyncDigestSet()
 
-	dcontext.GetLogger(ctx).Info("finding blobs eligible for deletion. This may take some time...")
+	log.GetLogger(log.WithContext(ctx)).Info("finding blobs eligible for deletion. This may take some time...")
 
 	sizeChan := make(chan int64)
 	sizeDone := make(chan struct{})
@@ -399,7 +398,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 	err = blobService.Enumerate(ctx, func(desc distribution.Descriptor) error {
 		// check if digest is in markSet. If not, delete it!
 		if !markSet.contains(desc.Digest) {
-			dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 				"digest":     desc.Digest,
 				"size_bytes": desc.Size,
 			}).Info("blob eligible for deletion")
@@ -416,7 +415,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 	close(sizeChan)
 	<-sizeDone
 
-	dcontext.GetLoggerWithFields(ctx, map[interface{}]interface{}{
+	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"blobs_marked":               markSet.len(),
 		"blobs_to_delete":            deleteSet.len(),
 		"manifests_to_delete":        len(manifestArr.manifestDels),
@@ -429,7 +428,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 		return nil
 	}
 	sweepStart := time.Now()
-	dcontext.GetLogger(ctx).Info("starting sweep stage")
+	log.GetLogger(log.WithContext(ctx)).Info("starting sweep stage")
 
 	vacuum := NewVacuum(storageDriver)
 
@@ -452,7 +451,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 			return fmt.Errorf("deleting blobs: %w", err)
 		}
 	}
-	dcontext.GetLoggerWithField(ctx, "duration_s", time.Since(sweepStart).Seconds()).Info("sweep stage complete")
+	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"duration_s": time.Since(sweepStart).Seconds()}).Info("sweep stage complete")
 
 	return err
 }
