@@ -125,6 +125,7 @@ func (t table) DumpAsJSON(ctx context.Context, db datastore.Queryer) ([]byte, er
 					id,
 					repository_id,
 					created_at,
+					total_size,
 					schema_version,
 					encode(digest, 'hex') as digest,
 					convert_from(payload, 'UTF8')::json AS payload,

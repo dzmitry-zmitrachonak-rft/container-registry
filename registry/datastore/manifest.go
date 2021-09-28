@@ -54,7 +54,7 @@ func scanFullManifest(row *sql.Row) (*models.Manifest, error) {
 	var cfgPayload *models.Payload
 	m := new(models.Manifest)
 
-	err := row.Scan(&m.ID, &m.NamespaceID, &m.RepositoryID, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload,
+	err := row.Scan(&m.ID, &m.NamespaceID, &m.RepositoryID, &m.TotalSize, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload,
 		&cfgMediaType, &cfgDigest, &cfgPayload, &m.NonConformant, &m.CreatedAt)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -95,7 +95,7 @@ func scanFullManifests(rows *sql.Rows) (models.Manifests, error) {
 		var cfgPayload *models.Payload
 		m := new(models.Manifest)
 
-		err := rows.Scan(&m.ID, &m.NamespaceID, &m.RepositoryID, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload,
+		err := rows.Scan(&m.ID, &m.NamespaceID, &m.RepositoryID, &m.TotalSize, &m.SchemaVersion, &m.MediaType, &dgst, &m.Payload,
 			&cfgMediaType, &cfgDigest, &cfgPayload, &m.NonConformant, &m.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scanning manifest: %w", err)
@@ -136,6 +136,7 @@ func (s *manifestStore) FindAll(ctx context.Context) (models.Manifests, error) {
 			m.id,
 			m.top_level_namespace_id,
 			m.repository_id,
+			m.total_size,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
@@ -204,6 +205,7 @@ func (s *manifestStore) References(ctx context.Context, m *models.Manifest) (mod
 			m.id,
 			m.top_level_namespace_id,
 			m.repository_id,
+			m.total_size,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
@@ -255,9 +257,9 @@ func mapMediaType(ctx context.Context, db Queryer, mediaType string) (int, error
 // Create saves a new Manifest.
 func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	defer metrics.InstrumentQuery("manifest_create")()
-	q := `INSERT INTO manifests (top_level_namespace_id, repository_id, schema_version, media_type_id, digest, payload,
+	q := `INSERT INTO manifests (top_level_namespace_id, repository_id, total_size, schema_version, media_type_id, digest, payload,
 				configuration_media_type_id, configuration_blob_digest, configuration_payload, non_conformant)
-			VALUES ($1, $2, $3, $4, decode($5, 'hex'), $6, $7, decode($8, 'hex'), $9, $10)
+			VALUES ($1, $2, $3, $4, $5, decode($6, 'hex'), $7, $8, decode($9, 'hex'), $10, $11)
 		RETURNING
 			id, created_at`
 
@@ -289,7 +291,7 @@ func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 		configPayload = &m.Configuration.Payload
 	}
 
-	row := s.db.QueryRowContext(ctx, q, m.NamespaceID, m.RepositoryID, m.SchemaVersion, mediaTypeID, dgst, m.Payload,
+	row := s.db.QueryRowContext(ctx, q, m.NamespaceID, m.RepositoryID, m.TotalSize, m.SchemaVersion, mediaTypeID, dgst, m.Payload,
 		configMediaTypeID, configDgst, configPayload, m.NonConformant)
 	if err := row.Scan(&m.ID, &m.CreatedAt); err != nil {
 		return fmt.Errorf("creating manifest: %w", err)
