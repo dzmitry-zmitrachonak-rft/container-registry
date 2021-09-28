@@ -6793,7 +6793,8 @@ FOR VALUES WITH (MODULUS 64, REMAINDER 9);
 CREATE TABLE public.gc_blob_review_queue (
     review_after timestamp with time zone DEFAULT (now() + '1 day'::interval) NOT NULL,
     review_count integer DEFAULT 0 NOT NULL,
-    digest bytea NOT NULL
+    digest bytea NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 ALTER TABLE public.gc_blobs_configurations
@@ -6817,7 +6818,8 @@ CREATE TABLE public.gc_manifest_review_queue (
     repository_id bigint NOT NULL,
     manifest_id bigint NOT NULL,
     review_after timestamp with time zone DEFAULT (now() + '1 day'::interval) NOT NULL,
-    review_count integer DEFAULT 0 NOT NULL
+    review_count integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE public.gc_review_after_defaults (
