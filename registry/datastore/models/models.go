@@ -49,6 +49,7 @@ type Manifest struct {
 	ID            int64
 	NamespaceID   int64
 	RepositoryID  int64
+	TotalSize     int64
 	SchemaVersion int
 	MediaType     string
 	Digest        digest.Digest

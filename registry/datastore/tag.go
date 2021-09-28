@@ -155,6 +155,7 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 			m.id,
 			m.top_level_namespace_id,
 			m.repository_id,
+			m.total_size,
 			m.schema_version,
 			mt.media_type,
 			encode(m.digest, 'hex') as digest,
