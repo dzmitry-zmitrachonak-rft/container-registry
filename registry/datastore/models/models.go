@@ -89,6 +89,7 @@ type GCBlobTask struct {
 	ReviewAfter time.Time
 	ReviewCount int
 	Digest      digest.Digest
+	CreatedAt   time.Time
 }
 
 // GCConfigLink represents a row in the gc_blobs_configurations table.
@@ -116,6 +117,7 @@ type GCManifestTask struct {
 	ManifestID   int64
 	ReviewAfter  time.Time
 	ReviewCount  int
+	CreatedAt    time.Time
 }
 
 // GCReviewAfterDefault represents a row in the gc_review_after_defaults table.
