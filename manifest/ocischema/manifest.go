@@ -137,3 +137,11 @@ func (m *DeserializedManifest) Version() manifest.Versioned {
 
 func (m *DeserializedManifest) Config() distribution.Descriptor   { return m.Target() }
 func (m *DeserializedManifest) Layers() []distribution.Descriptor { return m.Manifest.Layers }
+func (m *DeserializedManifest) TotalSize() int64 {
+	var layersSize int64
+	for _, layer := range m.Layers() {
+		layersSize += layer.Size
+	}
+
+	return layersSize + m.Config().Size + int64(len(m.canonical))
+}

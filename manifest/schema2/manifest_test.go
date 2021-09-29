@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest"
+	"github.com/stretchr/testify/require"
 )
 
 var expectedManifestSerialization = []byte(`{
@@ -159,4 +160,21 @@ func TestMediaTypes(t *testing.T) {
 	mediaTypeTest(t, "", true)
 	mediaTypeTest(t, MediaTypeManifest, false)
 	mediaTypeTest(t, MediaTypeManifest+"XXX", true)
+}
+
+func TestTotalSize(t *testing.T) {
+	manifest := makeTestManifest(MediaTypeManifest)
+
+	deserialized, err := FromStruct(manifest)
+	require.NoError(t, err)
+
+	_, payload, err := deserialized.Payload()
+	require.NoError(t, err)
+
+	var refSize int64
+	for _, ref := range manifest.References() {
+		refSize += ref.Size
+	}
+
+	require.Equal(t, refSize+int64(len(payload)), deserialized.TotalSize())
 }

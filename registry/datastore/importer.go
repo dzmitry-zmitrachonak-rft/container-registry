@@ -217,6 +217,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	dbManifest, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		NamespaceID:   dbRepo.NamespaceID,
 		RepositoryID:  dbRepo.ID,
+		TotalSize:     m.TotalSize(),
 		SchemaVersion: m.Version().SchemaVersion,
 		MediaType:     m.Version().MediaType,
 		Digest:        dgst,
