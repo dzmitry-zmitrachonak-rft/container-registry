@@ -34,6 +34,10 @@ type ManifestV2 interface {
 	Version() manifest.Versioned
 	Config() Descriptor
 	Layers() []Descriptor
+
+	// TotalSize is the sum of the size of the manifest payload, layer and config
+	// blob sizes.
+	TotalSize() int64
 }
 
 // ManifestBuilder creates a manifest allowing one to include dependencies.

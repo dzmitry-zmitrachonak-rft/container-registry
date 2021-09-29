@@ -935,6 +935,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 		m := &models.Manifest{
 			NamespaceID:   dbRepo.NamespaceID,
 			RepositoryID:  dbRepo.ID,
+			TotalSize:     mfst.TotalSize(),
 			SchemaVersion: mfst.Version().SchemaVersion,
 			MediaType:     mfst.Version().MediaType,
 			Digest:        imh.Digest,
