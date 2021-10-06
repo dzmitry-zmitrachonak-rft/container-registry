@@ -4,8 +4,10 @@ go 1.16
 
 require (
 	cloud.google.com/go/storage v1.16.0
-	github.com/Azure/azure-sdk-for-go v54.1.0+incompatible
-	github.com/Azure/go-autorest v10.8.1+incompatible // indirect
+	github.com/Azure/azure-sdk-for-go v58.0.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.21 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.16 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/aws/aws-sdk-go v1.40.7
 	github.com/benbjohnson/clock v1.1.0
