@@ -55,6 +55,17 @@ type RepositoryWriter interface {
 	Delete(ctx context.Context, id int64) error
 }
 
+type repositoryStoreOption func(*repositoryStore)
+
+// WithRepositoryCache instantiates the repositoryStore with a cache which will
+// attempt to retrieve a *models.Repository from methods with return that type,
+// rather than communicating with the database.
+func WithRepositoryCache(cache RepositoryCache) repositoryStoreOption {
+	return func(rstore *repositoryStore) {
+		rstore.cache = cache
+	}
+}
+
 // RepositoryStore is the interface that a repository store should conform to.
 type RepositoryStore interface {
 	RepositoryReader
@@ -64,12 +75,19 @@ type RepositoryStore interface {
 // repositoryStore is the concrete implementation of a RepositoryStore.
 type repositoryStore struct {
 	// db can be either a *sql.DB or *sql.Tx
-	db Queryer
+	db    Queryer
+	cache RepositoryCache
 }
 
 // NewRepositoryStore builds a new repositoryStore.
-func NewRepositoryStore(db Queryer) *repositoryStore {
-	return &repositoryStore{db: db}
+func NewRepositoryStore(db Queryer, opts ...repositoryStoreOption) *repositoryStore {
+	rStore := &repositoryStore{db: db, cache: &noOpRepositoryCache{}}
+
+	for _, o := range opts {
+		o(rStore)
+	}
+
+	return rStore
 }
 
 // RepositoryManifestService implements the validation.ManifestExister
@@ -129,6 +147,22 @@ func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) 
 	return distribution.Descriptor{Digest: b.Digest, Size: b.Size, MediaType: b.MediaType}, nil
 }
 
+// RepositoryCache is a cache for *models.Repository objects.
+type RepositoryCache interface {
+	GetByPath(path string) *models.Repository
+	GetByID(id int64) *models.Repository
+	Set(*models.Repository)
+	ClearByID(id int64)
+}
+
+type noOpRepositoryCache struct{}
+
+func (n *noOpRepositoryCache) GetByPath(path string) *models.Repository { return nil }
+func (n *noOpRepositoryCache) GetByID(id int64) *models.Repository      { return nil }
+func (n *noOpRepositoryCache) Set(_ *models.Repository)                 {}
+func (n *noOpRepositoryCache) ClearByID(id int64) {
+}
+
 func scanFullRepository(row *sql.Row) (*models.Repository, error) {
 	r := new(models.Repository)
 
@@ -162,6 +196,10 @@ func scanFullRepositories(rows *sql.Rows) (models.Repositories, error) {
 
 // FindByID finds a repository by ID.
 func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repository, error) {
+	if cached := s.cache.GetByID(id); cached != nil {
+		return cached, nil
+	}
+
 	defer metrics.InstrumentQuery("repository_find_by_id")()
 	q := `SELECT
 			id,
@@ -177,11 +215,22 @@ func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repos
 			id = $1`
 	row := s.db.QueryRowContext(ctx, q, id)
 
-	return scanFullRepository(row)
+	r, err := scanFullRepository(row)
+	if err != nil {
+		return r, err
+	}
+
+	s.cache.Set(r)
+
+	return r, nil
 }
 
 // FindByPath finds a repository by path.
 func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.Repository, error) {
+	if cached := s.cache.GetByPath(path); cached != nil {
+		return cached, nil
+	}
+
 	defer metrics.InstrumentQuery("repository_find_by_path")()
 	q := `SELECT
 			id,
@@ -198,7 +247,14 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 
 	row := s.db.QueryRowContext(ctx, q, path)
 
-	return scanFullRepository(row)
+	r, err := scanFullRepository(row)
+	if err != nil {
+		return r, err
+	}
+
+	s.cache.Set(r)
+
+	return r, nil
 }
 
 // FindAll finds all repositories.
@@ -717,6 +773,8 @@ func (s *repositoryStore) Create(ctx context.Context, r *models.Repository) erro
 		return fmt.Errorf("creating repository: %w", err)
 	}
 
+	s.cache.Set(r)
+
 	return nil
 }
 
@@ -747,6 +805,11 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 // on write operations between the corresponding read (FindByPath) and write (Create) operations. Separate Find* and
 // Create method calls should be preferred to this when race conditions are not a concern.
 func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository) error {
+	if cached := s.cache.GetByPath(r.Path); cached != nil {
+		*r = *cached
+		return nil
+	}
+
 	if r.NamespaceID == 0 {
 		n := &models.Namespace{Name: strings.Split(r.Path, "/")[0]}
 		ns := NewNamespaceStore(s.db)
@@ -775,6 +838,7 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 			return err
 		}
 		*r = *tmp
+		s.cache.Set(r)
 	}
 
 	return nil
@@ -835,6 +899,8 @@ func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path str
 		currParentID = r.ID
 	}
 
+	s.cache.Set(r)
+
 	return r, nil
 }
 
@@ -842,6 +908,10 @@ func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path str
 // Returns the leaf repository (e.g. `c`). No error is raised if a parent repository already exists, only if the leaf
 // repository does.
 func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*models.Repository, error) {
+	if cached := s.cache.GetByPath(path); cached != nil {
+		return cached, nil
+	}
+
 	n := &models.Namespace{Name: strings.Split(path, "/")[0]}
 	ns := NewNamespaceStore(s.db)
 	if err := ns.CreateOrFind(ctx, n); err != nil {
@@ -862,12 +932,18 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 		return nil, err
 	}
 
+	s.cache.Set(r)
+
 	return r, nil
 }
 
 // CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the leaf repository
 // already exists.
 func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error) {
+	if cached := s.cache.GetByPath(path); cached != nil {
+		return cached, nil
+	}
+
 	n := &models.Namespace{Name: strings.Split(path, "/")[0]}
 	ns := NewNamespaceStore(s.db)
 	if err := ns.CreateOrFind(ctx, n); err != nil {
@@ -887,6 +963,8 @@ func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (
 	if err := s.CreateOrFind(ctx, r); err != nil {
 		return nil, err
 	}
+
+	s.cache.Set(r)
 
 	return r, nil
 }
@@ -911,6 +989,8 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 		}
 		return fmt.Errorf("updating repository: %w", err)
 	}
+
+	s.cache.Set(r)
 
 	return nil
 }
@@ -1020,6 +1100,8 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 
 // Delete deletes a repository.
 func (s *repositoryStore) Delete(ctx context.Context, id int64) error {
+	s.cache.ClearByID(id)
+
 	defer metrics.InstrumentQuery("repository_delete")()
 	q := "DELETE FROM repositories WHERE id = $1"
 
