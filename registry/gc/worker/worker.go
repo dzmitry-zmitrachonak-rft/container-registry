@@ -33,10 +33,6 @@ type Worker interface {
 	// Run executes the worker once, processing the next available GC task. A bool is returned to indicate whether
 	// there was a task available or not, regardless if processing it succeeded or not.
 	Run(context.Context) (bool, error)
-	// QueueName returns the worker queue name for observability purposes.
-	QueueName() string
-	// QueueSize returns the worker queue size for observability purposes.
-	QueueSize(context.Context) (int, error)
 }
 
 // for test purposes (mocking)
@@ -44,7 +40,6 @@ var systemClock internal.Clock = clock.New()
 
 type baseWorker struct {
 	name      string
-	queueName string
 	db        datastore.Handler
 	logger    log.Logger
 	txTimeout time.Duration
@@ -53,11 +48,6 @@ type baseWorker struct {
 // Name implements Worker.
 func (w *baseWorker) Name() string {
 	return w.name
-}
-
-// QueueName implements Worker.
-func (w *baseWorker) QueueName() string {
-	return w.queueName
 }
 
 func (w *baseWorker) applyDefaults() {

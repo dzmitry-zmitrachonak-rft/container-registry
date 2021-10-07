@@ -50,7 +50,6 @@ func WithManifestTxTimeout(d time.Duration) ManifestWorkerOption {
 func NewManifestWorker(db datastore.Handler, opts ...ManifestWorkerOption) *ManifestWorker {
 	w := &ManifestWorker{baseWorker: &baseWorker{db: db}}
 	w.name = "registry.gc.worker.ManifestWorker"
-	w.queueName = "gc_manifest_review_queue"
 	w.applyDefaults()
 	for _, opt := range opts {
 		opt(w)
@@ -64,11 +63,6 @@ func NewManifestWorker(db datastore.Handler, opts ...ManifestWorkerOption) *Mani
 func (w *ManifestWorker) Run(ctx context.Context) (bool, error) {
 	ctx = log.WithLogger(ctx, w.logger)
 	return w.run(ctx, w)
-}
-
-// QueueSize implements Worker.
-func (w *ManifestWorker) QueueSize(ctx context.Context) (int, error) {
-	return manifestTaskStoreConstructor(w.db).Count(ctx)
 }
 
 func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
