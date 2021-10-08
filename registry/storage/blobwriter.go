@@ -10,10 +10,10 @@ import (
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -319,6 +319,8 @@ func (bw *blobWriter) moveBlob(ctx context.Context, desc distribution.Descriptor
 		return nil
 	}
 
+	l := log.GetLogger(log.WithContext(ctx))
+
 	// If no data was received, we may not actually have a file on disk. Check
 	// the size here and write a zero-length file to blobPath if this is the
 	// case. For the most part, this should only ever happen with zero-length
@@ -336,13 +338,20 @@ func (bw *blobWriter) moveBlob(ctx context.Context, desc distribution.Descriptor
 			}
 
 			// We let this fail during the move below.
-			logrus.
-				WithField("upload.id", bw.ID()).
-				WithField("digest", desc.Digest).Warnf("attempted to move zero-length content with non-zero digest")
+			l.WithFields(log.Fields{
+				"upload_id": bw.ID(),
+				"digest":    desc.Digest,
+			}).Warn("attempted to move zero-length content with non-zero digest")
 		default:
 			return err // unrelated error
 		}
 	}
+
+	l.WithFields(log.Fields{
+		"media_type": desc.MediaType,
+		"size_bytes": desc.Size,
+		"digest":     desc.Digest,
+	}).Info("new blob uploaded")
 
 	// TODO(stevvooe): We should also write the mediatype when executing this move.
 
