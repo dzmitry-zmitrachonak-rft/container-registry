@@ -1,3 +1,17 @@
+# [3.12.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.11.1-gitlab...v3.12.0-gitlab) (2021-10-11)
+
+
+### Bug Fixes
+
+* **handlers:** only log that a manifest/blob was downloaded if the method is GET ([19d9f60](https://gitlab.com/gitlab-org/container-registry/commit/19d9f608960990dbfe12209f5743ac30776b1988))
+
+
+### Features
+
+* **datastore:** add created_at timestamp to online GC review queue tables ([3a38a0a](https://gitlab.com/gitlab-org/container-registry/commit/3a38a0aef96d607730b8ba0d728d702477c32331))
+* **datastore:** calculate total manifest size on creation ([4c38d53](https://gitlab.com/gitlab-org/container-registry/commit/4c38d53adc3fd09fd9f899f90ab0c34b375143be))
+* **handlers:** log metadata when a new blob is uploaded ([83cb07e](https://gitlab.com/gitlab-org/container-registry/commit/83cb07e98c55ee1eee00c5c31b9c668d59a7ba22))
+
 ## [3.11.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.11.0-gitlab...v3.11.1-gitlab) (2021-09-20)
 
 
