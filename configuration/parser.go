@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/docker/distribution/log"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -195,7 +196,7 @@ func (p *Parser) overwriteStruct(v reflect.Value, fullpath string, path []string
 
 	fieldIndex, present := byUpperCase[path[0]]
 	if !present {
-		logrus.Warnf("Ignoring unrecognized environment variable %s", fullpath)
+		log.GetLogger().WithFields(log.Fields{"name": fullpath}).Warn("ignoring unrecognized environment variable")
 		return nil
 	}
 	field := v.Field(fieldIndex)
@@ -235,7 +236,7 @@ func (p *Parser) overwriteStruct(v reflect.Value, fullpath string, path []string
 func (p *Parser) overwriteMap(m reflect.Value, fullpath string, path []string, payload string) error {
 	if m.Type().Key().Kind() != reflect.String {
 		// non-string keys unsupported
-		logrus.Warnf("Ignoring environment variable %s involving map with non-string keys", fullpath)
+		log.GetLogger().WithFields(log.Fields{"name": fullpath}).Warn("ignoring environment variable involving map with non-string keys")
 		return nil
 	}
 
