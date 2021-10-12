@@ -1127,6 +1127,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			mStatus = migration.StatusNonRepositoryScopedRequest
 		}
 
+		if ctx.useDatabase {
+			ctx.repoCache = datastore.NewSingleRepositoryCache()
+		}
+
 		if app.Config.Migration.Enabled {
 			metrics.MigrationRoute(mStatus.ShouldMigrate())
 

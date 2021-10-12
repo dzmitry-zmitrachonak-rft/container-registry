@@ -333,7 +333,7 @@ type dbManifestGetter struct {
 
 func newDBManifestGetter(imh *manifestHandler, req *http.Request) (*dbManifestGetter, error) {
 	return &dbManifestGetter{
-		RepositoryStore: datastore.NewRepositoryStore(imh.App.db),
+		RepositoryStore: datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache)),
 		repoPath:        imh.Repository.Named().Name(),
 		req:             req,
 	}, nil
@@ -514,7 +514,7 @@ func (p *dbManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest)
 
 func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest, tag string, _ distribution.Descriptor) error {
 	repoName := imh.Repository.Named().Name()
-	if err := dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
+	if err := dbTagManifest(imh, imh.db, imh.repoCache, imh.Digest, imh.Tag, repoName); err != nil {
 		if errors.Is(err, datastore.ErrManifestNotFound) {
 			// If online GC was already reviewing the manifest that we want to tag, and that manifest had no
 			// tags before the review start, the API is unable to stop the GC from deleting the manifest (as
@@ -527,7 +527,7 @@ func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest,
 			if err = p.Put(imh, mfst); err != nil {
 				return fmt.Errorf("failed to recreate manifest in database: %w", err)
 			}
-			if err = dbTagManifest(imh, imh.db, imh.Digest, imh.Tag, repoName); err != nil {
+			if err = dbTagManifest(imh, imh.db, imh.repoCache, imh.Digest, imh.Tag, repoName); err != nil {
 				return fmt.Errorf("failed to create tag in database after manifest recreate: %w", err)
 			}
 		} else {
@@ -802,11 +802,11 @@ const (
 	manifestTagGCLockTimeout  = 5 * time.Second
 )
 
-func dbTagManifest(ctx context.Context, db datastore.Handler, dgst digest.Digest, tagName, path string) error {
+func dbTagManifest(ctx context.Context, db datastore.Handler, cache datastore.RepositoryCache, dgst digest.Digest, tagName, path string) error {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": path, "manifest_digest": dgst, "tag": tagName})
 	l.Debug("tagging manifest")
 
-	repositoryStore := datastore.NewRepositoryStore(db)
+	repositoryStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))
 	dbRepo, err := repositoryStore.FindByPath(ctx, path)
 	if err != nil {
 		return err
@@ -862,7 +862,7 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, dgst digest.Digest
 }
 
 func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedManifest, payload []byte) error {
-	repoReader := datastore.NewRepositoryStore(imh.db)
+	repoReader := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
 	repoPath := imh.Repository.Named().Name()
 
 	v := validation.NewOCIValidator(
@@ -880,7 +880,7 @@ func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedMani
 }
 
 func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedManifest, payload []byte) error {
-	repoReader := datastore.NewRepositoryStore(imh.db)
+	repoReader := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
 	repoPath := imh.Repository.Named().Name()
 
 	v := validation.NewSchema2Validator(
@@ -904,19 +904,19 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	l.Debug("putting manifest")
 
 	// create or find target repository
-	repositoryStore := datastore.NewRepositoryStore(imh.App.db)
-	dbRepo, err := repositoryStore.CreateOrFindByPath(imh, repoPath)
+	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
+	dbRepo, err := rStore.CreateOrFindByPath(imh, repoPath)
 	if err != nil {
 		return err
 	}
 
 	// Find the config now to ensure that the config's blob is associated with the repository.
-	dbCfgBlob, err := dbFindRepositoryBlob(imh.Context, imh.App.db, mfst.Config(), dbRepo.Path)
+	dbCfgBlob, err := dbFindRepositoryBlob(imh.Context, rStore, mfst.Config(), dbRepo.Path)
 	if err != nil {
 		return err
 	}
 
-	dbManifest, err := repositoryStore.FindManifestByDigest(imh.Context, dbRepo, imh.Digest)
+	dbManifest, err := rStore.FindManifestByDigest(imh.Context, dbRepo, imh.Digest)
 	if err != nil {
 		return err
 	}
@@ -957,7 +957,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 
 		// find and associate manifest layer blobs
 		for _, reqLayer := range mfst.Layers() {
-			dbBlob, err := dbFindRepositoryBlob(imh.Context, imh.App.db, reqLayer, dbRepo.Path)
+			dbBlob, err := dbFindRepositoryBlob(imh.Context, rStore, reqLayer, dbRepo.Path)
 			if err != nil {
 				return err
 			}
@@ -971,9 +971,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 }
 
 // dbFindRepositoryBlob finds a blob which is linked to the repository.
-func dbFindRepositoryBlob(ctx context.Context, db datastore.Queryer, desc distribution.Descriptor, repoPath string) (*models.Blob, error) {
-	rStore := datastore.NewRepositoryStore(db)
-
+func dbFindRepositoryBlob(ctx context.Context, rStore datastore.RepositoryStore, desc distribution.Descriptor, repoPath string) (*models.Blob, error) {
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return nil, err
@@ -996,7 +994,7 @@ func dbFindRepositoryBlob(ctx context.Context, db datastore.Queryer, desc distri
 // dbFindManifestListManifest finds a manifest which is linked to the manifest list.
 func dbFindManifestListManifest(
 	ctx context.Context,
-	db datastore.Queryer,
+	rStore datastore.RepositoryStore,
 	dbRepo *models.Repository,
 	dgst digest.Digest,
 	repoPath string) (*models.Manifest, error) {
@@ -1005,7 +1003,6 @@ func dbFindManifestListManifest(
 
 	var dbManifest *models.Manifest
 
-	rStore := datastore.NewRepositoryStore(db)
 	dbManifest, err := rStore.FindManifestByDigest(ctx, dbRepo, dgst)
 	if err != nil {
 		return nil, err
@@ -1034,7 +1031,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	})
 	l.Debug("putting manifest list")
 
-	rStore := datastore.NewRepositoryStore(imh.db)
+	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
 	v := validation.NewManifestListValidator(
 		&datastore.RepositoryManifestService{
 			RepositoryReader: rStore,
@@ -1084,7 +1081,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	mm := make([]*models.Manifest, 0, len(manifestList.Manifests))
 	ids := make([]int64, 0, len(mm))
 	for _, desc := range manifestList.Manifests {
-		m, err := dbFindManifestListManifest(imh.Context, imh.db, r, desc.Digest, r.Path)
+		m, err := dbFindManifestListManifest(imh.Context, rStore, r, desc.Digest, r.Path)
 		if err != nil {
 			return err
 		}
@@ -1211,7 +1208,7 @@ func (imh *manifestHandler) applyResourcePolicy(manifest distribution.Manifest) 
 // index to a valid OCI image manifest and validates it accordingly. The original index digest and payload are
 // preserved when stored on the database.
 func dbPutBuildkitIndex(imh *manifestHandler, ml *manifestlist.DeserializedManifestList, payload []byte) error {
-	repoReader := datastore.NewRepositoryStore(imh.db)
+	repoReader := datastore.NewRepositoryStore(imh.db, datastore.WithRepositoryCache(imh.repoCache))
 	repoPath := imh.Repository.Named().Name()
 
 	// convert to OCI manifest and process as if it was one
@@ -1247,11 +1244,11 @@ const (
 // a manifest from the database (that's a task for GC, if a manifest is unreferenced), it only deletes the record that
 // associates the manifest with a digest d with the repository with path repoPath. Any tags that reference the manifest
 // within the repository are also deleted.
-func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string, d digest.Digest) error {
+func dbDeleteManifest(ctx context.Context, db datastore.Handler, cache datastore.RepositoryCache, repoPath string, d digest.Digest) error {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "digest": d})
 	l.Debug("deleting manifest from repository in database")
 
-	rStore := datastore.NewRepositoryStore(db)
+	rStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
@@ -1310,7 +1307,7 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, repoPath string
 		}
 	}
 
-	rStore = datastore.NewRepositoryStore(tx)
+	rStore = datastore.NewRepositoryStore(tx, datastore.WithRepositoryCache(cache))
 	found, err := rStore.DeleteManifest(ctx, r, d)
 	if err != nil {
 		return err
@@ -1368,7 +1365,7 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		if err := dbDeleteManifest(imh.Context, imh.db, imh.Repository.Named().String(), imh.Digest); err != nil {
+		if err := dbDeleteManifest(imh.Context, imh.db, imh.repoCache, imh.Repository.Named().String(), imh.Digest); err != nil {
 			imh.appendManifestDeleteError(err)
 			return
 		}

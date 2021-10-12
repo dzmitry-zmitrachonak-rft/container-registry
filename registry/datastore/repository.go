@@ -11,6 +11,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
+
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/opencontainers/go-digest"
@@ -149,18 +150,49 @@ func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) 
 
 // RepositoryCache is a cache for *models.Repository objects.
 type RepositoryCache interface {
-	GetByPath(path string) *models.Repository
-	GetByID(id int64) *models.Repository
+	Get(path string) *models.Repository
 	Set(*models.Repository)
-	ClearByID(id int64)
+	Clear(id int64)
 }
 
+// noOpRepositoryCache satisfies the RepositoryCache, but does not cache anything.
+// Useful as a default and for testing.
 type noOpRepositoryCache struct{}
 
-func (n *noOpRepositoryCache) GetByPath(path string) *models.Repository { return nil }
-func (n *noOpRepositoryCache) GetByID(id int64) *models.Repository      { return nil }
-func (n *noOpRepositoryCache) Set(_ *models.Repository)                 {}
-func (n *noOpRepositoryCache) ClearByID(id int64) {
+func (n *noOpRepositoryCache) Get(path string) *models.Repository { return nil }
+func (n *noOpRepositoryCache) Set(_ *models.Repository)           {}
+func (n *noOpRepositoryCache) Clear(id int64)                     {}
+
+// singleRepositoryCache caches a single repository. This implementation is not
+// thread-safe.
+type singleRepositoryCache struct {
+	r *models.Repository
+}
+
+func NewSingleRepositoryCache() *singleRepositoryCache {
+	return &singleRepositoryCache{}
+}
+
+func (c *singleRepositoryCache) Get(path string) *models.Repository {
+	if c.r == nil || c.r.Path != path {
+		return nil
+	}
+
+	return c.r
+}
+
+func (c *singleRepositoryCache) Set(r *models.Repository) {
+	if r != nil {
+		c.r = r
+	}
+}
+
+func (c *singleRepositoryCache) Clear(id int64) {
+	if c.r == nil || c.r.ID != id {
+		return
+	}
+
+	c.r = nil
 }
 
 func scanFullRepository(row *sql.Row) (*models.Repository, error) {
@@ -196,10 +228,6 @@ func scanFullRepositories(rows *sql.Rows) (models.Repositories, error) {
 
 // FindByID finds a repository by ID.
 func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repository, error) {
-	if cached := s.cache.GetByID(id); cached != nil {
-		return cached, nil
-	}
-
 	defer metrics.InstrumentQuery("repository_find_by_id")()
 	q := `SELECT
 			id,
@@ -227,7 +255,7 @@ func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repos
 
 // FindByPath finds a repository by path.
 func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.Repository, error) {
-	if cached := s.cache.GetByPath(path); cached != nil {
+	if cached := s.cache.Get(path); cached != nil {
 		return cached, nil
 	}
 
@@ -805,7 +833,7 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 // on write operations between the corresponding read (FindByPath) and write (Create) operations. Separate Find* and
 // Create method calls should be preferred to this when race conditions are not a concern.
 func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository) error {
-	if cached := s.cache.GetByPath(r.Path); cached != nil {
+	if cached := s.cache.Get(r.Path); cached != nil {
 		*r = *cached
 		return nil
 	}
@@ -908,7 +936,7 @@ func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path str
 // Returns the leaf repository (e.g. `c`). No error is raised if a parent repository already exists, only if the leaf
 // repository does.
 func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*models.Repository, error) {
-	if cached := s.cache.GetByPath(path); cached != nil {
+	if cached := s.cache.Get(path); cached != nil {
 		return cached, nil
 	}
 
@@ -940,7 +968,7 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 // CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the leaf repository
 // already exists.
 func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error) {
-	if cached := s.cache.GetByPath(path); cached != nil {
+	if cached := s.cache.Get(path); cached != nil {
 		return cached, nil
 	}
 
@@ -1100,7 +1128,7 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 
 // Delete deletes a repository.
 func (s *repositoryStore) Delete(ctx context.Context, id int64) error {
-	s.cache.ClearByID(id)
+	s.cache.Clear(id)
 
 	defer metrics.InstrumentQuery("repository_delete")()
 	q := "DELETE FROM repositories WHERE id = $1"

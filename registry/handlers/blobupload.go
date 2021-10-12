@@ -77,13 +77,14 @@ func dbMountBlob(ctx context.Context, db datastore.Queryer, fromRepoPath, toRepo
 	})
 	l.Debug("cross repository blob mounting")
 
+	rStore := datastore.NewRepositoryStore(db)
+
 	// find source blob from source repository
-	b, err := dbFindRepositoryBlob(ctx, db, distribution.Descriptor{Digest: d}, fromRepoPath)
+	b, err := dbFindRepositoryBlob(ctx, rStore, distribution.Descriptor{Digest: d}, fromRepoPath)
 	if err != nil {
 		return err
 	}
 
-	rStore := datastore.NewRepositoryStore(db)
 	destRepo, err := rStore.CreateOrFindByPath(ctx, toRepoPath)
 	if err != nil {
 		return err
@@ -358,7 +359,6 @@ func (buh *blobUploadHandler) ResumeBlobUpload(ctx *Context, r *http.Request) ht
 			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 				"state_uuid":  state.UUID,
 				"upload_uuid": buh.UUID,
-
 			}).Info("mismatched uuid in upload state")
 			buh.Errors = append(buh.Errors, v2.ErrorCodeBlobUploadInvalid.WithDetail(err))
 		})
@@ -462,7 +462,8 @@ func (buh *blobUploadHandler) createBlobMountOption(fromRepo, mountDigest string
 
 	// Check for blob access on the database and pass that information via the
 	// BlobCreateOption.
-	b, err := dbFindRepositoryBlob(buh, buh.db, distribution.Descriptor{Digest: dgst}, ref.Name())
+	rStore := datastore.NewRepositoryStore(buh.db)
+	b, err := dbFindRepositoryBlob(buh, rStore, distribution.Descriptor{Digest: dgst}, ref.Name())
 	if err != nil {
 		return nil, err
 	}
