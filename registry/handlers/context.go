@@ -10,6 +10,7 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/auth"
+	"github.com/docker/distribution/registry/datastore"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -39,6 +40,8 @@ type Context struct {
 	writeFSMetadata bool
 
 	blobProvider distribution.BlobProvider
+
+	repoCache datastore.RepositoryCache
 
 	// TODO(stevvooe): The goal is too completely factor this context and
 	// dispatching out of the web application. Ideally, we should lean on

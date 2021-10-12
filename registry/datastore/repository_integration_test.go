@@ -89,6 +89,32 @@ func TestRepositoryStore_FindByPath_NamespaceNotFound(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRepositoryStore_FindByPath_SingleRepositoryCache(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	path := "a-test-group/foo"
+	c := datastore.NewSingleRepositoryCache()
+
+	require.Nil(t, c.Get(path))
+
+	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(c))
+	r, err := s.FindByPath(suite.ctx, path)
+	require.NoError(t, err)
+
+	// see testdata/fixtures/repositories.sql
+	expected := &models.Repository{
+		ID:          6,
+		NamespaceID: 2,
+		Name:        "foo",
+		Path:        path,
+		ParentID:    sql.NullInt64{Int64: 5, Valid: true},
+		CreatedAt:   testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", r.CreatedAt.Location()),
+	}
+
+	require.NotEqual(t, expected, c.Get("fake/path"))
+	require.Equal(t, expected, c.Get(path))
+}
+
 func TestRepositoryStore_FindAll(t *testing.T) {
 	reloadRepositoryFixtures(t)
 
@@ -1490,6 +1516,24 @@ func TestRepositoryStore_CreateOrFindByPath_ExistingNestedParents(t *testing.T) 
 	}
 }
 
+func TestRepositoryStore_CreateOrFindByPath_SingleRepositoryCache(t *testing.T) {
+	unloadRepositoryFixtures(t)
+	c := datastore.NewSingleRepositoryCache()
+	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(c))
+
+	// Create a new repository, filling the cache.
+	r1, err := s.CreateOrFindByPath(suite.ctx, "pineapple/banana")
+	require.NoError(t, err)
+	require.Equal(t, r1, c.Get(r1.Path))
+
+	// Create another new repository, replacing the old cache value.
+	r2, err := s.CreateOrFindByPath(suite.ctx, "kiwi/mango")
+	require.NoError(t, err)
+	require.NotEqual(t, r1, c.Get(r1.Path))
+	require.NotEqual(t, r2, c.Get(r1.Path))
+	require.Equal(t, r2, c.Get(r2.Path))
+}
+
 func TestRepositoryStore_CreateOrFind(t *testing.T) {
 	unloadRepositoryFixtures(t)
 
@@ -1738,4 +1782,25 @@ func TestRepositoryStore_Delete_NotFound(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
 	err := s.Delete(suite.ctx, 100)
 	require.EqualError(t, err, "repository not found")
+}
+
+func TestRepositoryStore_Delete_SingleRepositoryCache(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	c := datastore.NewSingleRepositoryCache()
+	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(c))
+
+	// Delete with nil cache value works as expected.
+	err := s.Delete(suite.ctx, 4)
+	require.NoError(t, err)
+
+	// Load a repo into the cache.
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test/backend")
+	require.NoError(t, err)
+	require.Equal(t, r, c.Get("gitlab-org/gitlab-test/backend"))
+
+	// Delete clears the cache.
+	err = s.Delete(suite.ctx, r.ID)
+	require.NoError(t, err)
+	require.Nil(t, c.Get("gitlab-org/gitlab-test/backend"))
 }
