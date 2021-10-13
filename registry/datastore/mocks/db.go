@@ -85,21 +85,6 @@ func (mr *MockHandlerMockRecorder) ExecContext(arg0, arg1 interface{}, arg2 ...i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecContext", reflect.TypeOf((*MockHandler)(nil).ExecContext), varargs...)
 }
 
-// PrepareContext mocks base method.
-func (m *MockHandler) PrepareContext(arg0 context.Context, arg1 string) (*sql.Stmt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareContext", arg0, arg1)
-	ret0, _ := ret[0].(*sql.Stmt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareContext indicates an expected call of PrepareContext.
-func (mr *MockHandlerMockRecorder) PrepareContext(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContext", reflect.TypeOf((*MockHandler)(nil).PrepareContext), arg0, arg1)
-}
-
 // QueryContext mocks base method.
 func (m *MockHandler) QueryContext(arg0 context.Context, arg1 string, arg2 ...interface{}) (*sql.Rows, error) {
 	m.ctrl.T.Helper()
@@ -208,21 +193,6 @@ func (mr *MockTransactorMockRecorder) ExecContext(arg0, arg1 interface{}, arg2 .
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecContext", reflect.TypeOf((*MockTransactor)(nil).ExecContext), varargs...)
-}
-
-// PrepareContext mocks base method.
-func (m *MockTransactor) PrepareContext(arg0 context.Context, arg1 string) (*sql.Stmt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareContext", arg0, arg1)
-	ret0, _ := ret[0].(*sql.Stmt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareContext indicates an expected call of PrepareContext.
-func (mr *MockTransactorMockRecorder) PrepareContext(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContext", reflect.TypeOf((*MockTransactor)(nil).PrepareContext), arg0, arg1)
 }
 
 // QueryContext mocks base method.
