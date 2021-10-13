@@ -1,0 +1,29 @@
+# This config file is a basic configuration using filesystem metadata and blob
+# storage.
+version: 0.1
+log:
+  accesslog:
+    disabled: false
+  level: info
+  fields:
+    service: registry
+storage:
+  delete:
+    enabled: true
+  filesystem:
+    # Temp dir, rename if you need persistence.
+    # registry/storage/paths.go describes the structure of the data
+    # written to this directory
+    rootdirectory: "/tmp/registry"
+http:
+  # Registry API will be accessible at localhost:5000
+  addr: :5000
+  debug:
+    addr: :5001
+      # Metrics will be accessible at localhost:5001/metrics/
+    prometheus:
+      enabled: true
+      path: /metrics
+      # Profiling information will be accessible at localhost:5001/debug/pprof/
+    pprof:
+      enabled: true
