@@ -169,7 +169,7 @@ func init() {
 	}, skipS3)
 }
 
-func Test_parseParameters_Bool(t *testing.T) {
+func Test_parseParameters(t *testing.T) {
 	p := map[string]interface{}{
 		"region": "us-west-2",
 		"bucket": "test",
@@ -184,6 +184,10 @@ func Test_parseParameters_Bool(t *testing.T) {
 		parameters      map[string]interface{}
 		paramName       string
 		driverParamName string
+		required        bool
+		nilAllowed      bool
+		emptyAllowed    bool
+		nonTypeAllowed  bool
 		defaultt        interface{}
 	}{
 		"secure": {
@@ -225,6 +229,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 			parameters:      p,
 			paramName:       "v4auth",
 			driverParamName: "V4Auth",
+			required:        true,
 			defaultt:        true,
 		},
 		"parallelwalk": {
@@ -233,7 +238,106 @@ func Test_parseParameters_Bool(t *testing.T) {
 			driverParamName: "ParallelWalk",
 			defaultt:        false,
 		},
-		// TODO: add string test cases
+		"accesskey": {
+			parameters:      p,
+			paramName:       "accesskey",
+			driverParamName: "AccessKey",
+			nilAllowed:      true,
+			emptyAllowed:    true,
+			nonTypeAllowed:  true,
+			defaultt:        "",
+		},
+		"secretkey": {
+			parameters:      p,
+			paramName:       "secretkey",
+			driverParamName: "SecretKey",
+			nilAllowed:      true,
+			emptyAllowed:    true,
+			nonTypeAllowed:  true,
+			defaultt:        "",
+		},
+		"regionendpoint": {
+			parameters:      p,
+			paramName:       "regionendpoint",
+			driverParamName: "RegionEndpoint",
+			nilAllowed:      true,
+			emptyAllowed:    true,
+			nonTypeAllowed:  true,
+			defaultt:        "",
+		},
+		"region": {
+			parameters:      p,
+			paramName:       "region",
+			driverParamName: "Region",
+			nilAllowed:      false,
+			emptyAllowed:    false,
+			// not allowed because we check validRegions[region] when regionendpoint is empty
+			nonTypeAllowed: false,
+			required:       true,
+			defaultt:       "",
+		},
+		"region_with_regionendpoint": {
+			parameters: func() map[string]interface{} {
+				pp := dtestutil.CopyMap(p)
+				pp["regionendpoint"] = "region/endpoint"
+
+				return pp
+			}(),
+			paramName:       "region",
+			driverParamName: "Region",
+			nilAllowed:      false,
+			emptyAllowed:    false,
+			// allowed because we don't check validRegions[region] when regionendpoint is not empty
+			nonTypeAllowed: true,
+			required:       true,
+			defaultt:       "",
+		},
+		"bucket": {
+			parameters:      p,
+			paramName:       "bucket",
+			driverParamName: "Bucket",
+			nilAllowed:      false,
+			emptyAllowed:    false,
+			nonTypeAllowed:  true,
+			required:        true,
+			defaultt:        "",
+		},
+		"keyid": {
+			parameters:      p,
+			paramName:       "keyid",
+			driverParamName: "KeyID",
+			nilAllowed:      true,
+			emptyAllowed:    true,
+			nonTypeAllowed:  true,
+			defaultt:        "",
+		},
+		"rootdirectory": {
+			parameters:      p,
+			paramName:       "rootdirectory",
+			driverParamName: "RootDirectory",
+			nilAllowed:      true,
+			emptyAllowed:    true,
+			nonTypeAllowed:  true,
+			defaultt:        "",
+		},
+		"storageclass": {
+			parameters:      p,
+			paramName:       "storageclass",
+			driverParamName: "StorageClass",
+			nilAllowed:      true,
+			emptyAllowed:    false,
+			nonTypeAllowed:  false,
+			defaultt:        s3.StorageClassStandard,
+		},
+		"objectacl": {
+			parameters:      p,
+			paramName:       "objectacl",
+			driverParamName: "ObjectACL",
+			nilAllowed:      true,
+			emptyAllowed:    false,
+			nonTypeAllowed:  false,
+			defaultt:        s3.ObjectCannedACLPrivate,
+		},
 	}
 
 	for tn, tt := range tcs {
@@ -243,6 +347,10 @@ func Test_parseParameters_Bool(t *testing.T) {
 				ParamName:         tt.paramName,
 				DriverParamName:   tt.driverParamName,
 				OriginalParams:    tt.parameters,
+				NilAllowed:        tt.nilAllowed,
+				EmptyAllowed:      tt.emptyAllowed,
+				NonTypeAllowed:    tt.nonTypeAllowed,
+				Required:          tt.required,
 				ParseParametersFn: testFn,
 			}
 
