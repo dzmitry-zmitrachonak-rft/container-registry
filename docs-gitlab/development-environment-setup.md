@@ -40,10 +40,10 @@ This command will start the registry in the foreground, listening at
 `localhost:5000`:
 
 ```
-./bin/registry serve config/example.yml
+./bin/registry serve config/filesystem.yml
 ```
 
-The configuration file [`config/example.yml`](../config/example.yml) is a sample
+The configuration file [`config/filesystem.yml`](../config/filesystem.yml) is a sample
 configuration file with the minimum required settings, plus some recommended
 ones for a better development experience. Please see the [configuration
 documentation](../docs/configuration.md) for more details and additional
@@ -88,11 +88,11 @@ docker run -d \
     --restart=always \ 
     --network=host \
     --name dev-registry \
-    -v `pwd`/config/example.yml:/etc/docker/registry/config.yml \
+    -v `pwd`/config/filesystem.yml:/etc/docker/registry/config.yml \
     registry:dev
 ```
 
-The configuration file [`config/example.yml`](../config/example.yml) is a sample
+The configuration file [`config/filesystem.yml`](../config/filesystem.yml) is a sample
 configuration file with the minimum required settings, plus some recommended
 ones for a better development experience. Please see the [configuration
 documentation](../docs/configuration.md) for more details and additional
