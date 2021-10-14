@@ -4014,7 +4014,7 @@ CREATE TABLE public.manifests (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 )
 PARTITION BY HASH (top_level_namespace_id);
 
@@ -4031,7 +4031,7 @@ CREATE TABLE partitions.manifests_p_0 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_0
@@ -4050,7 +4050,7 @@ CREATE TABLE partitions.manifests_p_1 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_1
@@ -4069,7 +4069,7 @@ CREATE TABLE partitions.manifests_p_10 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_10
@@ -4088,7 +4088,7 @@ CREATE TABLE partitions.manifests_p_11 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_11
@@ -4107,7 +4107,7 @@ CREATE TABLE partitions.manifests_p_12 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_12
@@ -4126,7 +4126,7 @@ CREATE TABLE partitions.manifests_p_13 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_13
@@ -4145,7 +4145,7 @@ CREATE TABLE partitions.manifests_p_14 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_14
@@ -4164,7 +4164,7 @@ CREATE TABLE partitions.manifests_p_15 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_15
@@ -4183,7 +4183,7 @@ CREATE TABLE partitions.manifests_p_16 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_16
@@ -4202,7 +4202,7 @@ CREATE TABLE partitions.manifests_p_17 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_17
@@ -4221,7 +4221,7 @@ CREATE TABLE partitions.manifests_p_18 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_18
@@ -4240,7 +4240,7 @@ CREATE TABLE partitions.manifests_p_19 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_19
@@ -4259,7 +4259,7 @@ CREATE TABLE partitions.manifests_p_2 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_2
@@ -4278,7 +4278,7 @@ CREATE TABLE partitions.manifests_p_20 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_20
@@ -4297,7 +4297,7 @@ CREATE TABLE partitions.manifests_p_21 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_21
@@ -4316,7 +4316,7 @@ CREATE TABLE partitions.manifests_p_22 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_22
@@ -4335,7 +4335,7 @@ CREATE TABLE partitions.manifests_p_23 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_23
@@ -4354,7 +4354,7 @@ CREATE TABLE partitions.manifests_p_24 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_24
@@ -4373,7 +4373,7 @@ CREATE TABLE partitions.manifests_p_25 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_25
@@ -4392,7 +4392,7 @@ CREATE TABLE partitions.manifests_p_26 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_26
@@ -4411,7 +4411,7 @@ CREATE TABLE partitions.manifests_p_27 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_27
@@ -4430,7 +4430,7 @@ CREATE TABLE partitions.manifests_p_28 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_28
@@ -4449,7 +4449,7 @@ CREATE TABLE partitions.manifests_p_29 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_29
@@ -4468,7 +4468,7 @@ CREATE TABLE partitions.manifests_p_3 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_3
@@ -4487,7 +4487,7 @@ CREATE TABLE partitions.manifests_p_30 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_30
@@ -4506,7 +4506,7 @@ CREATE TABLE partitions.manifests_p_31 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_31
@@ -4525,7 +4525,7 @@ CREATE TABLE partitions.manifests_p_32 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_32
@@ -4544,7 +4544,7 @@ CREATE TABLE partitions.manifests_p_33 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_33
@@ -4563,7 +4563,7 @@ CREATE TABLE partitions.manifests_p_34 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_34
@@ -4582,7 +4582,7 @@ CREATE TABLE partitions.manifests_p_35 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_35
@@ -4601,7 +4601,7 @@ CREATE TABLE partitions.manifests_p_36 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_36
@@ -4620,7 +4620,7 @@ CREATE TABLE partitions.manifests_p_37 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_37
@@ -4639,7 +4639,7 @@ CREATE TABLE partitions.manifests_p_38 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_38
@@ -4658,7 +4658,7 @@ CREATE TABLE partitions.manifests_p_39 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_39
@@ -4677,7 +4677,7 @@ CREATE TABLE partitions.manifests_p_4 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_4
@@ -4696,7 +4696,7 @@ CREATE TABLE partitions.manifests_p_40 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_40
@@ -4715,7 +4715,7 @@ CREATE TABLE partitions.manifests_p_41 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_41
@@ -4734,7 +4734,7 @@ CREATE TABLE partitions.manifests_p_42 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_42
@@ -4753,7 +4753,7 @@ CREATE TABLE partitions.manifests_p_43 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_43
@@ -4772,7 +4772,7 @@ CREATE TABLE partitions.manifests_p_44 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_44
@@ -4791,7 +4791,7 @@ CREATE TABLE partitions.manifests_p_45 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_45
@@ -4810,7 +4810,7 @@ CREATE TABLE partitions.manifests_p_46 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_46
@@ -4829,7 +4829,7 @@ CREATE TABLE partitions.manifests_p_47 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_47
@@ -4848,7 +4848,7 @@ CREATE TABLE partitions.manifests_p_48 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_48
@@ -4867,7 +4867,7 @@ CREATE TABLE partitions.manifests_p_49 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_49
@@ -4886,7 +4886,7 @@ CREATE TABLE partitions.manifests_p_5 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_5
@@ -4905,7 +4905,7 @@ CREATE TABLE partitions.manifests_p_50 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_50
@@ -4924,7 +4924,7 @@ CREATE TABLE partitions.manifests_p_51 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_51
@@ -4943,7 +4943,7 @@ CREATE TABLE partitions.manifests_p_52 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_52
@@ -4962,7 +4962,7 @@ CREATE TABLE partitions.manifests_p_53 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_53
@@ -4981,7 +4981,7 @@ CREATE TABLE partitions.manifests_p_54 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_54
@@ -5000,7 +5000,7 @@ CREATE TABLE partitions.manifests_p_55 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_55
@@ -5019,7 +5019,7 @@ CREATE TABLE partitions.manifests_p_56 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_56
@@ -5038,7 +5038,7 @@ CREATE TABLE partitions.manifests_p_57 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_57
@@ -5057,7 +5057,7 @@ CREATE TABLE partitions.manifests_p_58 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_58
@@ -5076,7 +5076,7 @@ CREATE TABLE partitions.manifests_p_59 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_59
@@ -5095,7 +5095,7 @@ CREATE TABLE partitions.manifests_p_6 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_6
@@ -5114,7 +5114,7 @@ CREATE TABLE partitions.manifests_p_60 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_60
@@ -5133,7 +5133,7 @@ CREATE TABLE partitions.manifests_p_61 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_61
@@ -5152,7 +5152,7 @@ CREATE TABLE partitions.manifests_p_62 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_62
@@ -5171,7 +5171,7 @@ CREATE TABLE partitions.manifests_p_63 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_63
@@ -5190,7 +5190,7 @@ CREATE TABLE partitions.manifests_p_7 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_7
@@ -5209,7 +5209,7 @@ CREATE TABLE partitions.manifests_p_8 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_8
@@ -5228,7 +5228,7 @@ CREATE TABLE partitions.manifests_p_9 (
     digest bytea NOT NULL,
     payload bytea NOT NULL,
     non_conformant boolean DEFAULT FALSE,
-    total_size bigint DEFAULT 0 NOT NULL
+    total_size bigint NOT NULL
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_9
