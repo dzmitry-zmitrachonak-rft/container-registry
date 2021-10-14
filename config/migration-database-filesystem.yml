@@ -7,7 +7,9 @@ version: 0.1
 log:
   accesslog:
     disabled: false
+    formatter: text
   level: info
+  formatter: text
   fields:
     service: registry
 storage:
