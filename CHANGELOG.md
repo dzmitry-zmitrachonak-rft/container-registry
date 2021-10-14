@@ -1,3 +1,16 @@
+# [3.13.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.12.0-gitlab...v3.13.0-gitlab) (2021-10-14)
+
+
+### Bug Fixes
+
+* update Dockerfile dependencies to allow successful builds ([3dc2f1a](https://gitlab.com/gitlab-org/container-registry/commit/3dc2f1a29270534a65daff4b986a75ff2bbd87f7))
+
+
+### Features
+
+* **configuration:** use structured logging in configuration parser ([49d7d10](https://gitlab.com/gitlab-org/container-registry/commit/49d7d10116836eacdacc44738f7123f6ceebe5ae))
+* **datastore/handlers:** cache repository objects in memory for manifest PUT requests ([66bd599](https://gitlab.com/gitlab-org/container-registry/commit/66bd599dd16a2fc3046f58325c165be312783088))
+
 # [3.12.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.11.1-gitlab...v3.12.0-gitlab) (2021-10-11)
 
 
