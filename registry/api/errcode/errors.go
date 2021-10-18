@@ -12,6 +12,8 @@ import (
 	"syscall"
 
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	"google.golang.org/api/googleapi"
 )
 
@@ -309,6 +311,12 @@ func FromUnknownError(err error) Error {
 	// use 400 Bad Request for canceled requests
 	if errors.Is(err, context.Canceled) {
 		return ErrorCodeRequestCanceled.WithDetail(err)
+	}
+
+	// use 503 Service Unavailable for database connection failures
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgerrcode.IsConnectionException(pgErr.Code) {
+		return ErrorCodeUnavailable.WithDetail(err)
 	}
 
 	// propagate a 503 Service Unavailable status from the storage backends
