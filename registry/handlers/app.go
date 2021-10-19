@@ -1200,7 +1200,14 @@ func (app *App) logError(ctx context.Context, r *http.Request, errors errcode.Er
 			l = l.WithField("detail", detail)
 		}
 
-		l.WithError(e).Error(message)
+		// HEAD requests check for manifests and blobs that are often not present as
+		// part of normal request flow, so logging these errors is superfluous.
+		if r.Method == http.MethodHead &&
+			(code == v2.ErrorCodeBlobUnknown || code == v2.ErrorCodeManifestUnknown) {
+			l.WithError(e).Debug(message)
+		} else {
+			l.WithError(e).Error(message)
+		}
 
 		// only report 500 errors to Sentry
 		if code == errcode.ErrorCodeUnknown {
