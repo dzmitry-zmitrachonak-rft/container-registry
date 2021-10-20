@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/docker/distribution"
-	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/log"
 	prometheus "github.com/docker/distribution/metrics"
 	"github.com/opencontainers/go-digest"
 )
@@ -20,7 +20,7 @@ type Metrics struct {
 
 // Logger can be provided on the MetricsTracker to log errors.
 //
-// Usually, this is just a proxy to dcontext.GetLogger.
+// Usually, this is just a proxy to log.GetLogger.
 type Logger interface {
 	Errorf(format string, args ...interface{})
 }
@@ -80,14 +80,14 @@ func (cbds *cachedBlobStatter) Stat(ctx context.Context, dgst digest.Digest) (di
 			cbds.tracker.Miss()
 		}
 		if err := cbds.cache.SetDescriptor(ctx, dgst, desc); err != nil {
-			dcontext.GetLoggerWithField(ctx, "blob", dgst).WithError(err).Error("error from cache setting desc")
+			log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"blob": dgst}).WithError(err).Error("error from cache setting desc")
 		}
 		// we don't need to return cache error upstream if any. continue returning value from backend
 		return desc, nil
 	}
 
 	// unknown error from cache. just log and error. do not store cache as it may be trigger many set calls
-	dcontext.GetLoggerWithField(ctx, "blob", dgst).WithError(cacheErr).Error("error from cache stat(ing) blob")
+	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"blob": dgst}).WithError(cacheErr).Error("error from cache stat(ing) blob")
 	cacheCount.WithValues("Error").Inc(1)
 
 	return desc, nil
@@ -108,7 +108,7 @@ func (cbds *cachedBlobStatter) Clear(ctx context.Context, dgst digest.Digest) er
 
 func (cbds *cachedBlobStatter) SetDescriptor(ctx context.Context, dgst digest.Digest, desc distribution.Descriptor) error {
 	if err := cbds.cache.SetDescriptor(ctx, dgst, desc); err != nil {
-		dcontext.GetLoggerWithField(ctx, "blob", dgst).WithError(err).Error("error from cache setting desc")
+		log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"blob": dgst}).WithError(err).Error("error from cache setting desc")
 	}
 	return nil
 }
