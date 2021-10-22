@@ -3,6 +3,7 @@ package validation_test
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"testing"
 
@@ -121,6 +122,7 @@ func TestVerifyManifest_Schema2_ForeignLayer(t *testing.T) {
 			manifestService,
 			repo.Blobs(ctx),
 			false,
+			0,
 			validation.ManifestURLs{
 				Allow: regexp.MustCompile("^https?://foo"),
 				Deny:  regexp.MustCompile("^https?://foo/nope"),
@@ -154,7 +156,7 @@ func TestVerifyManifest_Schema2_InvalidSchemaVersion(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, validation.ManifestURLs{})
 	err = v.Validate(ctx, dm)
 	require.EqualError(t, err, fmt.Sprintf("unrecognized manifest schema version %d", m.Versioned.SchemaVersion))
 }
@@ -174,7 +176,7 @@ func TestVerifyManifest_Schema2_SkipDependencyVerification(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), true, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), true, 0, validation.ManifestURLs{})
 
 	err = v.Validate(ctx, dm)
 	require.NoError(t, err)
@@ -218,7 +220,7 @@ func TestVerifyManifest_Schema2_ManifestLayer(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, validation.ManifestURLs{})
 
 	err = v.Validate(ctx, dm)
 	require.NoErrorf(t, err, fmt.Sprintf("digest: %s", dgst))
@@ -250,7 +252,7 @@ func TestVerifyManifest_Schema2_MultipleErrors(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, validation.ManifestURLs{})
 
 	err = v.Validate(ctx, dm)
 	require.Error(t, err)
@@ -258,4 +260,94 @@ func TestVerifyManifest_Schema2_MultipleErrors(t *testing.T) {
 	require.Contains(t, err.Error(), m.Layers[0].Digest.String())
 	require.NotContains(t, err.Error(), m.Layers[1].Digest.String())
 	require.Contains(t, err.Error(), m.Layers[2].Digest.String())
+}
+
+func TestVerifyManifest_Schema2_ReferenceLimits(t *testing.T) {
+	ctx := context.Background()
+
+	registry := createRegistry(t)
+	repo := makeRepository(t, registry, "test")
+
+	manifestService, err := testutil.MakeManifestService(repo)
+	require.NoError(t, err)
+
+	var tests = []struct {
+		name                       string
+		manifestLayers             int
+		refLimit                   int
+		wantErr                    bool
+		skipDependencyVerification bool
+	}{
+		{
+			name:                       "no reference limit",
+			manifestLayers:             10,
+			refLimit:                   0,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit greater than number of references",
+			manifestLayers:             10,
+			refLimit:                   150,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit equal to number of references",
+			manifestLayers:             9, // 9 layers + config = 10
+			refLimit:                   10,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit less than number of references",
+			manifestLayers:             400,
+			refLimit:                   179,
+			wantErr:                    true,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit less than number of references skip verification",
+			manifestLayers:             4,
+			refLimit:                   2,
+			wantErr:                    true,
+			skipDependencyVerification: true,
+		},
+		{
+			name:                       "negative reference limit",
+			manifestLayers:             8,
+			refLimit:                   -17,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := makeSchema2ManifestTemplate(t, repo)
+
+			// Create a random layer for each of the specified manifest layers.
+			for i := 0; i < tt.manifestLayers; i++ {
+				b := make([]byte, rand.Intn(20))
+				rand.Read(b)
+
+				layer, err := repo.Blobs(ctx).Put(ctx, schema2.MediaTypeLayer, b)
+				require.NoError(t, err)
+
+				m.Layers = append(m.Layers, layer)
+			}
+
+			dm, err := schema2.FromStruct(m)
+			require.NoError(t, err)
+
+			v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), tt.skipDependencyVerification, tt.refLimit, validation.ManifestURLs{})
+
+			err = v.Validate(ctx, dm)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

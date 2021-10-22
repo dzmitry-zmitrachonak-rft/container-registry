@@ -96,7 +96,7 @@ func makeManifestDescriptor(t *testing.T, repo distribution.Repository) manifest
 	return manifestlist.ManifestDescriptor{Descriptor: distribution.Descriptor{Digest: dgst, MediaType: schema2.MediaTypeManifest}}
 }
 
-func manifestlistValidator(t *testing.T, repo distribution.Repository, validate bool) *validation.ManifestListValidator {
+func manifestlistValidator(t *testing.T, repo distribution.Repository, validate bool, refLimit int) *validation.ManifestListValidator {
 	t.Helper()
 
 	manifestService, err := testutil.MakeManifestService(repo)
@@ -104,7 +104,7 @@ func manifestlistValidator(t *testing.T, repo distribution.Repository, validate 
 
 	blobService := repo.Blobs(context.Background())
 
-	return validation.NewManifestListValidator(manifestService, blobService, validate)
+	return validation.NewManifestListValidator(manifestService, blobService, validate, refLimit)
 }
 
 // return a image cache descriptor with a pre-pushed blob placeholder.

@@ -17,12 +17,13 @@ type OCIValidator struct {
 }
 
 // NewOCIValidator returns a new OCIValidator.
-func NewOCIValidator(exister ManifestExister, statter distribution.BlobStatter, skipDependencyVerification bool, manifestURLs ManifestURLs) *OCIValidator {
+func NewOCIValidator(exister ManifestExister, statter distribution.BlobStatter, skipDependencyVerification bool, refLimit int, manifestURLs ManifestURLs) *OCIValidator {
 	return &OCIValidator{
 		baseValidator: baseValidator{
 			manifestExister:            exister,
 			blobStatter:                statter,
 			skipDependencyVerification: skipDependencyVerification,
+			refLimit:                   refLimit,
 		},
 		manifestURLs: manifestURLs,
 	}
@@ -36,6 +37,10 @@ func (v *OCIValidator) Validate(ctx context.Context, mnfst *ocischema.Deserializ
 
 	if mnfst.Manifest.SchemaVersion != 2 {
 		return fmt.Errorf("unrecognized manifest schema version %d", mnfst.Manifest.SchemaVersion)
+	}
+
+	if err := v.exceedsRefLimit(mnfst); err != nil {
+		return err
 	}
 
 	if v.skipDependencyVerification {

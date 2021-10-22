@@ -869,6 +869,7 @@ func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedMani
 		&datastore.RepositoryManifestService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		imh.App.isCache,
+		0,
 		imh.App.manifestURLs,
 	)
 
@@ -887,6 +888,7 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 		&datastore.RepositoryManifestService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		imh.App.isCache,
+		0,
 		imh.App.manifestURLs,
 	)
 
@@ -1039,6 +1041,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 		},
 		&datastore.RepositoryBlobService{RepositoryReader: rStore, RepositoryPath: repoPath},
 		imh.App.isCache,
+		0,
 	)
 
 	if err := v.Validate(imh, manifestList); err != nil {
@@ -1221,6 +1224,7 @@ func dbPutBuildkitIndex(imh *manifestHandler, ml *manifestlist.DeserializedManif
 		&datastore.RepositoryManifestService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		imh.App.isCache,
+		0,
 		imh.App.manifestURLs,
 	)
 

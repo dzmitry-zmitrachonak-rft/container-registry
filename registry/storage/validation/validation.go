@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 
 	"net/url"
@@ -20,7 +21,22 @@ var (
 type baseValidator struct {
 	manifestExister            ManifestExister
 	blobStatter                distribution.BlobStatter
+	refLimit                   int
 	skipDependencyVerification bool
+}
+
+func (v *baseValidator) exceedsRefLimit(mnfst distribution.Manifest) error {
+	if v.refLimit <= 0 {
+		return nil
+	}
+
+	refLen := len(mnfst.References())
+
+	if refLen > v.refLimit {
+		return fmt.Errorf("%d manifest references exceed reference limit of %d", refLen, v.refLimit)
+	}
+
+	return nil
 }
 
 // ManifestExister checks for the existance of a manifest.
