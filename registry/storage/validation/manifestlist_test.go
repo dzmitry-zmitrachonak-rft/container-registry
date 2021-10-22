@@ -26,7 +26,7 @@ func TestVerifyManifest_ManifestList(t *testing.T) {
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false)
+	v := manifestlistValidator(t, repo, false, 0)
 
 	err = v.Validate(ctx, dml)
 	require.NoError(t, err)
@@ -46,13 +46,13 @@ func TestVerifyManifest_ManifestList_MissingManifest(t *testing.T) {
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false)
+	v := manifestlistValidator(t, repo, false, 0)
 
 	err = v.Validate(ctx, dml)
 	require.EqualError(t, err, fmt.Sprintf("errors verifying manifest: unknown blob %s on manifest", digest.FromString("fake-digest")))
 
 	// Ensure that this error is not reported if SkipDependencyVerification is true
-	v = manifestlistValidator(t, repo, true)
+	v = manifestlistValidator(t, repo, true, 0)
 
 	err = v.Validate(ctx, dml)
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestVerifyManifest_ManifestList_InvalidSchemaVersion(t *testing.T) {
 
 	dml.ManifestList.Versioned.SchemaVersion = 9001
 
-	v := manifestlistValidator(t, repo, false)
+	v := manifestlistValidator(t, repo, false, 0)
 
 	err = v.Validate(ctx, dml)
 	require.EqualError(t, err, fmt.Sprintf("unrecognized manifest list schema version %d", dml.ManifestList.Versioned.SchemaVersion))
@@ -104,7 +104,7 @@ func TestVerifyManifest_ManifestList_BuildkitCacheManifest(t *testing.T) {
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false)
+	v := manifestlistValidator(t, repo, false, 0)
 
 	err = v.Validate(ctx, dml)
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestVerifyManifest_ManifestList_ManifestListWithBlobReferences(t *testing.T
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false)
+	v := manifestlistValidator(t, repo, false, 0)
 
 	err = v.Validate(ctx, dml)
 	vErr := &distribution.ErrManifestVerification{}
@@ -135,5 +135,86 @@ func TestVerifyManifest_ManifestList_ManifestListWithBlobReferences(t *testing.T
 	// Ensure each later digest is included in the error with the proper error message.
 	for _, l := range descriptors {
 		require.Contains(t, vErr.Error(), fmt.Sprintf("unknown blob %s", l.Digest))
+	}
+}
+
+func TestVerifyManifest_ManifestList_ReferenceLimits(t *testing.T) {
+	ctx := context.Background()
+
+	registry := createRegistry(t)
+	repo := makeRepository(t, registry, "test")
+
+	var tests = []struct {
+		name                       string
+		manifests                  int
+		refLimit                   int
+		wantErr                    bool
+		skipDependencyVerification bool
+	}{
+		{
+			name:                       "no reference limit",
+			manifests:                  10,
+			refLimit:                   0,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit greater than number of references",
+			manifests:                  10,
+			refLimit:                   150,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit equal to number of references",
+			manifests:                  10,
+			refLimit:                   10,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit less than number of references",
+			manifests:                  400,
+			refLimit:                   179,
+			wantErr:                    true,
+			skipDependencyVerification: false,
+		},
+		{
+			name:                       "reference limit less than number of references skip verification",
+			manifests:                  4,
+			refLimit:                   2,
+			wantErr:                    true,
+			skipDependencyVerification: true,
+		},
+		{
+			name:                       "negative reference limit",
+			manifests:                  8,
+			refLimit:                   -17,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			descriptors := []manifestlist.ManifestDescriptor{}
+
+			// Create a random manifest for each of the specified manifests.
+			for i := 0; i < tt.manifests; i++ {
+				descriptors = append(descriptors, makeManifestDescriptor(t, repo))
+			}
+
+			dml, err := manifestlist.FromDescriptors(descriptors)
+			require.NoError(t, err)
+
+			v := manifestlistValidator(t, repo, tt.skipDependencyVerification, tt.refLimit)
+
+			err = v.Validate(ctx, dml)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
 	}
 }
