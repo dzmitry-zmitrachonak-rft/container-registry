@@ -98,8 +98,18 @@ var (
 	ErrorCodeManifestBlobUnknown = errcode.Register(errGroup, errcode.ErrorDescriptor{
 		Value:   "MANIFEST_BLOB_UNKNOWN",
 		Message: "blob unknown to registry",
-		Description: `This error may be returned when a manifest blob is 
+		Description: `This error may be returned when a manifest blob is
 		unknown to the registry.`,
+		HTTPStatusCode: http.StatusBadRequest,
+	})
+
+	// ErrorCodeManifestReferenceLimit is returned when a manifest has more
+	// references than the configured limit.
+	ErrorCodeManifestReferenceLimit = errcode.Register(errGroup, errcode.ErrorDescriptor{
+		Value:   "MANIFEST_REFERENCE_LIMIT",
+		Message: "too many manifest references",
+		Description: `This error may be returned when a manifest references more than
+		the configured limit allows.`,
 		HTTPStatusCode: http.StatusBadRequest,
 	})
 

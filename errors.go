@@ -127,3 +127,13 @@ type ErrManifestNameInvalid struct {
 func (err ErrManifestNameInvalid) Error() string {
 	return fmt.Sprintf("manifest name %q invalid: %v", err.Name, err.Reason)
 }
+
+// ErrManifestReferencesExceedLimit is returned when a manifest has too many references.
+type ErrManifestReferencesExceedLimit struct {
+	References int
+	Limit      int
+}
+
+func (err ErrManifestReferencesExceedLimit) Error() string {
+	return fmt.Sprintf("%d manifest references exceed reference limit of %d", err.References, err.Limit)
+}

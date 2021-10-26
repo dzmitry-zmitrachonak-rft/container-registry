@@ -13,10 +13,11 @@ import (
 
 //schema2ManifestHandler is a ManifestHandler that covers schema2 manifests.
 type schema2ManifestHandler struct {
-	repository   distribution.Repository
-	blobStore    distribution.BlobStore
-	ctx          context.Context
-	manifestURLs validation.ManifestURLs
+	repository       distribution.Repository
+	blobStore        distribution.BlobStore
+	ctx              context.Context
+	manifestURLs     validation.ManifestURLs
+	manifestRefLimit int
 }
 
 var _ ManifestHandler = &schema2ManifestHandler{}
@@ -67,7 +68,7 @@ func (ms *schema2ManifestHandler) verifyManifest(ctx context.Context, mnfst *sch
 		return err
 	}
 
-	v := validation.NewSchema2Validator(manifestService, ms.repository.Blobs(ctx), skipDependencyVerification, 0, ms.manifestURLs)
+	v := validation.NewSchema2Validator(manifestService, ms.repository.Blobs(ctx), skipDependencyVerification, ms.manifestRefLimit, ms.manifestURLs)
 
 	return v.Validate(ctx, mnfst)
 }

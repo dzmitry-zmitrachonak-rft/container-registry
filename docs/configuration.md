@@ -318,6 +318,7 @@ proxy:
   password: [password]
 validation:
   manifests:
+    referencelimit: 150
     urls:
       allow:
         - ^https?://([^/]+\.)*example\.com/
@@ -1262,6 +1263,7 @@ username (such as `batman`) and the password for that username.
 ```none
 validation:
   manifests:
+    referencelimit: 150
     urls:
       allow:
         - ^https?://([^/]+\.)*example\.com/
@@ -1278,6 +1280,11 @@ section. They are enabled by default. This option deprecates the `enabled` flag.
 
 Use the `manifests` subsection to configure validation of manifests. If
 `disabled` is `false`, the validation allows nothing.
+
+#### `referencelimit`
+
+Limit the number of manifest references (layers, configurations, other manifests)
+to the set number. `0` (default) disables limiting the number of references.
 
 #### `urls`
 

@@ -40,7 +40,8 @@ func (v *Schema2Validator) Validate(ctx context.Context, mnfst *schema2.Deserial
 	}
 
 	if err := v.exceedsRefLimit(mnfst); err != nil {
-		return err
+		errs = append(errs, err)
+		return errs
 	}
 
 	if v.skipDependencyVerification {
