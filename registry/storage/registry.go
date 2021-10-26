@@ -31,6 +31,7 @@ type registry struct {
 	schema1SigningKey            libtrust.PrivateKey
 	blobDescriptorServiceFactory distribution.BlobDescriptorServiceFactory
 	manifestURLs                 validation.ManifestURLs
+	manifestsRefLimit            int
 	driver                       storagedriver.StorageDriver
 	db                           *datastore.DB
 	redirectExceptions           []*regexp.Regexp
@@ -113,6 +114,14 @@ func ManifestURLsAllowRegexp(r *regexp.Regexp) RegistryOption {
 func ManifestURLsDenyRegexp(r *regexp.Regexp) RegistryOption {
 	return func(registry *registry) error {
 		registry.manifestURLs.Deny = r
+		return nil
+	}
+}
+
+// ManifestReferenceLimit is a functional option for NewRegistry.
+func ManifestReferenceLimit(n int) RegistryOption {
+	return func(registry *registry) error {
+		registry.manifestsRefLimit = n
 		return nil
 	}
 }
@@ -318,21 +327,24 @@ func (repo *repository) Manifests(ctx context.Context, options ...distribution.M
 		blobStore:      blobStore,
 		schema1Handler: v1Handler,
 		schema2Handler: &schema2ManifestHandler{
-			ctx:          ctx,
-			repository:   repo,
-			blobStore:    blobStore,
-			manifestURLs: repo.registry.manifestURLs,
+			ctx:              ctx,
+			repository:       repo,
+			blobStore:        blobStore,
+			manifestURLs:     repo.registry.manifestURLs,
+			manifestRefLimit: repo.registry.manifestsRefLimit,
 		},
 		manifestListHandler: &manifestListHandler{
-			ctx:        ctx,
-			repository: repo,
-			blobStore:  blobStore,
+			ctx:              ctx,
+			repository:       repo,
+			blobStore:        blobStore,
+			manifestRefLimit: repo.registry.manifestsRefLimit,
 		},
 		ocischemaHandler: &ocischemaManifestHandler{
-			ctx:          ctx,
-			repository:   repo,
-			blobStore:    blobStore,
-			manifestURLs: repo.registry.manifestURLs,
+			ctx:              ctx,
+			repository:       repo,
+			blobStore:        blobStore,
+			manifestURLs:     repo.registry.manifestURLs,
+			manifestRefLimit: repo.registry.manifestsRefLimit,
 		},
 	}
 

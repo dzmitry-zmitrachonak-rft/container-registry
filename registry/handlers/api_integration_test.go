@@ -139,6 +139,12 @@ func withPrometheusMetrics() configOpt {
 	}
 }
 
+func withReferenceLimit(n int) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Validation.Manifests.ReferenceLimit = n
+	}
+}
+
 var headerConfig = http.Header{
 	"X-Content-Type-Options": []string{"nosniff"},
 }
@@ -1626,6 +1632,7 @@ func TestAPIConformance(t *testing.T) {
 		manifest_Put_Schema2_MissingConfigAndLayers,
 		manifest_Put_Schema2_MissingLayers,
 		manifest_Put_Schema2_ReuseTagManifestToManifest,
+		manifest_Put_Schema2_ReferencesExceedLimit,
 		manifest_Head_Schema2,
 		manifest_Head_Schema2_MissingManifest,
 		manifest_Get_Schema2_ByDigest_MissingManifest,
@@ -2326,6 +2333,85 @@ func manifest_Put_Schema2_MissingConfigAndLayers(t *testing.T, opts ...configOpt
 			// Test that we have two missing blobs, one for each layer, and one for the config.
 			_, p, counts := checkBodyHasErrorCodes(t, "putting missing config manifest", resp, v2.ErrorCodeManifestBlobUnknown)
 			expectedCounts := map[errcode.ErrorCode]int{v2.ErrorCodeManifestBlobUnknown: 3}
+
+			require.EqualValuesf(t, expectedCounts, counts, "response body: %s", p)
+		})
+	}
+}
+
+func manifest_Put_Schema2_ReferencesExceedLimit(t *testing.T, opts ...configOpt) {
+	opts = append(opts, withReferenceLimit(5))
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	tagName := "schema2toomanylayers"
+	repoPath := "schema2/toomanylayers"
+
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	manifest := &schema2.Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
+		},
+	}
+
+	// Create a manifest config and push up its content.
+	cfgPayload, cfgDesc := schema2Config()
+	uploadURLBase, _ := startPushLayer(t, env, repoRef)
+	pushLayer(t, env.builder, repoRef, cfgDesc.Digest, uploadURLBase, bytes.NewReader(cfgPayload))
+	manifest.Config = cfgDesc
+
+	// Create and push up 10 random layers.
+	manifest.Layers = make([]distribution.Descriptor, 10)
+
+	for i := range manifest.Layers {
+		rs, dgst := createRandomSmallLayer()
+
+		uploadURLBase, _ := startPushLayer(t, env, repoRef)
+		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
+
+		manifest.Layers[i] = distribution.Descriptor{
+			Digest:    dgst,
+			MediaType: schema2.MediaTypeLayer,
+		}
+	}
+
+	// Build URLs.
+	tagURL := buildManifestTagURL(t, env, repoPath, tagName)
+
+	deserializedManifest, err := schema2.FromStruct(*manifest)
+	require.NoError(t, err)
+
+	digestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
+
+	tt := []struct {
+		name        string
+		manifestURL string
+	}{
+		{
+			name:        "by tag",
+			manifestURL: tagURL,
+		},
+		{
+			name:        "by digest",
+			manifestURL: digestURL,
+		},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Push up the manifest.
+			resp := putManifest(t, "putting manifest with too many layers", test.manifestURL, schema2.MediaTypeManifest, manifest)
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+
+			// Test that we report the reference limit error exactly once.
+			_, p, counts := checkBodyHasErrorCodes(t, "manifest put with layers exceeding limit", resp, v2.ErrorCodeManifestReferenceLimit)
+			expectedCounts := map[errcode.ErrorCode]int{v2.ErrorCodeManifestReferenceLimit: 1}
 
 			require.EqualValuesf(t, expectedCounts, counts, "response body: %s", p)
 		})

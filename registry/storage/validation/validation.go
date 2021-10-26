@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 
 	"net/url"
@@ -33,7 +32,7 @@ func (v *baseValidator) exceedsRefLimit(mnfst distribution.Manifest) error {
 	refLen := len(mnfst.References())
 
 	if refLen > v.refLimit {
-		return fmt.Errorf("%d manifest references exceed reference limit of %d", refLen, v.refLimit)
+		return distribution.ErrManifestReferencesExceedLimit{References: refLen, Limit: v.refLimit}
 	}
 
 	return nil

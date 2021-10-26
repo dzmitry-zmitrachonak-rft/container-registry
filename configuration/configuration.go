@@ -231,6 +231,8 @@ type Configuration struct {
 		Disabled bool `yaml:"disabled,omitempty"`
 		// Manifests configures manifest validation.
 		Manifests struct {
+			// ReferenceLimit is the maximum number of blobs or manifests that manifests may reference. Set to zero to disable.
+			ReferenceLimit int `yaml:"referencelimit,omitempty"`
 			// URLs configures validation for URLs in pushed manifests.
 			URLs struct {
 				// Allow specifies regular expressions (https://godoc.org/regexp/syntax)

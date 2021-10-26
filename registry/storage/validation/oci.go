@@ -40,7 +40,8 @@ func (v *OCIValidator) Validate(ctx context.Context, mnfst *ocischema.Deserializ
 	}
 
 	if err := v.exceedsRefLimit(mnfst); err != nil {
-		return err
+		errs = append(errs, err)
+		return errs
 	}
 
 	if v.skipDependencyVerification {

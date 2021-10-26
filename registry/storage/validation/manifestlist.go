@@ -38,7 +38,8 @@ func (v *ManifestListValidator) Validate(ctx context.Context, mnfst *manifestlis
 	}
 
 	if err := v.exceedsRefLimit(mnfst); err != nil {
-		return err
+		errs = append(errs, err)
+		return errs
 	}
 
 	if v.skipDependencyVerification {
