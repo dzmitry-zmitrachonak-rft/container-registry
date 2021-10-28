@@ -1,3 +1,17 @@
+# [3.14.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.13.0-gitlab...v3.14.0-gitlab) (2021-10-28)
+
+
+### Bug Fixes
+
+* **handlers:** do not log when blob or manifest HEAD requests return not found errors ([0f407e3](https://gitlab.com/gitlab-org/container-registry/commit/0f407e3cebc933cc908109a52417ff89501998fa))
+* **handlers:** use 503 Service Unavailable for DB connection failures ([fecb78d](https://gitlab.com/gitlab-org/container-registry/commit/fecb78d804d3b5717c93567da3fe4a000dc68630))
+
+
+### Features
+
+* **handlers:** log when migration status is determined ([75b8230](https://gitlab.com/gitlab-org/container-registry/commit/75b8230ad3080d576f6b7564c29e435c3f0e1d0e))
+* **handlers/configuration:** enable enforcing manifest reference limits ([2154e73](https://gitlab.com/gitlab-org/container-registry/commit/2154e7308f863ec27a8c454ca60a859afc9b4fd5))
+
 # [3.13.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.12.0-gitlab...v3.13.0-gitlab) (2021-10-14)
 
 
