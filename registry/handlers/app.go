@@ -1001,6 +1001,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 
 		// Save migration status for logging later.
 		var mStatus migration.Status
+		var migrationStatusDuration time.Duration
 
 		if app.nameRequired(r) {
 			nameRef, err := reference.WithName(getName(ctx))
@@ -1043,12 +1044,14 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
+			start := time.Now()
 			mStatus, err = app.getMigrationStatus(ctx, repository)
 			if err != nil {
 				err = fmt.Errorf("determining whether repository is eligible for migration: %v", err)
 				dcontext.GetLogger(ctx).Error(err)
 				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
+			migrationStatusDuration = time.Since(start)
 
 			ctx.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
 			migrateRepo := mStatus.ShouldMigrate()
@@ -1161,8 +1164,9 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			// allow us to match the access log entries with the extra migration
 			// fields contained in the app log.
 			log.WithFields(logrus.Fields{
-				"method": r.Method,
-				"path":   r.URL.Path,
+				"method":            r.Method,
+				"path":              r.URL.Path,
+				"status_duration_s": migrationStatusDuration.Seconds(),
 			}).Info("serving request in migration mode")
 		}
 
