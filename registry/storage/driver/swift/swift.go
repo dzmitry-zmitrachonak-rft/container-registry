@@ -694,6 +694,10 @@ func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.Storag
 	return storagedriver.ErrUnsupportedMethod{}
 }
 
+func (d *driver) ExistsPath(ctx context.Context, path string) (bool, error) {
+	return false, storagedriver.ErrUnsupportedMethod{}
+}
+
 func (d *driver) swiftPath(path string) string {
 	return strings.TrimLeft(strings.TrimRight(d.Prefix+"/files"+path, "/"), "/")
 }

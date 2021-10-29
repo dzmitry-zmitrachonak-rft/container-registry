@@ -99,6 +99,10 @@ type StorageDriver interface {
 	WalkParallel(ctx context.Context, path string, f WalkFn) error
 
 	TransferTo(ctx context.Context, destDriver StorageDriver, src, dest string) error
+
+	// ExistsPath is a performance optimized version of Stat to be used specifically for checking
+	// if a given path (not object) exists.
+	ExistsPath(ctx context.Context, path string) (bool, error)
 }
 
 // StorageDeleter defines methods that a Storage Driver must implement to delete objects.

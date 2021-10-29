@@ -454,6 +454,10 @@ func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.Storag
 	return storagedriver.ErrUnsupportedMethod{}
 }
 
+func (d *driver) ExistsPath(ctx context.Context, path string) (bool, error) {
+	return false, storagedriver.ErrUnsupportedMethod{}
+}
+
 // list simulates a filesystem style list in which both files (blobs) and
 // directories (virtual containers) are returned for a given prefix.
 func (d *driver) list(prefix string) ([]string, error) {

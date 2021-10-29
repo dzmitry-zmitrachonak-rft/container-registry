@@ -407,6 +407,23 @@ func (d *driver) canTransferTo(destDriver storagedriver.StorageDriver) error {
 	return nil
 }
 
+// ExistsPath is a performance optimized version of Stat to be used specifically for checking if a given path (not
+// object) exists. For the filesystem driver, which we use for the test suite, this falls back to Stat.
+func (d *driver) ExistsPath(ctx context.Context, path string) (bool, error) {
+	fi, err := d.Stat(ctx, path)
+	if err != nil {
+		if errors.As(err, &storagedriver.PathNotFoundError{}) {
+			return false, nil
+		}
+		return false, err
+	}
+	if fi == nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // fullPath returns the absolute path of a key within the Driver's storage.
 func (d *driver) fullPath(subPath string) string {
 	return path.Join(d.rootDirectory, subPath)

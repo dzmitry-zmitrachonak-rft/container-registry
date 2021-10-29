@@ -7,6 +7,7 @@
 // Because OSS is a key, value store the Stat call does not support last modification
 // time for directories (directories are an abstraction for key, value stores)
 //
+//go:build include_oss
 // +build include_oss
 
 package oss
@@ -519,6 +520,10 @@ func (d *driver) WalkParallel(ctx context.Context, path string, f storagedriver.
 
 func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.StorageDriver, src, dest string) error {
 	return storagedriver.ErrUnsupportedMethod{}
+}
+
+func (d *driver) ExistsPath(ctx context.Context, path string) (bool, error) {
+	return false, storagedriver.ErrUnsupportedMethod{}
 }
 
 func (d *driver) ossPath(path string) string {

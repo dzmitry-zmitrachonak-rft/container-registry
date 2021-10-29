@@ -1,3 +1,4 @@
+//go:build include_gcs
 // +build include_gcs
 
 package gcs
@@ -553,6 +554,71 @@ func TestTransferToExistingDest(t *testing.T) {
 	c, err := destDriver.GetContent(ctx, path)
 	require.NoError(t, err)
 	require.EqualValues(t, srcContent, c)
+}
+
+func TestExistsPath(t *testing.T) {
+	if skipGCS() != "" {
+		t.Skip(skipGCS())
+	}
+
+	root := dtestutil.TempRoot(t)
+	d, err := gcsDriverConstructor(root)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	prefix := "/existing/path"
+	path := fmt.Sprintf("%s/data", prefix)
+
+	content := make([]byte, 10)
+	rand.Read(content)
+
+	err = d.PutContent(ctx, path, content)
+	require.NoError(t, err)
+
+	exists, err := d.ExistsPath(ctx, prefix)
+	require.NoError(t, err)
+	require.True(t, exists)
+}
+
+func TestExistsPath_NotFound(t *testing.T) {
+	if skipGCS() != "" {
+		t.Skip(skipGCS())
+	}
+
+	root := dtestutil.TempRoot(t)
+	d, err := gcsDriverConstructor(root)
+	require.NoError(t, err)
+
+	exists, err := d.ExistsPath(context.Background(), "/non-existing/path")
+	require.NoError(t, err)
+	require.False(t, exists)
+}
+
+// TestExistsPath_Object asserts that if trying to use ExistsPath with an object path, this does not cause an
+// internal error but rather return false.
+func TestExistsPath_Object(t *testing.T) {
+	if skipGCS() != "" {
+		t.Skip(skipGCS())
+	}
+
+	root := dtestutil.TempRoot(t)
+	d, err := gcsDriverConstructor(root)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	path := "/existing/path/object"
+
+	content := make([]byte, 10)
+	rand.Read(content)
+
+	err = d.PutContent(ctx, path, content)
+	require.NoError(t, err)
+
+	exists, err := d.ExistsPath(ctx, path)
+	require.NoError(t, err)
+	require.False(t, exists)
 }
 
 func Test_parseParameters_Bool(t *testing.T) {
