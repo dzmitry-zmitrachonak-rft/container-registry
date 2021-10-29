@@ -1,3 +1,10 @@
+## [3.14.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.0-gitlab...v3.14.1-gitlab) (2021-10-29)
+
+
+### Performance Improvements
+
+* **handlers:** improve performance of repository existence check for GCS ([e31e5ed](https://gitlab.com/gitlab-org/container-registry/commit/e31e5ed5993ca8496e6801a4f833100e85f5f005))
+
 # [3.14.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.13.0-gitlab...v3.14.0-gitlab) (2021-10-28)
 
 
