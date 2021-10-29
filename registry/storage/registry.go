@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -419,12 +418,5 @@ func (repo *repository) Exists(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if _, err := repo.driver.Stat(ctx, p); err != nil {
-		if !errors.As(err, &storagedriver.PathNotFoundError{}) {
-			return false, err
-		}
-		return false, nil
-	}
-
-	return true, nil
+	return repo.driver.ExistsPath(ctx, p)
 }

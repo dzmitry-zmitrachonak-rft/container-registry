@@ -10,6 +10,7 @@
 // Note that the contents of incomplete uploads are not accessible even though
 // Stat returns their length
 
+//go:build include_gcs
 // +build include_gcs
 
 package gcs
@@ -1013,6 +1014,38 @@ func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.Storag
 	}
 
 	return nil
+}
+
+// ExistsPath is a performance optimized version of Stat to be used specifically for checking if a given path (not
+// object) exists. For GCS this means doing a single list request with no recursion and minimum attribute retrieval.
+func (d *driver) ExistsPath(ctx context.Context, path string) (bool, error) {
+	prefix := d.pathToDirKey(path)
+
+	var query *storage.Query
+	query = &storage.Query{
+		Prefix:     prefix,
+		Delimiter:  "/",                     // do not walk into child prefixes (if any)
+		Projection: storage.ProjectionNoACL, // no need for Owner and ACL data (faster)
+	}
+
+	// We don't care about attributes, we only care if the prefix exists, but we have to explicitly request one
+	// attribute as the default is all and that comes with a performance penalty.
+	if err := query.SetAttrSelection([]string{"Name"}); err != nil {
+		return false, err
+	}
+
+	it := d.storageClient.Bucket(d.bucket).Objects(ctx, query)
+	it.PageInfo().MaxSize = 1
+
+	// we only fetch one page, we don't care if there are others
+	if _, err := it.Next(); err != nil {
+		if errors.Is(err, iterator.Done) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func convertToGCS(destDriver storagedriver.StorageDriver) (*driver, error) {
