@@ -186,11 +186,36 @@ func TestBlobWorker_processTask_None(t *testing.T) {
 	gomock.InOrder(
 		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(txMock, nil).Times(1),
 		btsMock.EXPECT().Next(dbCtx).Return(nil, nil).Times(1),
-		txMock.EXPECT().Rollback().Return(nil).Times(1),
+		txMock.EXPECT().Commit().Return(nil).Times(1),
+		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
 	found, err := w.processTask(context.Background())
 	require.NoError(t, err)
+	require.False(t, found)
+}
+
+func TestBlobWorker_processTask_None_CommitError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockBlobStores(t, ctrl)
+	clockMock := stubClock(t, time.Now())
+
+	dbMock := storemock.NewMockHandler(ctrl)
+	driverMock := drivermock.NewMockStorageDeleter(ctrl)
+	txMock := storemock.NewMockTransactor(ctrl)
+
+	w := NewBlobWorker(dbMock, driverMock)
+
+	dbCtx := testutil.IsContextWithDeadline{Deadline: clockMock.Now().Add(defaultTxTimeout)}
+	gomock.InOrder(
+		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(txMock, nil).Times(1),
+		btsMock.EXPECT().Next(dbCtx).Return(nil, nil).Times(1),
+		txMock.EXPECT().Commit().Return(fakeErrorA).Times(1),
+		txMock.EXPECT().Rollback().Return(nil).Times(1),
+	)
+
+	found, err := w.processTask(context.Background())
+	require.EqualError(t, err, fmt.Errorf("committing database transaction: %w", fakeErrorA).Error())
 	require.False(t, found)
 }
 
@@ -726,6 +751,7 @@ func TestBlobWorker_Run(t *testing.T) {
 	gomock.InOrder(
 		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(txMock, nil).Times(1),
 		btsMock.EXPECT().Next(dbCtx).Return(nil, nil).Times(1),
+		txMock.EXPECT().Commit().Return(nil).Times(1),
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 

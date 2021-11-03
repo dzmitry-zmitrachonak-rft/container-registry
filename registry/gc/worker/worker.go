@@ -86,11 +86,30 @@ func (w *baseWorker) logAndReportErr(ctx context.Context, err error) {
 	log.GetLogger(log.WithContext(ctx)).WithError(err).Error(err.Error())
 }
 
+// rollbackOnExit can be used to ensure that no transaction is left open without an explicit commit/rollback. Such can
+// happen if we (humans) miss an explicit commit/rollback call somewhere, or the program has faced a panic and therefore
+// escaped the error handling path.
+// The database/sql standard library keeps track of the state of each transaction. After the *first* call of Commit and
+// Rollback methods, subsequent calls are bypassed (not sent to the database server), and the unique sql.ErrTxDone error
+// is returned to the caller. This method leverages this behavior to guarantee that we always roll back the transaction
+// here for safety if no commit/rollback was executed in the appropriate place. For visibility, an error is logged and
+// reported. This error carries a correlation ID that will help us track down the execution path where a transaction was
+// not subject to an explicit commit/rollback as expected. Additionally, it is advisable to configure metrics/alerts on
+// the database server to monitor rollback commands. This should aid in ensuring that rolled back transactions are
+// detected as misbehavior or an error that should be investigated.
 func (w *baseWorker) rollbackOnExit(ctx context.Context, tx datastore.Transactor) {
 	rollback := func() {
-		// if err is sql.ErrTxDone then the transaction was already committed or rolled back, so it's safe to ignore
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			w.logAndReportErr(ctx, fmt.Errorf("rolling back database transaction: %w", err))
+		if err := tx.Rollback(); err != nil {
+			if errors.Is(err, sql.ErrTxDone) {
+				// the transaction was already committed or rolled back (good!), ignore
+			} else {
+				// the transaction wasn't committed or rolled back yet (bad!), and we failed to rollback here (2x bad!)
+				w.logAndReportErr(ctx, fmt.Errorf("error rolling back database transaction on exit: %w", err))
+			}
+		} else {
+			// There was no sql.ErrTxDone error when "rolling back" the transaction, which means it was not committed or
+			// rolled back before getting here (bad!). Log and report that we're missing a commit/rollback somewhere!
+			w.logAndReportErr(ctx, errors.New("database transaction not explicitly committed or rolled back"))
 		}
 	}
 	// in case of panic we want to rollback the transaction straight away, notify Sentry, and then re-panic

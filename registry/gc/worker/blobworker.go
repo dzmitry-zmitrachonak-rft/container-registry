@@ -107,6 +107,9 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 	}
 	if t == nil {
 		l.Info("no task available")
+		if err := tx.Commit(); err != nil {
+			return false, fmt.Errorf("committing database transaction: %w", err)
+		}
 		return false, nil
 	}
 	l.WithFields(log.Fields{
