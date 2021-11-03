@@ -1,3 +1,10 @@
+## [3.14.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.1-gitlab...v3.14.2-gitlab) (2021-11-03)
+
+
+### Bug Fixes
+
+* **gc:** commit database transaction when no task was found ([2f4e2f9](https://gitlab.com/gitlab-org/container-registry/commit/2f4e2f949b3194358eb9dd3a0b5eb49a8b0d9398))
+
 ## [3.14.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.0-gitlab...v3.14.1-gitlab) (2021-10-29)
 
 
