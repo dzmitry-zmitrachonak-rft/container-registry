@@ -19,7 +19,22 @@ WHERE
 
 This is an idempotent and safe way to find or create a repository by path for highly concurrent write operations, namely blob and manifest uploads.
 
-1. We start by creating or finding the namespace by `name`. This is the first portion of the path, e.g. `a` for a path of `a/b/c`:
+1. We start by finding or creating the namespace by `name`. This is the first portion of the path, e.g. `a` for a path of `a/b/c`:
+   
+   First we search for the target namespace:
+   ```sql
+   SELECT
+        id,
+        name,
+        created_at,
+        updated_at
+    FROM
+        top_level_namespaces
+    WHERE
+        name = $1;
+   ```
+   
+   If it exists then we return, otherwise we do an upsert to create the namespace:   
 
    ```sql
    INSERT INTO top_level_namespaces (name)
@@ -30,7 +45,8 @@ This is an idempotent and safe way to find or create a repository by path for hi
        id, created_at;
    ```
 
-   If the result set from the query above has no rows, then we know the namespace already exists and we can find it by name:
+   If the result set from the query above has no rows, then we know another concurrent process managed to create it and 
+we can find it by name:
 
    ```sql
    SELECT

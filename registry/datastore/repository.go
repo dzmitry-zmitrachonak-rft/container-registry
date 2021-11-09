@@ -841,8 +841,8 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 	if r.NamespaceID == 0 {
 		n := &models.Namespace{Name: strings.Split(r.Path, "/")[0]}
 		ns := NewNamespaceStore(s.db)
-		if err := ns.CreateOrFind(ctx, n); err != nil {
-			return fmt.Errorf("creating or finding namespace: %w", err)
+		if err := ns.SafeFindOrCreate(ctx, n); err != nil {
+			return fmt.Errorf("finding or creating namespace: %w", err)
 		}
 		r.NamespaceID = n.ID
 	}
@@ -942,8 +942,8 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 
 	n := &models.Namespace{Name: strings.Split(path, "/")[0]}
 	ns := NewNamespaceStore(s.db)
-	if err := ns.CreateOrFind(ctx, n); err != nil {
-		return nil, fmt.Errorf("creating or finding namespace: %w", err)
+	if err := ns.SafeFindOrCreate(ctx, n); err != nil {
+		return nil, fmt.Errorf("finding or creating namespace: %w", err)
 	}
 
 	defer metrics.InstrumentQuery("repository_create_by_path")()
@@ -974,8 +974,8 @@ func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (
 
 	n := &models.Namespace{Name: strings.Split(path, "/")[0]}
 	ns := NewNamespaceStore(s.db)
-	if err := ns.CreateOrFind(ctx, n); err != nil {
-		return nil, fmt.Errorf("creating or finding namespace: %w", err)
+	if err := ns.SafeFindOrCreate(ctx, n); err != nil {
+		return nil, fmt.Errorf("finding or creating namespace: %w", err)
 	}
 
 	defer metrics.InstrumentQuery("repository_create_or_find_by_path")()
