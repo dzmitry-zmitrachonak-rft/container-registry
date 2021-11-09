@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -46,4 +47,29 @@ func TestNamespaceStore_FindByName_NotFound(t *testing.T) {
 	n, err := s.FindByName(suite.ctx, "foo")
 	require.Nil(t, n)
 	require.NoError(t, err)
+}
+
+func TestNamespaceStore_SafeFindOrCreate(t *testing.T) {
+	unloadNamespaceFixtures(t)
+
+	s := datastore.NewNamespaceStore(suite.db)
+
+	// create non-existing `foo`
+	n := &models.Namespace{
+		Name: "foo",
+	}
+	err := s.SafeFindOrCreate(suite.ctx, n)
+	require.NoError(t, err)
+	require.NotEmpty(t, n.ID)
+	require.Equal(t, "foo", n.Name)
+	require.Empty(t, n.UpdatedAt)
+	require.NotEmpty(t, n.CreatedAt)
+
+	// attempt to create existing `foo`
+	n2 := &models.Namespace{
+		Name: "foo",
+	}
+	err = s.SafeFindOrCreate(suite.ctx, n2)
+	require.NoError(t, err)
+	require.Equal(t, n, n2)
 }
