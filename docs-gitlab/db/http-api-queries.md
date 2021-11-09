@@ -15,9 +15,9 @@ WHERE
     path = $1;
 ```
 
-#### Create or find repository by path
+#### Find or create repository by path
 
-This is an idempotent and safe way to find or create a repository by path for highly concurrent write operations, namely blob and manifest uploads.
+This is a safe way to find or create a repository by path for highly concurrent write operations, namely blob and manifest uploads.
 
 1. We start by finding or creating the namespace by `name`. This is the first portion of the path, e.g. `a` for a path of `a/b/c`:
    
@@ -61,6 +61,24 @@ we can find it by name:
    ```
 
 2. With the namespace in hand, we create or find all parent repositories, including the root one (namespace). For a path of `a/b/c`, we therefore create repositories `a` and `b`, in this order, making sure to link them together through `parent_id`:
+
+   First we search for the target repository:
+   ```sql
+   SELECT
+		id,
+		top_level_namespace_id,
+		name,
+		path,
+		parent_id,
+		created_at,
+		updated_at
+	FROM
+		repositories
+	WHERE
+		path = $1;
+   ```
+
+   If it exists then we return, otherwise we do an upsert to create the repository:
 
    ```sql
    INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
@@ -227,7 +245,7 @@ Same as for pull operation. Although we're just checking for existence, the HTTP
 PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>
 ```
 
-1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path);
+1. [Find or create repository(ies) with `path` `<name>`](#find-or-create-repository-by-path);
 
 2. "*Create or find*" blob with digest `<digest>` in repository `<name>`. We avoid a "*find or create*" because it's prone to race conditions on inserts and this is a concurrent operation:
 
@@ -252,7 +270,7 @@ PUT /v2/<name>/blobs/uploads/<uuid>?digest=<digest>
 POST /v2/<name>/blobs/uploads/?mount=<digest>&from=<repository name> 
 ```
 
-1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path);
+1. [Find or create repository(ies) with `path` `<name>`](#find-or-create-repository-by-path);
 2. [Check if *source* repository with `path` `<repository name>` exists and grab its ID](#check-if-repository-with-a-given-path-exists-and-grab-its-id);
 3. [Check if blob with digest `<digest>` exists and is linked to the *source* `<repository name>` repository](#check-if-blob-exists-in-repository);
 4. [Link blob with digest `<digest>` to *target* `<name>` repository](#link-blob-to-repository).
@@ -351,7 +369,7 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 
 ###### By digest
 
-1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path)
+1. [Find or create repository(ies) with `path` `<name>`](#find-or-create-repository-by-path)
 
 2. For each referenced artifact in the manifest payload (configuration, layer and/or other manifest):
 
@@ -409,7 +427,7 @@ A manifest can be either an atomic/indivisible manifest or a manifest list (e.g.
 
 ###### By digest
 
-1. [Create or find repository(ies) with `path` `<name>`](#create-or-find-repository-by-path);
+1. [Find or create repository(ies) with `path` `<name>`](#find-or-create-repository-by-path);
 
 2. For each manifest referenced in the list, [check if manifest exists in repository `<name>`](#check-if-manifest-exists-in-repository);
 

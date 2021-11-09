@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -1332,9 +1333,7 @@ func TestRepositoryStore_CreateByPath_ExistingNestedParents(t *testing.T) {
 			ParentID:    sql.NullInt64{Int64: int64(1), Valid: true},
 		},
 		{
-			// Attempts to insert already existing repositories (we attempted to recreate `a` and `a/b`) increments the
-			// ID sequence by 1. Therefore the next success write has ID 5 instead of 3.
-			ID:          int64(5),
+			ID:          int64(3),
 			NamespaceID: 1,
 			Name:        "c",
 			Path:        "a/b/c",
@@ -1487,22 +1486,18 @@ func TestRepositoryStore_CreateOrFindByPath_ExistingNestedParents(t *testing.T) 
 			ParentID:    sql.NullInt64{},
 		},
 		{
-			// Attempts to insert already existing repositories (we attempted to recreate `a`) increments the
-			// ID sequence by 1. Therefore the next success write has ID 3 instead of 2.
-			ID:          int64(3),
+			ID:          int64(2),
 			NamespaceID: 1,
 			Name:        "b",
 			Path:        "a/b",
 			ParentID:    sql.NullInt64{Int64: int64(1), Valid: true},
 		},
 		{
-			// Attempts to insert already existing repositories (we attempted to recreate `a` and `a/b`) increments the
-			// ID sequence by 1. Therefore the next success write has ID 6 instead of 4.
-			ID:          int64(6),
+			ID:          int64(3),
 			NamespaceID: 1,
 			Name:        "c",
 			Path:        "a/b/c",
-			ParentID:    sql.NullInt64{Int64: int64(3), Valid: true},
+			ParentID:    sql.NullInt64{Int64: int64(2), Valid: true},
 		},
 	}
 
