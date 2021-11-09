@@ -848,6 +848,19 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 	}
 
 	defer metrics.InstrumentQuery("repository_create_or_find")()
+
+	// First, check if the repository already exists, this avoids incrementing the repositories.id sequence
+	// unnecessarily as we know that the target repository will already exist for all requests except the first.
+	tmp, err := s.FindByPath(ctx, r.Path)
+	if err != nil {
+		return err
+	}
+	if tmp != nil {
+		*r = *tmp
+		return nil
+	}
+
+	// if not, proceed with creation attempt...
 	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
 			VALUES ($1, $2, $3, $4)
 		ON CONFLICT (path)
