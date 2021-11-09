@@ -1,3 +1,11 @@
+## [3.14.3](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.2-gitlab...v3.14.3-gitlab) (2021-11-09)
+
+
+### Bug Fixes
+
+* **datastore:** use "safe find or create" instead of "create or find" for namespaces ([0feff9e](https://gitlab.com/gitlab-org/container-registry/commit/0feff9edcd99fd7afc9a5c5e71fc1e161915e36d))
+* **datastore:** use "safe find or create" instead of "create or find" for repositories ([7b73cc9](https://gitlab.com/gitlab-org/container-registry/commit/7b73cc986d8855e42d8890801d62bb82b9c07df5))
+
 ## [3.14.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.1-gitlab...v3.14.2-gitlab) (2021-11-03)
 
 
