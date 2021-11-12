@@ -20,6 +20,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"reflect"
 	"runtime"
 	"sort"
@@ -30,11 +31,16 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/benbjohnson/clock"
 	"github.com/cenkalti/backoff/v4"
 	dcontext "github.com/docker/distribution/context"
@@ -488,6 +494,24 @@ func New(params *DriverParameters) (*Driver, error) {
 		awsConfig.WithCredentials(creds)
 	}
 
+	sess, err := session.NewSession()
+	if os.Getenv("AWS_ROLE_ARN") != "" && os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE") != "" {
+		creds := credentials.NewChainCredentials([]credentials.Provider{
+			&credentials.StaticProvider{
+				Value: credentials.Value{
+					AccessKeyID:     params.AccessKey,
+					SecretAccessKey: params.SecretKey,
+					SessionToken:    params.SessionToken,
+				},
+			},
+			&credentials.EnvProvider{},
+			&credentials.SharedCredentialsProvider{},
+			&ec2rolecreds.EC2RoleProvider{Client: ec2metadata.New(sess)},
+			webIdentityProvider(sess),
+		})
+		awsConfig.WithCredentials(creds)
+	}
+
 	if params.RegionEndpoint != "" {
 		awsConfig.WithEndpoint(params.RegionEndpoint)
 	}
@@ -504,7 +528,7 @@ func New(params *DriverParameters) (*Driver, error) {
 		})
 	}
 
-	sess, err := session.NewSession(awsConfig)
+	sess, err = session.NewSession(awsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("creating a new session with aws config: %w", err)
 	}
@@ -568,6 +592,15 @@ func New(params *DriverParameters) (*Driver, error) {
 			},
 		},
 	}, nil
+}
+
+func webIdentityProvider(sess client.ConfigProvider) credentials.Provider {
+	svc := sts.New(sess)
+
+	roleARN := os.Getenv("AWS_ROLE_ARN")
+	tokenFilepath := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
+	roleSessionName := os.Getenv("AWS_ROLE_SESSION_NAME")
+	return stscreds.NewWebIdentityRoleProvider(svc, roleARN, roleSessionName, tokenFilepath)
 }
 
 // Implement the storagedriver.StorageDriver interface
